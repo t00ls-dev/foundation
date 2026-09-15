@@ -20,7 +20,7 @@
     "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.29.7",
+    "@changesets/cli": "^3.0.2",
     "@t00ls-dev/eslint-config": "workspace:*",
     "eslint": "^9.35.0",
     "prettier": "^3.6.2",
