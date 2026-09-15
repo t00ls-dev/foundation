@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out requested ref
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.git_ref }}
 
@@ -54,7 +54,7 @@ jobs:
       HEALTH_URL: ${{ secrets.PROD_HEALTH_URL }}
     steps:
       - name: Check out requested ref
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.git_ref }}
 
