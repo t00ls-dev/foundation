@@ -11,7 +11,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "hono": "^4.9.6"
+    "hono": "^4.13.8"
   },
   "devDependencies": {
     "@t00ls-dev/typescript-config": "workspace:*",

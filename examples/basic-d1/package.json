@@ -34,7 +34,7 @@
     "@t00ls-dev/security": "workspace:*",
     "better-auth": "^1.3.7",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.9.6",
+    "hono": "^4.13.8",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-hook-form": "^7.88.0",

@@ -57,8 +57,8 @@ importers:
         specifier: ^0.45.2
         version: 0.45.2(@cloudflare/workers-types@5.20260915.1)(better-sqlite3@12.11.1)(kysely@0.29.5)(postgres@3.4.9)
       hono:
-        specifier: ^4.9.6
-        version: 4.13.7
+        specifier: ^4.13.8
+        version: 4.13.8
       react:
         specifier: ^19.2.7
         version: 19.3.0
@@ -212,8 +212,8 @@ importers:
   packages/security:
     dependencies:
       hono:
-        specifier: ^4.9.6
-        version: 4.13.7
+        specifier: ^4.13.8
+        version: 4.13.8
     devDependencies:
       '@t00ls-dev/typescript-config':
         specifier: workspace:*
@@ -2715,8 +2715,8 @@ packages:
     resolution: {integrity: sha512-iZyKG96/JwPz1N55vj2Ie2vXbhu440zfUfJvSwEqEbeLluk7NnapfGqa7LH0mOsnDxTF85Mx8/dyR6HfqcbmbQ==}
     engines: {node: '>=20'}
 
-  hono@4.13.7:
-    resolution: {integrity: sha512-c8/gF9ac8Y78/agExVocyLevgR+JlpNB444Py0FSX8pJoPdYUfUzRcXtYEYGwt6l19qIlVZPN5Mfsw9jFShmQQ==}
+  hono@4.13.8:
+    resolution: {integrity: sha512-/Gng7NfoykZl2pjukW5Z6+8Yxm3BPRf86GTbQnt0SbySkvax4fyL4H3HhY1cCpBGmiW9XDRFzRV+CXK2W8QudQ==}
     engines: {node: '>=16.9.0'}
 
   hookified@1.15.1:
@@ -5561,7 +5561,7 @@ snapshots:
     dependencies:
       hookified: 1.15.1
 
-  hono@4.13.7: {}
+  hono@4.13.8: {}
 
   hookified@1.15.1: {}
 
