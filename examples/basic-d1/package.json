@@ -43,7 +43,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.12.3",
-    "@cloudflare/workers-types": "^5.20260911.1",
+    "@cloudflare/workers-types": "^5.20260918.1",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.1.13",
     "@t00ls-dev/typescript-config": "workspace:*",

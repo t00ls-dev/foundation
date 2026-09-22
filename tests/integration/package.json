@@ -24,7 +24,7 @@
     "vitest": "^5.0.1"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260911.1",
+    "@cloudflare/workers-types": "^5.20260918.1",
     "@t00ls-dev/typescript-config": "workspace:*",
     "drizzle-kit": "^0.31.4"
   }

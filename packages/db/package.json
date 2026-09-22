@@ -20,7 +20,7 @@
     "postgres": "^3.4.7"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260911.1",
+    "@cloudflare/workers-types": "^5.20260918.1",
     "@t00ls-dev/typescript-config": "workspace:*",
     "@types/node": "^22.20.3",
     "vitest": "^5.0.1"
