@@ -42,7 +42,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.12.3",
+    "@cloudflare/vite-plugin": "^1.56.0",
     "@cloudflare/workers-types": "^5.20260918.1",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.1.13",
