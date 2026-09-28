@@ -11,7 +11,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "better-auth": "^1.3.7"
+    "better-auth": "^1.7.6"
   },
   "devDependencies": {
     "@t00ls-dev/typescript-config": "workspace:*",
