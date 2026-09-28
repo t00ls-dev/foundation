@@ -26,6 +26,6 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260918.1",
     "@t00ls-dev/typescript-config": "workspace:*",
-    "drizzle-kit": "^0.31.4"
+    "drizzle-kit": "^0.31.11"
   }
 }
