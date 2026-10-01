@@ -1,22 +1,20 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useId, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { FormProvider, useForm, useFormContext } from "react-hook-form";
-import { z } from "zod";
-
-const formSchema = z.object({
-  email: z.string().trim().email("Enter a valid email address").optional(),
-  name: z.string().trim().min(1, "Enter your name").optional(),
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters")
-    .optional(),
-});
-
-export type FormValues = z.infer<typeof formSchema>;
+import { authFormSchema, type FormValues } from "./auth-validation.js";
+export type { FormValues } from "./auth-validation.js";
 
 export type Feedback = {
   kind: "error" | "success";
   message: string;
+  clearFields?: boolean;
 };
 
 export function AsyncForm(props: {
@@ -30,33 +28,43 @@ export function AsyncForm(props: {
 }) {
   const feedbackId = useId();
   const [feedback, setFeedback] = useState<Feedback>();
-  const schema = formSchema.superRefine((values, context) => {
-    for (const name of props.requiredFields) {
-      if (!values[name])
-        context.addIssue({
-          code: "custom",
-          path: [name],
-          message: `Enter your ${name}`,
-        });
-    }
-  });
+  const busy = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  const schema = authFormSchema(props.requiredFields);
   const form = useForm<FormValues>({ resolver: zodResolver(schema) });
   const pending = form.formState.isSubmitting;
 
   async function submit(data: FormValues) {
     try {
-      setFeedback(await props.action(data));
+      const result = await props.action(data);
+      if (!mounted.current) return;
+      if (result.clearFields) form.reset();
+      setFeedback(result);
     } catch {
-      setFeedback({
-        kind: "error",
-        message: "Something went wrong. Please try again.",
-      });
+      if (mounted.current)
+        setFeedback({
+          kind: "error",
+          message: "Something went wrong. Please try again.",
+        });
     }
   }
 
   function validate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy.current) return;
+    busy.current = true;
     setFeedback(undefined);
-    void form.handleSubmit(submit)(event);
+    void form
+      .handleSubmit(submit)(event)
+      .finally(() => {
+        busy.current = false;
+      });
   }
 
   return (

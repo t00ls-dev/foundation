@@ -125,6 +125,108 @@ describe("Links API with Better Auth and real D1", () => {
     expect(sent).toHaveLength(0);
   });
 
+  it("returns only password presence for the authoritative current user", async () => {
+    const cookie = await register("password@example.com");
+    const response = await request("/api/account/security", "GET", cookie);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ hasPassword: true });
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect((await request("/api/account/security")).status).toBe(401);
+    expect(
+      (
+        await request(
+          "/api/account/security",
+          "GET",
+          "better-auth.session_token=invalid",
+        )
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await request(
+          "/api/account/security?userId=other&email=other@example.com",
+          "GET",
+          cookie,
+        )
+      ).status,
+    ).toBe(400);
+  });
+
+  it("reports passwordless users without using a last-login/provider heuristic", async () => {
+    const passwordCookie = await register("password@example.com");
+    expect(
+      (
+        await request("/api/auth/sign-in/magic-link", "POST", "", {
+          email: "magic@example.com",
+          callbackURL: "/",
+        })
+      ).status,
+    ).toBe(200);
+    const link = sent.find(
+      (value) =>
+        value.to === "magic@example.com" && value.subject === "Sign in",
+    )!;
+    const verified = await app.request(link.text, undefined, env);
+    const magicCookie = verified.headers
+      .getSetCookie()
+      .map((value) => value.split(";")[0])
+      .join("; ");
+    const response = await request("/api/account/security", "GET", magicCookie);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ hasPassword: false });
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    // User with a password still has one even when their current login is Magic Link.
+    expect(
+      (
+        await request("/api/auth/sign-in/magic-link", "POST", "", {
+          email: "password@example.com",
+          callbackURL: "/",
+        })
+      ).status,
+    ).toBe(200);
+    const passwordLink = sent.find(
+      (value) =>
+        value.to === "password@example.com" && value.subject === "Sign in",
+    )!;
+    const login = await app.request(passwordLink.text, undefined, env);
+    const cookie = login.headers
+      .getSetCookie()
+      .map((value) => value.split(";")[0])
+      .join("; ");
+    expect(
+      await (await request("/api/account/security", "GET", cookie)).json(),
+    ).toEqual({ hasPassword: true });
+    expect(
+      await (
+        await request("/api/account/security", "GET", passwordCookie)
+      ).json(),
+    ).toEqual({ hasPassword: true });
+  });
+
+  it("does not load hashes and fails rather than returning false on account query failure", async () => {
+    const cookie = await register("password@example.com");
+    let accountRead = "";
+    env.DB = faultD1Queries(database.binding, (sql) => {
+      if (/^select.*from\s+"account"/i.test(sql)) {
+        accountRead = sql;
+        return true;
+      }
+      return false;
+    });
+    const failed = await request("/api/account/security", "GET", cookie);
+    expect(failed.status).toBe(500);
+    expect(await failed.json()).toEqual({
+      error: {
+        code: "INTERNAL",
+        message: "Something went wrong. Please try again.",
+      },
+    });
+    expect(failed.headers.get("cache-control")).toBe("private, no-store");
+    expect(
+      accountRead.toLowerCase().startsWith('select 1 from "account"'),
+    ).toBe(true);
+  });
+
   it.each(["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"] as const)(
     "fails explicitly without leaking an incomplete Google configuration (%s)",
     async (key) => {

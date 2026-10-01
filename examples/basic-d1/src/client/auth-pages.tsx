@@ -83,7 +83,7 @@ export function AuthPage({
         action={submit}
         requiredFields={
           mode === "signup"
-            ? ["name", "email", "password"]
+            ? ["name", "email", "password", "confirmPassword"]
             : hasPassword
               ? ["email", "password"]
               : ["email"]
@@ -107,6 +107,14 @@ export function AuthPage({
             autoComplete={
               mode === "signup" ? "new-password" : "current-password"
             }
+          />
+        ) : null}
+        {mode === "signup" ? (
+          <FormField
+            label="Confirm password"
+            name="confirmPassword"
+            type="password"
+            autoComplete="new-password"
           />
         ) : null}
       </AsyncForm>
@@ -154,7 +162,10 @@ export function ResetPassword() {
       newPassword: field(data, "password"),
       token,
     });
-    return feedback(result.error, "Password updated. You can sign in now.");
+    return {
+      ...feedback(result.error, "Password updated. You can sign in now."),
+      clearFields: !result.error,
+    };
   }
   return (
     <section className="auth-page">
@@ -164,13 +175,19 @@ export function ResetPassword() {
         submitLabel="Update password"
         pendingLabel="Updating password..."
         action={reset}
-        requiredFields={["password"]}
+        requiredFields={["password", "confirmPassword"]}
       >
         <FormField
           label="New password"
           name="password"
           type="password"
           minLength={8}
+          autoComplete="new-password"
+        />
+        <FormField
+          label="Confirm new password"
+          name="confirmPassword"
+          type="password"
           autoComplete="new-password"
         />
       </AsyncForm>

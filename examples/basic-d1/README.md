@@ -87,6 +87,41 @@ conta Google existente e nova, cancelar e tentar novamente. Revalidar os fluxos
 email/password, verificação, Magic Link e reset já existentes. Nenhum smoke
 remoto é disparado pelos testes da UI.
 
+### Security — senha da conta
+
+O link **Security** do header autenticado abre `/account/security`, sem
+dashboard ou edição de perfil. `GET /api/account/security` exige sessão e
+retorna somente `{ "hasPassword": boolean }`, com `private, no-store`. Não
+aceita parâmetros de query ou identidade do cliente. A consulta usa o usuário da
+sessão e a chave credential (`userId`, `providerId=credential`,
+`accountId=user.id`); verifica senha não vazia no banco sem carregar/retornar
+hash ou metadata de accounts. Erro de consulta é erro/retry, nunca `false`.
+
+Com senha, a tela pede senha atual, nova e confirmação e usa exclusivamente
+`authClient.changePassword` com `revokeOtherSessions: true`. Better Auth revoga
+as sessões antigas, inclusive a atual, e entrega uma substituta por cookie. O
+Links invalida a geração de requests privados, resolve a nova sessão e permanece
+autenticado. Campos sensíveis são limpos em sucesso. Senha atual incorreta tem
+mensagem fixa recuperável.
+
+Falha inesperada pode ocorrer depois de a senha já mudar e antes/depois da
+revogação. A UI não faz retry automático nem afirma que nada mudou: informa que
+a conclusão não pôde ser confirmada e orienta novo login/reset. Campos sensíveis
+são limpos nesse estado indeterminado.
+
+Sem senha (por exemplo, identidade Magic Link/Google), a tela solicita o reset
+oficial para o email da sessão; o link recebido estabelece a primeira senha. Não
+há `setPassword` ou endpoint customizado de escrita. A resposta de envio
+continua genérica. **Reset/primeira senha não revoga sessões existentes na
+política atual**; este incremento não altera essa configuração global.
+
+Signup, reset e troca exigem confirmação apenas no frontend: senha nova entre 8
+e 128 caracteres, confirmação exatamente igual, sem trim/normalização. Senha
+atual é somente obrigatória na validação local. `confirmPassword` nunca integra
+payload Better Auth; login/Magic Link/forgot não exigem confirmação. Name
+continua obrigatório no signup. Nenhuma senha/token é armazenado em browser
+storage ou log.
+
 ### Bookmarks
 
 | Método | Rota                                       | Resultado                    |

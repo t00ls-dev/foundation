@@ -27,6 +27,7 @@ async function signUp(page: Page, address: string) {
   await page.getByLabel("Name", { exact: true }).fill("Links Reader");
   await page.getByLabel("Email", { exact: true }).fill(address);
   await page.getByLabel("Password", { exact: true }).fill(password);
+  await page.getByLabel("Confirm password", { exact: true }).fill(password);
   await page
     .getByRole("button", { name: "Create account", exact: true })
     .click();

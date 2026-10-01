@@ -15,6 +15,7 @@ import {
 } from "./auth.js";
 import { bookmarkRoutes } from "./bookmarks.js";
 import { requireSession } from "./require-session.js";
+import { accountSecurityRoutes } from "./account-security.js";
 
 export function createApp(emailFactory: EmailFactory = resendEmail) {
   const app = new Hono<AppEnvironment>();
@@ -93,6 +94,7 @@ export function createApp(emailFactory: EmailFactory = resendEmail) {
   privateRoutes.use("*", requireSession(emailFactory));
   privateRoutes.route("/", bookmarkRoutes);
   app.route("/api/bookmarks", privateRoutes);
+  app.route("/api/account", accountSecurityRoutes(emailFactory));
 
   app.notFound((c) => {
     if (c.req.path === "/api" || c.req.path.startsWith("/api/"))

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { Link, Navigate, Route, Routes } from "react-router";
 import { authClient } from "./auth-client.js";
 import { AuthPage, ResetPassword, Verification } from "./auth-pages.js";
+import { AccountSecurity } from "./account-security.js";
 import { BookmarkEditor } from "./bookmark-editor.js";
 import { BookmarkLibrary } from "./bookmark-library.js";
 import {
@@ -61,6 +62,7 @@ export function App() {
         {user ? (
           <div className="account">
             <span>{user.name}</span>
+            <Link to="/account/security">Security</Link>
             <button disabled={signingOut} onClick={() => void signOut()}>
               {signingOut ? "Signing out..." : "Sign out"}
             </button>
@@ -110,6 +112,16 @@ export function App() {
           />
           <Route path="/verify-email" element={<Verification />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route
+            path="/account/security"
+            element={
+              user ? (
+                <AccountSecurity user={user} onSessionChanged={signedIn} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
           <Route
             path="/"
             element={
