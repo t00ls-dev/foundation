@@ -100,9 +100,9 @@ test("Security protects its route and changes password with one submit and a usa
   request,
 }) => {
   await page.goto("/account/security");
-  await expect(page).toHaveURL(/\/login\?next=%2Faccount%2Fsecurity$/);
+  await expect(page).toHaveURL(/\/login\?next=%2Faccount$/);
   await expect(
-    page.getByRole("link", { name: "Security", exact: true }),
+    page.getByRole("link", { name: "Account", exact: true }),
   ).toHaveCount(0);
   const email = address();
   await passwordUser(page, email);
@@ -118,7 +118,7 @@ test("Security protects its route and changes password with one submit and a usa
   });
   expect(second.status()).toBe(200);
   expect((await request.get("/api/bookmarks")).status()).toBe(200);
-  await page.getByRole("link", { name: "Security", exact: true }).click();
+  await page.getByRole("link", { name: "Account", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Security", exact: true }),
   ).toBeVisible();
@@ -236,7 +236,7 @@ test("Security capability loading/error/retry is distinct from false and unexpec
         .catch(() => undefined);
     } else await route.continue();
   });
-  await page.getByRole("link", { name: "Security", exact: true }).click();
+  await page.getByRole("link", { name: "Account", exact: true }).click();
   await expect(
     page.getByText("Loading security settings...", { exact: true }),
   ).toBeVisible();
@@ -283,7 +283,7 @@ test("a delayed password failure cannot affect Security after logout and account
   page,
 }) => {
   await passwordUser(page, address());
-  await page.getByRole("link", { name: "Security", exact: true }).click();
+  await page.getByRole("link", { name: "Account", exact: true }).click();
   await expect(
     page.getByLabel("Current password", { exact: true }),
   ).toBeVisible();
@@ -312,7 +312,7 @@ test("a delayed password failure cannot affect Security after logout and account
     page.getByRole("button", { name: "Sign in", exact: true }),
   ).toBeVisible();
   await passwordUser(page, address());
-  await page.getByRole("link", { name: "Security", exact: true }).click();
+  await page.getByRole("link", { name: "Account", exact: true }).click();
   await expect(
     page.getByLabel("Current password", { exact: true }),
   ).toBeVisible();
@@ -349,7 +349,7 @@ test("passwordless Security sends the official email reset and confirms the firs
   const before = sessionSchema.parse(
     await (await page.request.get("/api/auth/get-session")).json(),
   );
-  await page.getByRole("link", { name: "Security", exact: true }).click();
+  await page.getByRole("link", { name: "Account", exact: true }).click();
   await expect(
     page.getByText("You don't have a password yet.", { exact: true }),
   ).toBeVisible();
@@ -417,7 +417,7 @@ test("passwordless Security sends the official email reset and confirms the firs
     await (await page.request.get("/api/auth/get-session")).json(),
   );
   expect(after).toEqual(before);
-  await page.getByRole("link", { name: "Security", exact: true }).click();
+  await page.getByRole("link", { name: "Account", exact: true }).click();
   await expect(
     page.getByLabel("Current password", { exact: true }),
   ).toBeVisible();

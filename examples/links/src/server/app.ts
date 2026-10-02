@@ -16,6 +16,7 @@ import {
 import { bookmarkRoutes } from "./bookmarks.js";
 import { requireSession } from "./require-session.js";
 import { accountSecurityRoutes } from "./account-security.js";
+import { accountUpdateSchema } from "../shared/account.js";
 
 export function createApp(emailFactory: EmailFactory = resendEmail) {
   const app = new Hono<AppEnvironment>();
@@ -66,9 +67,28 @@ export function createApp(emailFactory: EmailFactory = resendEmail) {
       );
     }
   });
-  app.on(["GET", "POST"], "/api/auth/**", (c) =>
-    createRequestAuth(c.env, emailFactory).auth.handler(c.req.raw),
-  );
+  app.on(["GET", "POST"], "/api/auth/**", async (c) => {
+    let request = c.req.raw;
+    if (c.req.method === "POST" && c.req.path === "/api/auth/update-user") {
+      const input: unknown = await request
+        .clone()
+        .json()
+        .catch(() => null);
+      const parsed = accountUpdateSchema.safeParse(input);
+      if (!parsed.success)
+        return c.json(
+          {
+            code: "INVALID_NAME",
+            message:
+              "Enter a name of 1–200 characters without control characters.",
+          },
+          400,
+        );
+      // Validation only; Better Auth owns writes, session cookies and CSRF.
+      request = new Request(request, { body: JSON.stringify(parsed.data) });
+    }
+    return createRequestAuth(c.env, emailFactory).auth.handler(request);
+  });
 
   const privateRoutes = new Hono<AppEnvironment>();
   privateRoutes.use(

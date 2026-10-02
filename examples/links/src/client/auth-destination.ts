@@ -8,12 +8,14 @@ export function authDestination(value: string | null): string {
     const url = new URL(value, localOrigin);
     if (
       url.origin !== localOrigin ||
-      !/^\/(?:bookmarks(?:\/new|\/[^/]+\/edit)?|account\/security)$/.test(
+      !/^\/(?:bookmarks(?:\/new|\/[^/]+\/edit)?|account(?:\/security)?)$/.test(
         url.pathname,
       )
     )
       return defaultDestination;
-    return `${url.pathname}${url.search}${url.hash}`;
+    const path =
+      url.pathname === "/account/security" ? "/account" : url.pathname;
+    return `${path}${url.search}${url.hash}`;
   } catch {
     return defaultDestination;
   }

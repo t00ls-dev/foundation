@@ -71,10 +71,10 @@ podem expirar a nova identidade nem disparar navegação ou atualização de est
 it does not load bookmarks and remains available while session resolution is
 pending or unavailable. **Open Links** leads to the private `/bookmarks`
 library. The header links to Home and Bookmarks, with Sign in/Create account for
-visitors or Security/Sign out for the current user.
+visitors or Account/Sign out for the current user.
 
-`/bookmarks`, `/bookmarks/new`, `/bookmarks/:id/edit` and `/account/security`
-remain protected. Sign-in defaults to `/bookmarks`; private deep links retain a
+`/bookmarks`, `/bookmarks/new`, `/bookmarks/:id/edit` and `/account` remain
+protected. Sign-in defaults to `/bookmarks`; private deep links retain a
 validated `next` destination across password sign-in, signup/verification, Magic
 Link and Google callbacks. Only known local private routes are accepted;
 external or unsupported targets fall back to `/bookmarks`. Saving/canceling an
@@ -144,15 +144,33 @@ conta Google existente e nova, cancelar e tentar novamente. Revalidar os fluxos
 email/password, verificação, Magic Link e reset já existentes. Nenhum smoke
 remoto é disparado pelos testes da UI.
 
+### Account Settings
+
+`/account` is the canonical authenticated page. The legacy `/account/security`
+URL redirects to it, preserving query/fragment and authentication return paths.
+The Account section always provides an editable Name with explicit **Save
+name**; Email is informational text, never a disabled input. Names are trimmed,
+required, limited to 200 characters and cannot contain control characters.
+International names and punctuation are allowed. Shared validation also guards
+the example's official `/api/auth/update-user` request before delegating to
+Better Auth.
+
+Name updates use public `authClient.updateUser({ name })` in Better Auth 1.7.7,
+which updates the current user/cookie without rotating or revoking sessions and
+notifies session listeners. The UI confirms the user/name/email through public
+`getSession` with cookie cache disabled, then refetches the displayed session.
+Unexpected failure is indeterminate, with no automatic retry. Requests are
+aborted on logout/unmount and obsolete feedback cannot affect another account.
+
 ### Security — senha da conta
 
-O link **Security** do header autenticado abre `/account/security`, sem
-dashboard ou edição de perfil. `GET /api/account/security` exige sessão e
-retorna somente `{ "hasPassword": boolean }`, com `private, no-store`. Não
-aceita parâmetros de query ou identidade do cliente. A consulta usa o usuário da
-sessão e a chave credential (`userId`, `providerId=credential`,
-`accountId=user.id`); verifica senha não vazia no banco sem carregar/retornar
-hash ou metadata de accounts. Erro de consulta é erro/retry, nunca `false`.
+O link **Account** do header autenticado abre `/account`, com a seção Security
+preservada abaixo de Account. `GET /api/account/security` exige sessão e retorna
+somente `{ "hasPassword": boolean }`, com `private, no-store`. Não aceita
+parâmetros de query ou identidade do cliente. A consulta usa o usuário da sessão
+e a chave credential (`userId`, `providerId=credential`, `accountId=user.id`);
+verifica senha não vazia no banco sem carregar/retornar hash ou metadata de
+accounts. Erro de consulta é erro/retry, nunca `false`.
 
 Com senha, a tela pede senha atual, nova e confirmação e usa exclusivamente
 `authClient.changePassword` com `revokeOtherSessions: true`. Better Auth revoga

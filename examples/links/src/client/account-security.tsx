@@ -128,7 +128,7 @@ export function AccountSecurity({
 
   return (
     <section className="auth-page" aria-label="Account security">
-      <h1>Security</h1>
+      <h2>Security</h2>
       {state === "loading" ? (
         <p role="status">Loading security settings...</p>
       ) : state === "error" ? (

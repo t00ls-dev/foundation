@@ -12,11 +12,16 @@ describe("authentication return targets", () => {
   it("preserves known private deep links and query/fragment", () => {
     for (const path of [
       "/bookmarks/new",
-      "/account/security",
+      "/account",
       "/bookmarks/missing/edit",
       "/bookmarks/873e3c4d-51a1-416d-bd86-4b1f2ac2d5ec/edit?source=link#title",
     ])
       expect(authDestination(path)).toBe(path);
+  });
+  it("canonicalizes the legacy account deep link", () => {
+    expect(authDestination("/account/security?source=link#security")).toBe(
+      "/account?source=link#security",
+    );
   });
   it.each([
     "https://evil.example/bookmarks",

@@ -92,7 +92,7 @@ test("shared layouts keep long private content in bounds at narrow widths and en
       "/bookmarks",
       "/bookmarks/new",
       `/bookmarks/${bookmark.id}/edit`,
-      "/account/security",
+      "/account",
     ]) {
       await page.goto(path);
       await expect(
@@ -103,10 +103,7 @@ test("shared layouts keep long private content in bounds at narrow widths and en
       else
         await expect(
           page.getByRole("button", {
-            name:
-              path === "/account/security"
-                ? "Change password"
-                : "Save bookmark",
+            name: path === "/account" ? "Change password" : "Save bookmark",
             exact: true,
           }),
         ).toBeVisible();

@@ -10,7 +10,7 @@ import {
 } from "react-router";
 import { authClient } from "./auth-client.js";
 import { AuthPage, ResetPassword, Verification } from "./auth-pages.js";
-import { AccountSecurity } from "./account-security.js";
+import { AccountSettings } from "./account-settings.js";
 import { BookmarkEditor } from "./bookmark-editor.js";
 import { BookmarkLibrary } from "./bookmark-library.js";
 import { Home } from "./home.js";
@@ -69,6 +69,7 @@ export function App() {
       await session.refetch();
       const privateRoute =
         location.pathname.startsWith("/bookmarks") ||
+        location.pathname === "/account" ||
         location.pathname === "/account/security";
       await navigate(
         privateRoute
@@ -124,7 +125,7 @@ export function App() {
           <div className="account">
             <span>{user.name}</span>
             <nav className="cluster" aria-label="Account navigation">
-              <NavLink to="/account/security">Security</NavLink>
+              <NavLink to="/account">Account</NavLink>
               <button disabled={signingOut} onClick={() => void signOut()}>
                 {signingOut ? "Signing out..." : "Sign out"}
               </button>
@@ -187,12 +188,27 @@ export function App() {
           <Route path="/verify-email" element={<Verification />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route
-            path="/account/security"
+            path="/account"
             element={privatePage(
               user ? (
-                <AccountSecurity user={user} onSessionChanged={signedIn} />
+                <AccountSettings
+                  user={user}
+                  onSessionChanged={signedIn}
+                  onNameChanged={async () => {
+                    await session.refetch();
+                  }}
+                />
               ) : null,
             )}
+          />
+          <Route
+            path="/account/security"
+            element={
+              <Navigate
+                to={`/account${location.search}${location.hash}`}
+                replace
+              />
+            }
           />
           <Route path="/bookmarks" element={privatePage(<BookmarkLibrary />)} />
           <Route
