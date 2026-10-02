@@ -100,7 +100,7 @@ test("Security protects its route and changes password with one submit and a usa
   request,
 }) => {
   await page.goto("/account/security");
-  await expect(page).toHaveURL(/\/login$/);
+  await expect(page).toHaveURL(/\/login\?next=%2Faccount%2Fsecurity$/);
   await expect(
     page.getByRole("link", { name: "Security", exact: true }),
   ).toHaveCount(0);

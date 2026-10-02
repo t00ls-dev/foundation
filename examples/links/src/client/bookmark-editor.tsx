@@ -93,7 +93,8 @@ export function BookmarkEditor() {
         bookmarkResponseSchema,
         { method: id ? "PATCH" : "POST", body: JSON.stringify(input) },
       );
-      if (generation === currentSessionGeneration()) await navigate("/");
+      if (generation === currentSessionGeneration())
+        await navigate("/bookmarks");
     } catch (failure) {
       if (generation !== currentSessionGeneration()) return;
       setError(
@@ -173,12 +174,12 @@ export function BookmarkEditor() {
             <button disabled={pending} type="submit">
               {pending ? "Saving..." : "Save bookmark"}
             </button>
-            <Link to="/">Cancel</Link>
+            <Link to="/bookmarks">Cancel</Link>
           </div>
           {error ? <p role="alert">{error}</p> : null}
         </form>
       )}
-      {id && !item ? <Link to="/">Back to bookmarks</Link> : null}
+      {id && !item ? <Link to="/bookmarks">Back to bookmarks</Link> : null}
     </section>
   );
 }

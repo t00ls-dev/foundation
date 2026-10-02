@@ -1,24 +1,43 @@
-import { useEffect, useLayoutEffect, useState } from "react";
-import { Link, Navigate, Route, Routes } from "react-router";
+import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
+import {
+  Link,
+  Navigate,
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router";
 import { authClient } from "./auth-client.js";
 import { AuthPage, ResetPassword, Verification } from "./auth-pages.js";
 import { AccountSecurity } from "./account-security.js";
 import { BookmarkEditor } from "./bookmark-editor.js";
 import { BookmarkLibrary } from "./bookmark-library.js";
+import { Home } from "./home.js";
+import { authDestination, authPath } from "./auth-destination.js";
 import {
   invalidateSessionGeneration,
   setSessionIdentity,
 } from "./session-generation.js";
 
 export function App() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const session = authClient.useSession();
   const [expired, setExpired] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
+  const [logoutSource, setLogoutSource] = useState<string | null>(null);
+  useEffect(() => {
+    if (logoutSource && location.pathname !== logoutSource)
+      setLogoutSource(null);
+  }, [location.pathname, logoutSource]);
   useEffect(() => {
     function unauthorized() {
       invalidateSessionGeneration();
       setExpired(true);
+      setSessionExpired(true);
       void session.refetch();
     }
     window.addEventListener("links:unauthorized", unauthorized);
@@ -35,41 +54,87 @@ export function App() {
     invalidateSessionGeneration();
     await session.refetch();
     setExpired(false);
+    setSessionExpired(false);
   }
   async function signOut() {
     invalidateSessionGeneration();
     setSigningOut(true);
+    setLogoutSource(location.pathname);
     setLogoutError("");
     try {
       const result = await authClient.signOut();
       if (result.error) throw new Error(result.error.message);
       setExpired(true);
+      setSessionExpired(false);
       await session.refetch();
+      await navigate(location.pathname === "/" ? "/" : "/login", {
+        replace: true,
+      });
     } catch {
+      setLogoutSource(null);
       setLogoutError("Could not sign out. Please try again.");
     } finally {
       setSigningOut(false);
     }
   }
 
+  const isHome = location.pathname === "/";
+  const destination = authDestination(
+    new URLSearchParams(location.search).get("next"),
+  );
+  const blocked =
+    session.isPending || signingOut || (session.error && !expired);
+  function privatePage(page: ReactNode) {
+    return user ? (
+      page
+    ) : (
+      <Navigate
+        to={
+          location.pathname === logoutSource
+            ? "/login"
+            : authPath(
+                "/login",
+                `${location.pathname}${location.search}${location.hash}`,
+              )
+        }
+        replace
+      />
+    );
+  }
+
   return (
     <main className="shell">
       <header className="app-header">
         <Link to="/" className="brand">
-          Links
+          Foundation
         </Link>
-        <span className="eyebrow">FOUNDATION / BASIC D1</span>
+        <nav className="cluster" aria-label="Main navigation">
+          <NavLink to="/" end>
+            Home
+          </NavLink>
+          <NavLink to="/bookmarks">Bookmarks</NavLink>
+        </nav>
         {user ? (
           <div className="account">
             <span>{user.name}</span>
-            <Link to="/account/security">Security</Link>
-            <button disabled={signingOut} onClick={() => void signOut()}>
-              {signingOut ? "Signing out..." : "Sign out"}
-            </button>
+            <nav className="cluster" aria-label="Account navigation">
+              <NavLink to="/account/security">Security</NavLink>
+              <button disabled={signingOut} onClick={() => void signOut()}>
+                {signingOut ? "Signing out..." : "Sign out"}
+              </button>
+            </nav>
           </div>
+        ) : !blocked ? (
+          <nav className="cluster" aria-label="Account navigation">
+            <Link to={authPath("/login", destination)}>Sign in</Link>
+            <Link to={authPath("/signup", destination)}>Create account</Link>
+          </nav>
         ) : null}
       </header>
       {logoutError ? <p role="alert">{logoutError}</p> : null}
+      {sessionExpired ? (
+        <p role="status">Your session expired. Sign in again to continue.</p>
+      ) : null}
       {session.isPending || signingOut ? (
         <p role="status">
           {signingOut ? "Signing out..." : "Loading your session..."}
@@ -80,13 +145,16 @@ export function App() {
           <p role="alert">Please check your connection.</p>
           <button onClick={() => void session.refetch()}>Try again</button>
         </section>
-      ) : (
+      ) : null}
+      {isHome ? (
+        <Home showSignIn={!user && !blocked} />
+      ) : !blocked ? (
         <Routes key={user?.id ?? "anonymous"}>
           <Route
             path="/login"
             element={
               user ? (
-                <Navigate to="/" replace />
+                <Navigate to={destination} replace />
               ) : (
                 <AuthPage mode="login" onSignedIn={signedIn} />
               )
@@ -96,7 +164,7 @@ export function App() {
             path="/signup"
             element={
               user ? (
-                <Navigate to="/" replace />
+                <Navigate to={destination} replace />
               ) : (
                 <AuthPage mode="signup" onSignedIn={signedIn} />
               )
@@ -114,42 +182,27 @@ export function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route
             path="/account/security"
-            element={
+            element={privatePage(
               user ? (
                 <AccountSecurity user={user} onSessionChanged={signedIn} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
+              ) : null,
+            )}
           />
-          <Route
-            path="/"
-            element={
-              user ? <BookmarkLibrary /> : <Navigate to="/login" replace />
-            }
-          />
+          <Route path="/bookmarks" element={privatePage(<BookmarkLibrary />)} />
           <Route
             path="/bookmarks/new"
-            element={
-              user ? (
-                <BookmarkEditor key="new" />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
+            element={privatePage(<BookmarkEditor key="new" />)}
           />
           <Route
             path="/bookmarks/:id/edit"
-            element={
-              user ? <BookmarkEditor /> : <Navigate to="/login" replace />
-            }
+            element={privatePage(<BookmarkEditor />)}
           />
           <Route
             path="*"
-            element={<Navigate to={user ? "/" : "/login"} replace />}
+            element={<Navigate to={user ? "/bookmarks" : "/"} replace />}
           />
         </Routes>
-      )}
+      ) : null}
     </main>
   );
 }

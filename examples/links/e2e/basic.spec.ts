@@ -127,11 +127,15 @@ test("keeps exactly one Google button across repeated SPA auth mode switches", a
   await expectSingleGoogle("Sign in");
   for (let round = 0; round < 12; round++) {
     await page
+      .getByRole("navigation", { name: "Authentication options" })
       .getByRole("link", { name: "Create account", exact: true })
       .click();
     await expect(page).toHaveURL(/\/signup$/);
     await expectSingleGoogle("Create account");
-    await page.getByRole("link", { name: "Sign in", exact: true }).click();
+    await page
+      .getByRole("navigation", { name: "Authentication options" })
+      .getByRole("link", { name: "Sign in", exact: true })
+      .click();
     await expect(page).toHaveURL(/\/login$/);
     await expectSingleGoogle("Sign in");
   }
@@ -140,7 +144,10 @@ test("keeps exactly one Google button across repeated SPA auth mode switches", a
     await expect(page.locator(".auth-page form")).toBeVisible();
     await expect(google).toHaveCount(0);
     await expect(page.getByRole("separator", { name: "or" })).toHaveCount(0);
-    await page.getByRole("link", { name: "Sign in", exact: true }).click();
+    await page
+      .getByRole("navigation", { name: "Authentication options" })
+      .getByRole("link", { name: "Sign in", exact: true })
+      .click();
     await expectSingleGoogle("Sign in");
   }
 });
@@ -258,8 +265,8 @@ test("guards double Google clicks, sanitizes initiation errors and retries using
   await expect.poll(() => requests.length).toBe(1);
   expect(requests[0]).toEqual({
     provider: "google",
-    callbackURL: "/",
-    newUserCallbackURL: "/",
+    callbackURL: "/bookmarks",
+    newUserCallbackURL: "/bookmarks",
     errorCallbackURL: "/login?oauth=failed",
   });
   release();
@@ -404,7 +411,7 @@ test("verifies email, persists session and performs CRUD with filters", async ({
     page.getByRole("button", { name: "Sign in", exact: true }),
   ).toBeVisible();
   await page.goto("/bookmarks/new");
-  await expect(page).toHaveURL(/\/login$/);
+  await expect(page).toHaveURL(/\/login\?next=%2Fbookmarks%2Fnew$/);
   expect((await page.request.get("/api/bookmarks")).status()).toBe(401);
   await signIn(page, address);
   await expect(
@@ -458,6 +465,11 @@ test("announces auth pending, server errors and focused field validation", async
   page,
 }) => {
   await page.goto("/reference/route");
+  await expect(page).toHaveURL(/\/$/);
+  await page
+    .getByRole("navigation", { name: "Account navigation" })
+    .getByRole("link", { name: "Sign in", exact: true })
+    .click();
   await expect(
     page.getByRole("button", { name: "Sign in", exact: true }),
   ).toBeVisible();
@@ -628,7 +640,7 @@ test("shows session loading and recoverable session errors", async ({
       body: JSON.stringify({ message: "Unavailable" }),
     });
   });
-  await page.goto("/");
+  await page.goto("/bookmarks");
   await expect(page.getByRole("status")).toHaveText("Loading your session...");
   await expect(
     page.getByRole("heading", { name: "Unable to load your session" }),

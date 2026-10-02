@@ -7,6 +7,7 @@ import {
   type FormValues,
 } from "./auth-form.js";
 import { GoogleSignIn } from "./google-sign-in.js";
+import { authDestination, authPath } from "./auth-destination.js";
 
 export function AuthPage({
   mode,
@@ -16,6 +17,8 @@ export function AuthPage({
   onSignedIn: () => Promise<void>;
 }) {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const destination = authDestination(params.get("next"));
   const title = {
     login: "Sign in",
     signup: "Create account",
@@ -30,9 +33,10 @@ export function AuthPage({
         email,
         name: field(data, "name"),
         password: field(data, "password"),
-        callbackURL: "/verify-email",
+        callbackURL: authPath("/verify-email", destination),
       });
-      if (!result.error) await navigate("/verify-email?pending=1");
+      if (!result.error)
+        await navigate(authPath("/verify-email?pending=1", destination));
       return feedback(result.error, "Check your email to verify your account");
     }
     if (mode === "login") {
@@ -42,14 +46,14 @@ export function AuthPage({
       });
       if (!result.error) {
         await onSignedIn();
-        await navigate("/");
+        await navigate(destination);
       }
       return feedback(result.error, "Signed in");
     }
     if (mode === "magic") {
       const result = await authClient.signIn.magicLink({
         email,
-        callbackURL: "/",
+        callbackURL: destination,
       });
       return feedback(result.error, "Magic link sent");
     }
@@ -119,10 +123,12 @@ export function AuthPage({
         ) : null}
       </AsyncForm>
       <nav className="auth-links" aria-label="Authentication options">
-        <Link to="/login">Sign in</Link>
-        <Link to="/signup">Create account</Link>
-        <Link to="/magic-link">Use a magic link</Link>
-        <Link to="/forgot-password">Forgot password?</Link>
+        <Link to={authPath("/login", destination)}>Sign in</Link>
+        <Link to={authPath("/signup", destination)}>Create account</Link>
+        <Link to={authPath("/magic-link", destination)}>Use a magic link</Link>
+        <Link to={authPath("/forgot-password", destination)}>
+          Forgot password?
+        </Link>
       </nav>
     </section>
   );
@@ -148,7 +154,9 @@ export function Verification() {
             ? "The link may be invalid or expired. Try signing in to request another verification email."
             : "Your account is ready. Sign in to start saving links."}
       </p>
-      <Link to="/login">Back to sign in</Link>
+      <Link to={authPath("/login", authDestination(params.get("next")))}>
+        Back to sign in
+      </Link>
     </section>
   );
 }

@@ -5,6 +5,7 @@ import { apiRequest } from "./api.js";
 import { authClient } from "./auth-client.js";
 import googleLogo from "./google-g.svg";
 import { OAuthButton, type OAuthProviderPresentation } from "./oauth-button.js";
+import { authDestination, authPath } from "./auth-destination.js";
 
 type Capability =
   { status: "loading" | "error" } | { status: "ready"; googleEnabled: boolean };
@@ -24,6 +25,7 @@ export function GoogleSignIn() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [params, setParams] = useSearchParams();
+  const destination = authDestination(params.get("next"));
   const feedbackId = useId();
   const oauthRequest = useRef<AbortController | null>(null);
   const callbackError =
@@ -78,13 +80,16 @@ export function GoogleSignIn() {
     oauthRequest.current = controller; // Synchronous guard, before React rerenders.
     setPending(true);
     setError("");
-    if (params.get("oauth") === "failed") setParams({}, { replace: true });
+    if (params.get("oauth") === "failed")
+      setParams(destination === "/bookmarks" ? {} : { next: destination }, {
+        replace: true,
+      });
     try {
       const result = await authClient.signIn.social({
         provider: "google",
-        callbackURL: "/",
-        newUserCallbackURL: "/",
-        errorCallbackURL: "/login?oauth=failed",
+        callbackURL: destination,
+        newUserCallbackURL: destination,
+        errorCallbackURL: authPath("/login?oauth=failed", destination),
         fetchOptions: { signal: controller.signal },
       });
       if (result.error || !result.data?.url || !result.data.redirect)

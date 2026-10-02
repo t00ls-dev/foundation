@@ -211,13 +211,15 @@ button:disabled {
   gap: var(--space-4);
 }
 /* Allow flex/grid content and long account names to reflow, never clip them. */
-.stack > *,
-.cluster > *,
-.app-header > *,
-.account > *,
-.page-heading > *,
-.search > *,
-.bookmarks > * {
+:where(
+  .stack > *,
+  .cluster > *,
+  .app-header > *,
+  .account > *,
+  .page-heading > *,
+  .search > *,
+  .bookmarks > *
+) {
   min-inline-size: 0;
   max-inline-size: 100%;
 }

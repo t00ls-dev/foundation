@@ -193,7 +193,7 @@ export function AccountSecurity({
         </>
       )}
       <nav className="auth-links" aria-label="Security options">
-        <Link to="/">Back to bookmarks</Link>
+        <Link to="/bookmarks">Back to bookmarks</Link>
         <Link to="/forgot-password">Use password reset</Link>
       </nav>
     </section>

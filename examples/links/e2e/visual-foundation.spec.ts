@@ -89,7 +89,7 @@ test("shared layouts keep long private content in bounds at narrow widths and en
   for (const width of [320, 375, 640, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     for (const path of [
-      "/",
+      "/bookmarks",
       "/bookmarks/new",
       `/bookmarks/${bookmark.id}/edit`,
       "/account/security",
@@ -98,7 +98,8 @@ test("shared layouts keep long private content in bounds at narrow widths and en
       await expect(
         page.getByRole("button", { name: "Sign out" }),
       ).toBeVisible();
-      if (path === "/") await expect(page.getByRole("article")).toBeVisible();
+      if (path === "/bookmarks")
+        await expect(page.getByRole("article")).toBeVisible();
       else
         await expect(
           page.getByRole("button", {
@@ -140,11 +141,24 @@ test("shared controls provide touch targets, keyboard focus and readable feedbac
     expect(box?.width).toBeGreaterThanOrEqual(44);
   }
   await page.keyboard.press("Tab");
-  const brand = page.getByRole("link", { name: "Links", exact: true });
+  const brand = page.getByRole("link", { name: "Foundation", exact: true });
   await expect(brand).toBeFocused();
   await expect(brand).toHaveCSS("outline-style", "solid");
   await expect(brand).toHaveCSS("outline-width", "3px");
   const email = page.getByLabel("Email", { exact: true });
+  for (const [navigation, name] of [
+    ["Main navigation", "Home"],
+    ["Main navigation", "Bookmarks"],
+    ["Account navigation", "Sign in"],
+    ["Account navigation", "Create account"],
+  ] as const) {
+    await page.keyboard.press("Tab");
+    await expect(
+      page
+        .getByRole("navigation", { name: navigation })
+        .getByRole("link", { name, exact: true }),
+    ).toBeFocused();
+  }
   await page.keyboard.press("Tab");
   await expect(email).toBeFocused();
   await expect(email).toHaveCSS("font-size", "16px");

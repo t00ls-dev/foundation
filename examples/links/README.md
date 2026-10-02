@@ -65,6 +65,27 @@ podem expirar a nova identidade nem disparar navegação ou atualização de est
 
 ## Funcionalidades e API
 
+### Home and navigation
+
+`/` is the public Foundation/Links Home for signed-in and signed-out visitors;
+it does not load bookmarks and remains available while session resolution is
+pending or unavailable. **Open Links** leads to the private `/bookmarks`
+library. The header links to Home and Bookmarks, with Sign in/Create account for
+visitors or Security/Sign out for the current user.
+
+`/bookmarks`, `/bookmarks/new`, `/bookmarks/:id/edit` and `/account/security`
+remain protected. Sign-in defaults to `/bookmarks`; private deep links retain a
+validated `next` destination across password sign-in, signup/verification, Magic
+Link and Google callbacks. Only known local private routes are accepted;
+external or unsupported targets fall back to `/bookmarks`. Saving/canceling an
+editor and returning from Security also lead to `/bookmarks`.
+
+Session expiry removes private content and directs visitors to sign-in with a
+generic explanation. Voluntary logout from a private page goes to sign-in;
+logout on Home stays on Home. Unknown routes go to Home for visitors and
+Bookmarks for signed-in users. Password reset and Security behavior are
+unchanged, except for the Back to bookmarks destination.
+
 - criação, leitura, edição e exclusão de bookmarks;
 - título, URL HTTP/HTTPS, descrição opcional e tags;
 - busca por título/URL/descrição e filtro exato por tag, combinados por `AND`;
@@ -99,11 +120,12 @@ Google.
 Registre no Google Console o callback exato
 `${BASE_URL}/api/auth/callback/google`; em DEV:
 `https://foundation.t00ls.dev/api/auth/callback/google`. Sucesso retorna para
-`/` e a sessão normal do Links. Cancelamento com state válido retorna para
-`/login?oauth=failed`; a UI mostra mensagens fixas e ignora `error_description`.
-State ausente/inválido preserva a página de erro padrão do Better Auth em
-`/api/auth/error`, sem interceptação própria. Clique duplo é bloqueado; erro
-permite retry e Back/bfcache libera pending e recarrega a capability.
+`/bookmarks` (ou o deep link privado validado) e a sessão normal do Links.
+Cancelamento com state válido retorna para `/login?oauth=failed`; a UI mostra
+mensagens fixas e ignora `error_description`. State ausente/inválido preserva a
+página de erro padrão do Better Auth em `/api/auth/error`, sem interceptação
+própria. Clique duplo é bloqueado; erro permite retry e Back/bfcache libera
+pending e recarrega a capability.
 
 The shared `OAuthButton` receives provider presentation (label, icon and
 branding class) separately from initiation/capability logic. Google is the only
