@@ -529,11 +529,10 @@ article h2 {
 }
 .bookmark-library .search label {
   gap: var(--space-1);
-  flex: 1 1 8rem;
-  min-inline-size: 0;
+  flex: 1 1 0;
+  min-inline-size: var(--touch-target);
 }
-.bookmark-search-submit,
-.bookmark-clear {
+.bookmark-filter-row > button {
   flex: 0 1 auto;
   font-size: var(--text-small);
   padding-inline: var(--space-3);

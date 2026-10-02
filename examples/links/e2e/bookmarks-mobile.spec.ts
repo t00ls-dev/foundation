@@ -64,11 +64,16 @@ test("compact header and bookmark layouts preserve targets and long content at 3
       name,
     );
     if (width === 320)
-      await page.locator(".app-header").evaluate((header) => {
-        // Exercise wider fallback-font metrics, not just this host's system-ui.
-        header.style.fontFamily = "Arial, sans-serif";
-        header.style.letterSpacing = "1.5px";
-      });
+      await page
+        .locator(".app-header, .bookmark-library .search")
+        .evaluateAll((elements) => {
+          // Exercise wider fallback-font metrics, not just this host's system-ui.
+          for (const element of elements) {
+            const target = element as HTMLElement;
+            target.style.fontFamily = "Arial, sans-serif";
+            target.style.letterSpacing = "1.5px";
+          }
+        });
     const header = await page.locator(".app-header").boundingBox();
     expect(header!.height).toBeLessThanOrEqual(width < 896 ? 112 : 80);
     if (width === 320)
