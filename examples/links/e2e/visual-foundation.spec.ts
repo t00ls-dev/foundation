@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 async function noHorizontalOverflow(page: Page) {
   const dimensions = await page.evaluate(() => ({
@@ -6,6 +6,17 @@ async function noHorizontalOverflow(page: Page) {
     content: document.documentElement.scrollWidth,
   }));
   expect(dimensions.content).toBeLessThanOrEqual(dimensions.viewport);
+}
+
+async function verticalGap(before: Locator, after: Locator) {
+  const following = await after.elementHandle();
+  return before.evaluate((element, next) => {
+    if (!next) throw new Error("Missing following element");
+    // Read both rectangles in one frame; session-loading UI can disappear.
+    const first = element.getBoundingClientRect();
+    const second = next.getBoundingClientRect();
+    return second.top - first.bottom;
+  }, following);
 }
 
 test("shared layouts reflow on public pages from 320px to desktop and at 200% scale", async ({
@@ -39,6 +50,122 @@ test("shared layouts reflow on public pages from 320px to desktop and at 200% sc
       });
       await noHorizontalOverflow(page);
     }
+  }
+});
+
+test("cross-page intros and secondary actions use shared spacing, targets and state variants", async ({
+  page,
+}) => {
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    const homeCard = page.locator(".card").nth(1);
+    await expect(
+      homeCard.getByRole("link", { name: "Open Links" }),
+    ).toBeVisible();
+    expect(
+      await verticalGap(homeCard.locator("p"), homeCard.locator(".actions")),
+    ).toBe(16);
+    await page.goto("/login");
+    const intro = page.locator(".cross-page-intro");
+    const form = page.locator(".auth-page > form");
+    await expect(form.getByLabel("Email", { exact: true })).toBeVisible();
+    expect(await verticalGap(intro, form)).toBe(16);
+    for (const state of ["pending=1", "error=expired", ""]) {
+      await page.goto(`/verify-email${state ? `?${state}` : ""}`);
+      const back = page.getByRole("link", {
+        name: "Back to sign in",
+        exact: true,
+      });
+      await expect(back).toBeVisible();
+      expect((await back.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      await back.focus();
+      await expect(back).toHaveCSS("outline-width", "3px");
+      const message = page.locator(".auth-page > p");
+      await expect(message).toHaveAttribute(
+        "role",
+        state.startsWith("error") ? "alert" : "status",
+      );
+      if (!state) await expect(message).toHaveCSS("color", "rgb(36, 91, 60)");
+      await noHorizontalOverflow(page);
+    }
+    await page.goto("/reset-password?error=INVALID_TOKEN");
+    const newLink = page.getByRole("link", {
+      name: "Request a new password link",
+    });
+    await expect(newLink).toBeVisible();
+    expect((await newLink.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    expect(
+      await verticalGap(page.getByRole("alert"), newLink),
+    ).toBeGreaterThanOrEqual(16);
+    await page.route("**/api/auth/reset-password/visual-check?*", (route) =>
+      route.fulfill({ status: 503, body: "Unavailable" }),
+    );
+    await page.goto("/reset-password?token=visual-check");
+    const retry = page.getByRole("button", { name: "Retry password link" });
+    await expect(retry).toBeVisible();
+    expect(await verticalGap(page.getByRole("alert"), retry)).toBe(16);
+    await page.unroute("**/api/auth/reset-password/visual-check?*");
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = "200%";
+    });
+    await noHorizontalOverflow(page);
+  }
+});
+
+test("Account title and grouped Name errors stay separate from submit on narrow and wide screens", async ({
+  page,
+}) => {
+  await page.route("**/api/auth/get-session*", (route) =>
+    route.fulfill({
+      json: {
+        user: {
+          id: "visual-user",
+          name: "N".repeat(200),
+          email: `${"reader".repeat(20)}@example.com`,
+          emailVerified: true,
+          createdAt: "2026-10-01T00:00:00.000Z",
+          updatedAt: "2026-10-01T00:00:00.000Z",
+        },
+        session: {
+          id: "visual-session",
+          userId: "visual-user",
+          token: "fixture-only",
+          expiresAt: "2099-01-01T00:00:00.000Z",
+          createdAt: "2026-10-01T00:00:00.000Z",
+          updatedAt: "2026-10-01T00:00:00.000Z",
+        },
+      },
+    }),
+  );
+  await page.route("**/api/account/security", (route) =>
+    route.fulfill({ json: { hasPassword: true } }),
+  );
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/account");
+    const form = page.getByRole("form", { name: "Account name" });
+    const name = form.getByLabel("Name", { exact: true });
+    await expect(name).toHaveValue("N".repeat(200));
+    expect(
+      await verticalGap(
+        page.getByRole("heading", { name: "Account Settings" }),
+        form,
+      ),
+    ).toBe(16);
+    await name.fill(" ");
+    const save = form.getByRole("button", { name: "Save name" });
+    await save.click();
+    const error = form.getByRole("alert");
+    await expect(error).toHaveText("Enter your name");
+    await expect(name).toBeFocused();
+    expect(await verticalGap(error, save)).toBeGreaterThanOrEqual(16);
+    await noHorizontalOverflow(page);
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = "200%";
+    });
+    expect(await verticalGap(error, save)).toBeGreaterThanOrEqual(32);
+    await noHorizontalOverflow(page);
   }
 });
 

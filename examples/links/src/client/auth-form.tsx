@@ -111,7 +111,7 @@ export function FormField(props: {
   const error = errors[props.name];
 
   return (
-    <>
+    <div className="cross-page-field">
       <label htmlFor={inputId}>
         {props.label}
         <input
@@ -130,6 +130,6 @@ export function FormField(props: {
           {error.message}
         </span>
       ) : null}
-    </>
+    </div>
   );
 }

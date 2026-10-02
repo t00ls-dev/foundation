@@ -375,6 +375,20 @@ textarea {
 .field-error {
   font-size: var(--text-small);
 }
+.cross-page-field {
+  display: grid;
+  gap: var(--space-2);
+  margin-block: var(--space-4);
+}
+.cross-page-field > label {
+  margin: 0;
+}
+.cross-page-intro {
+  margin-bottom: var(--space-4);
+}
+.cross-page-title {
+  margin-bottom: 0;
+}
 .alert,
 :where(p[role="alert"]:not(:empty)),
 :where(p[role="status"]:not(:empty)),

@@ -12,7 +12,7 @@ export function AccountSettings({
 }) {
   return (
     <section className="container--narrow stack" aria-label="Account settings">
-      <h1>Account Settings</h1>
+      <h1 className="cross-page-title">Account Settings</h1>
       <AccountName user={user} onNameChanged={onNameChanged} />
       <AccountSecurity user={user} onSessionChanged={onSessionChanged} />
     </section>

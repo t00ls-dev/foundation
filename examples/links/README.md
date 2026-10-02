@@ -31,6 +31,15 @@ The foundation is mobile-first. Reflow tests cover 320px through desktop,
 reduced CSS viewport widths for zoom, 200% CSS scale/text enlargement and long
 content. These checks do not emulate a browser's toolbar zoom UI.
 
+## Cross-page form and action spacing
+
+Home/Auth/Account/Reset reuse the existing spacing and action groups. Field
+labels, hints and errors stay grouped separately from submit; Verification and
+invalid-reset backlinks share the 44px navigation targets. Intro/action gaps are
+explicit, Account's stack owns its title gap and Verification success uses the
+existing success variant. These opt-in rules leave header/Bookmarks and
+functional validation/state handling unchanged.
+
 ## Bookmarks and compact navigation
 
 The shared header keeps all navigation/actions visible: compact two-row mobile

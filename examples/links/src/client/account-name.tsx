@@ -134,25 +134,27 @@ export function AccountName({
         <dt>Email</dt>
         <dd>{user.email}</dd>
       </dl>
-      <label htmlFor={inputId}>
-        Name
-        <input
-          {...form.register("name")}
-          id={inputId}
-          autoComplete="name"
-          required
-          maxLength={200}
-          readOnly={formState.isSubmitting}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={`${hintId}${error ? ` ${errorId}` : ""}`}
-        />
-      </label>
-      <p id={hintId}>Use 1–200 characters. Surrounding spaces are removed.</p>
-      {error ? (
-        <span className="field-error" id={errorId} role="alert">
-          {error.message}
-        </span>
-      ) : null}
+      <div className="cross-page-field">
+        <label htmlFor={inputId}>
+          Name
+          <input
+            {...form.register("name")}
+            id={inputId}
+            autoComplete="name"
+            required
+            maxLength={200}
+            readOnly={formState.isSubmitting}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={`${hintId}${error ? ` ${errorId}` : ""}`}
+          />
+        </label>
+        <p id={hintId}>Use 1–200 characters. Surrounding spaces are removed.</p>
+        {error ? (
+          <span className="field-error" id={errorId} role="alert">
+            {error.message}
+          </span>
+        ) : null}
+      </div>
       <button type="submit" disabled={formState.isSubmitting}>
         {formState.isSubmitting ? "Saving name..." : "Save name"}
       </button>

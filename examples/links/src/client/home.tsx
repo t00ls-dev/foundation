@@ -16,7 +16,7 @@ export function Home({ showSignIn }: { showSignIn: boolean }) {
           A small bookmark manager built with Foundation to exercise the stack
           end to end.
         </p>
-        <div className="cluster">
+        <div className="cluster actions">
           <Link className="button" to="/bookmarks">
             Open Links
           </Link>

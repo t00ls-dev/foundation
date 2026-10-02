@@ -70,8 +70,10 @@ export function AuthPage({
   }
   return (
     <section className="auth-page" aria-label="Authentication">
-      <h1>{title === "Sign in" ? "Your links, in one place." : title}</h1>
-      <p>Save useful bookmarks in your own private library.</p>
+      <div className="cross-page-intro">
+        <h1>{title === "Sign in" ? "Your links, in one place." : title}</h1>
+        <p>Save useful bookmarks in your own private library.</p>
+      </div>
       <AsyncForm
         key={mode}
         alternativeAction={hasPassword ? <GoogleSignIn /> : undefined}
@@ -149,16 +151,21 @@ export function Verification() {
             ? "Unable to verify your email"
             : "Email verified"}
       </h1>
-      <p role={failed ? "alert" : "status"}>
+      <p
+        className={!pending && !failed ? "alert--success" : undefined}
+        role={failed ? "alert" : "status"}
+      >
         {pending
           ? "Open the verification link in your email, then sign in to Links."
           : failed
             ? "The link may be invalid or expired. Try signing in to request another verification email."
             : "Your account is ready. Sign in to start saving links."}
       </p>
-      <Link to={authPath("/login", authDestination(params.get("next")))}>
-        Back to sign in
-      </Link>
+      <nav className="auth-links" aria-label="Verification options">
+        <Link to={authPath("/login", authDestination(params.get("next")))}>
+          Back to sign in
+        </Link>
+      </nav>
     </section>
   );
 }
@@ -250,16 +257,20 @@ export function ResetPassword({ authenticated }: { authenticated: boolean }) {
           <p role="alert">
             This password link is invalid, expired, or already used.
           </p>
-          <Link to="/forgot-password">Request a new password link</Link>
+          <div className="actions">
+            <Link to="/forgot-password">Request a new password link</Link>
+          </div>
         </>
       ) : status === "error" ? (
         <>
           <p role="alert">
             Could not verify this password link. Please try again.
           </p>
-          <button onClick={() => setRevision((value) => value + 1)}>
-            Retry password link
-          </button>
+          <div className="actions">
+            <button onClick={() => setRevision((value) => value + 1)}>
+              Retry password link
+            </button>
+          </div>
         </>
       ) : (
         <AsyncForm
