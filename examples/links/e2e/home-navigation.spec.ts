@@ -355,3 +355,33 @@ test("signup and email verification preserve the requested private destination",
     page.getByRole("heading", { name: "Add bookmark", exact: true }),
   ).toBeVisible();
 });
+
+test("logout on the public reset page preserves the existing password reset flow", async ({
+  page,
+}) => {
+  const email = await account(page);
+  expect(
+    (
+      await page.request.post("/api/auth/request-password-reset", {
+        headers: { Origin: origin },
+        data: { email, redirectTo: "/reset-password" },
+      })
+    ).ok(),
+  ).toBe(true);
+  await page.goto(await mail(page, email, "Reset your password"));
+  await expect(
+    page.getByRole("heading", { name: "Choose a new password." }),
+  ).toBeVisible();
+  const resetURL = page.url();
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await expect(
+    page.getByRole("navigation", { name: "Account navigation" }),
+  ).toContainText("Sign in");
+  await expect(page).toHaveURL(resetURL);
+  await page.getByLabel("New password", { exact: true }).fill(password);
+  await page.getByLabel("Confirm new password", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "Update password" }).click();
+  await expect(
+    page.getByText("Password updated. You can sign in now.", { exact: true }),
+  ).toBeVisible();
+});

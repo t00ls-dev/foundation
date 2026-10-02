@@ -67,9 +67,15 @@ export function App() {
       setExpired(true);
       setSessionExpired(false);
       await session.refetch();
-      await navigate(location.pathname === "/" ? "/" : "/login", {
-        replace: true,
-      });
+      const privateRoute =
+        location.pathname.startsWith("/bookmarks") ||
+        location.pathname === "/account/security";
+      await navigate(
+        privateRoute
+          ? "/login"
+          : `${location.pathname}${location.search}${location.hash}`,
+        { replace: true },
+      );
     } catch {
       setLogoutSource(null);
       setLogoutError("Could not sign out. Please try again.");

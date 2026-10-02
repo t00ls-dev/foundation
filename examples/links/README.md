@@ -82,9 +82,9 @@ editor and returning from Security also lead to `/bookmarks`.
 
 Session expiry removes private content and directs visitors to sign-in with a
 generic explanation. Voluntary logout from a private page goes to sign-in;
-logout on Home stays on Home. Unknown routes go to Home for visitors and
-Bookmarks for signed-in users. Password reset and Security behavior are
-unchanged, except for the Back to bookmarks destination.
+logout on public pages retains the current page. Unknown routes go to Home for
+visitors and Bookmarks for signed-in users. Password reset and Security behavior
+are unchanged, except for the Back to bookmarks destination.
 
 - criação, leitura, edição e exclusão de bookmarks;
 - título, URL HTTP/HTTPS, descrição opcional e tags;
