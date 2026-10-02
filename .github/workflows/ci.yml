@@ -34,7 +34,7 @@ jobs:
 
       - name: Install Playwright browser
         run:
-          pnpm --filter @t00ls-dev/example-basic-d1 exec playwright install
+          pnpm --filter @t00ls-dev/example-links exec playwright install
           --with-deps chromium
 
       - name: Run checks

@@ -1,7 +1,7 @@
 # Deploy
 
 Cada produto possui deploy independente. O Foundation valida somente o fluxo DEV
-usando `examples/basic-d1`.
+usando `examples/links`.
 
 ## DEV automático
 

@@ -1,9 +1,9 @@
-# Links — basic-d1
+# Links
 
 Links é a aplicação de referência do Foundation: uma biblioteca **privada** de
 bookmarks com React SPA, Hono, Better Auth, Drizzle e Cloudflare D1 no mesmo
-Worker. `basic-d1` permanece como nome técnico do diretório/package/preset;
-Links é o nome apresentado ao usuário.
+Worker. O exemplo está em `examples/links`, com package
+`@t00ls-dev/example-links`. O preset autônomo `basic-d1` permanece independente.
 
 ## Desenvolvimento local
 

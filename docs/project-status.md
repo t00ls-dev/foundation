@@ -60,8 +60,8 @@ bloqueada.
 
 ### Aplicação de referência
 
-`examples/basic-d1` apresenta **Links**, uma biblioteca privada de bookmarks. O
-diretório e o package mantêm o nome técnico `basic-d1`. Demonstra:
+`examples/links` apresenta **Links**, uma biblioteca privada de bookmarks. O
+package é `@t00ls-dev/example-links`. Demonstra:
 
 - React, React Router, React Hook Form, Zod e Tailwind CSS;
 - Hono no mesmo Worker que serve os assets da SPA;
@@ -194,7 +194,7 @@ Ainda faltam para a operação completa:
 
 Links possui cobertura determinística local de autenticação e bookmarks. Após
 publicação, registrar a validação manual dos fluxos restantes em DEV e do CRUD
-com duas contas, conforme `examples/basic-d1/README.md`. A validação local não
+com duas contas, conforme `examples/links/README.md`. A validação local não
 substitui entrega de e-mail e inspeção de cache/cookies no domínio real. O PROD
 de aplicações consumidoras não pertence ao Foundation.
 
@@ -268,7 +268,7 @@ pnpm check
 pnpm format:check
 pnpm dev
 pnpm --filter @t00ls-dev/create-app build
-pnpm --filter @t00ls-dev/doctor exec doctor ./examples/basic-d1
+pnpm --filter @t00ls-dev/doctor exec doctor ./examples/links
 ```
 
 Requisitos locais: Node.js 22, Corepack/pnpm e Docker para os testes PostgreSQL.

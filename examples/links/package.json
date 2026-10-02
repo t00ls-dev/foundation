@@ -1,5 +1,5 @@
 {
-  "name": "@t00ls-dev/example-basic-d1",
+  "name": "@t00ls-dev/example-links",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -17,7 +17,7 @@
     "db:status:dev": "wrangler d1 migrations list DB --remote --env dev",
     "db:status:local": "wrangler d1 migrations list DB --local",
     "dev": "pnpm build && wrangler dev",
-    "deploy:dev": "pnpm --workspace-root exec turbo run build --filter=@t00ls-dev/example-basic-d1... && cross-env CLOUDFLARE_ENV=dev vite build && wrangler deploy",
+    "deploy:dev": "pnpm --workspace-root exec turbo run build --filter=@t00ls-dev/example-links... && cross-env CLOUDFLARE_ENV=dev vite build && wrangler deploy",
     "lint": "eslint .",
     "test": "vitest run --config vitest.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",

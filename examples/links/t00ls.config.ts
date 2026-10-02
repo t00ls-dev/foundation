@@ -3,7 +3,7 @@ import { defineConfig } from "@t00ls-dev/config";
 export default defineConfig({
   app: {
     environment: "local",
-    name: "basic-d1",
+    name: "links",
   },
   auth: {
     emailPassword: true,

@@ -63,7 +63,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Install Playwright browser
         run:
-          pnpm --filter @t00ls-dev/example-basic-d1 exec playwright install
+          pnpm --filter @t00ls-dev/example-links exec playwright install
           --with-deps chromium
       - run: pnpm check
       - name: Create or update Version Packages and reviewed release record
@@ -104,7 +104,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Install Playwright browser
         run:
-          pnpm --filter @t00ls-dev/example-basic-d1 exec playwright install
+          pnpm --filter @t00ls-dev/example-links exec playwright install
           --with-deps chromium
       - run: pnpm check
       - name: Inspect registry, create exact pack artifacts and print digest
@@ -159,7 +159,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Install Playwright browser
         run:
-          pnpm --filter @t00ls-dev/example-basic-d1 exec playwright install
+          pnpm --filter @t00ls-dev/example-links exec playwright install
           --with-deps chromium
       - run: pnpm check
       - name: Retrieve original audit artifacts, never repack them

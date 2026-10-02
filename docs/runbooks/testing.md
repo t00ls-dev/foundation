@@ -34,12 +34,12 @@ Antes de enviar uma mudança, execute `pnpm check` e `pnpm format:check`.
 Mocks não substituem os testes de banco existentes. Testes E2E não devem
 depender de providers externos para permanecer deterministas.
 
-## Links (`examples/basic-d1`)
+## Links (`examples/links`)
 
 ```bash
-pnpm --filter @t00ls-dev/example-basic-d1 test
-pnpm --filter @t00ls-dev/example-basic-d1 test:integration
-pnpm --filter @t00ls-dev/example-basic-d1 test:e2e
+pnpm --filter @t00ls-dev/example-links test
+pnpm --filter @t00ls-dev/example-links test:integration
+pnpm --filter @t00ls-dev/example-links test:e2e
 ```
 
 Integração aplica as migrations reais em D1 Miniflare descartável e cobre auth,

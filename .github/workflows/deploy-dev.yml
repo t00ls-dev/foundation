@@ -43,11 +43,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Apply DEV D1 migrations
-        working-directory: examples/basic-d1
+        working-directory: examples/links
         run: pnpm db:migrate:dev
 
       - name: Deploy DEV
-        working-directory: examples/basic-d1
+        working-directory: examples/links
         run: pnpm deploy:dev
 
       - name: Smoke test

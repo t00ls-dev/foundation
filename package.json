@@ -10,7 +10,7 @@
   "scripts": {
     "build": "turbo run build",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && pnpm build && pnpm test:e2e && pnpm test:distribution && pnpm test:release",
-    "dev": "turbo run dev --filter=@t00ls-dev/example-basic-d1",
+    "dev": "turbo run dev --filter=@t00ls-dev/example-links",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "turbo run lint",

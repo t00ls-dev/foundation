@@ -4,7 +4,7 @@
   "baseBranch": "master",
   "commit": false,
   "fixed": [],
-  "ignore": ["@t00ls-dev/example-basic-d1", "@t00ls-dev/integration-tests"],
+  "ignore": ["@t00ls-dev/example-links", "@t00ls-dev/integration-tests"],
   "linked": [],
   "privatePackages": {
     "tag": false,

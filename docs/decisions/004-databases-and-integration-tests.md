@@ -12,8 +12,8 @@ caminhos sem fingir equivalência entre dialetos.
 ## Decisão
 
 D1 e PostgreSQL são suportados por Drizzle, com schemas, migrations e
-adaptadores explícitos por banco quando necessário. O exemplo `basic-d1`
-demonstra o caminho mínimo sem tenancy.
+adaptadores explícitos por banco quando necessário. O exemplo Links
+(`examples/links`) demonstra o caminho mínimo sem tenancy.
 
 O histórico é propriedade do app que compõe os schemas. Drizzle Kit gera os dois
 dialetos e aplica PostgreSQL; Wrangler aplica e consulta migrations D1. Os

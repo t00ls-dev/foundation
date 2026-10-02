@@ -10,7 +10,7 @@ O fluxo local deve funcionar depois de `pnpm install` e da criação de
 `.dev.vars` a partir de `.dev.vars.example`.
 
 ```bash
-pnpm --filter @t00ls-dev/example-basic-d1 db:migrate:local
+pnpm --filter @t00ls-dev/example-links db:migrate:local
 pnpm dev
 ```
 

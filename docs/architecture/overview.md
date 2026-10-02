@@ -46,9 +46,10 @@ Cada produto decide no ponto zero entre D1 e PostgreSQL:
 - Portabilidade é desejável, mas não há promessa de compatibilidade perfeita
   entre SQLite e PostgreSQL.
 
-O exemplo D1 da v0.1 é deliberadamente sem tenancy (`basic-d1`). PostgreSQL
-possui testes de integração reais executados contra container. Um smoke test
-remoto via Hyperdrive é opcional e separado da suíte determinística principal.
+O exemplo D1 da v0.1 é deliberadamente sem tenancy (`examples/links`).
+PostgreSQL possui testes de integração reais executados contra container. Um
+smoke test remoto via Hyperdrive é opcional e separado da suíte determinística
+principal.
 
 ## Autenticação e acesso
 
@@ -88,7 +89,7 @@ config <--- email
 app ---> auth + tenant + access
 tooling/create-app ---> pacotes compartilhados
 tooling/doctor -----> config e adaptadores de diagnóstico
-apps/basic-d1 -----> pacotes via workspace
+examples/links -----> pacotes via workspace
 ```
 
 Responsabilidades:
@@ -146,7 +147,7 @@ A v0.1 entrega uma fundação pequena e executável:
 - SPA React e API Hono no mesmo Worker com Workers Assets;
 - configuração tipada;
 - Drizzle com suporte a D1 e PostgreSQL;
-- exemplo `basic-d1` sem tenancy;
+- exemplo Links (`examples/links`) sem tenancy;
 - Better Auth e seus fluxos básicos;
 - tenancy opcional com contrato padronizado, access e convites seguros;
 - security, logging/observability e e-mail em nível básico necessário aos

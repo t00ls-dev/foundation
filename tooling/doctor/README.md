@@ -24,7 +24,7 @@ Invalid CLI usage exits with status 2; warnings alone do not fail the command.
 
 ```sh
 pnpm --filter @t00ls-dev/doctor build
-pnpm --filter @t00ls-dev/doctor exec doctor ./examples/basic-d1
+pnpm --filter @t00ls-dev/doctor exec doctor ./examples/links
 pnpm --filter @t00ls-dev/doctor exec doctor ./app --json
 ```
 

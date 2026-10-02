@@ -5,9 +5,9 @@
 
 ## Contexto
 
-O Foundation fornece packages e valida a integração com `examples/basic-d1`.
-Essa aplicação de referência não é um produto de produção. Cada aplicação
-consumidora é responsável pelos próprios ambientes DEV e PROD.
+O Foundation fornece packages e valida a integração com `examples/links`. Essa
+aplicação de referência não é um produto de produção. Cada aplicação consumidora
+é responsável pelos próprios ambientes DEV e PROD.
 
 ## Decisão
 
