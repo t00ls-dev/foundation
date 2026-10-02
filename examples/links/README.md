@@ -105,6 +105,15 @@ State ausente/inválido preserva a página de erro padrão do Better Auth em
 `/api/auth/error`, sem interceptação própria. Clique duplo é bloqueado; erro
 permite retry e Back/bfcache libera pending e recarrega a capability.
 
+The shared `OAuthButton` receives provider presentation (label, icon and
+branding class) separately from initiation/capability logic. Google is the only
+provider. While initiating sign-in, the button is disabled, replaces its
+decorative icon with a same-size spinner and keeps **Continue with Google**
+unchanged. There is no redirect success/status message below the button. A
+pre-navigation failure restores the icon and enabled state and shows the
+existing sanitized error. The button exposes `aria-busy`; reduced-motion
+preferences disable rotation.
+
 Os testes locais verificam configuração, D1, início/cancelamento e UI simulada;
 não equivalem a OAuth Google real. Após eventual merge/deploy automático,
 validar em DEV: botão em login/signup, consentimento Google e callback real,

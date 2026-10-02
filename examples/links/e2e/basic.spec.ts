@@ -202,6 +202,10 @@ test("guards double Google clicks, sanitizes initiation errors and retries using
     release = resolve;
   });
   const requests: unknown[] = [];
+  let releaseRedirect!: () => void;
+  const heldRedirect = new Promise<void>((resolve) => {
+    releaseRedirect = resolve;
+  });
   await page.route("**/api/auth/sign-in/social", async (route) => {
     requests.push(route.request().postDataJSON());
     if (requests.length === 1) {
@@ -210,10 +214,12 @@ test("guards double Google clicks, sanitizes initiation errors and retries using
         status: 500,
         json: { message: "state=secret-token&error_description=unsafe" },
       });
-    } else
+    } else {
+      await heldRedirect;
       await route.fulfill({
         json: { redirect: true, url: "http://127.0.0.1:5174/__oauth-ui-test" },
       });
+    }
   });
   await page.route("**/__oauth-ui-test", (route) =>
     route.fulfill({
@@ -224,12 +230,31 @@ test("guards double Google clicks, sanitizes initiation errors and retries using
   await page.goto("/login");
   const google = page.getByRole("button", { name: "Continue with Google" });
   await expect(google).toBeEnabled();
+  await expect(google.locator("img")).toBeVisible();
+  const idleIcon = await google.locator(".oauth-button-icon").boundingBox();
   await google.evaluate((element: HTMLButtonElement) => {
     element.click();
     element.click();
   });
   await expect(google).toBeDisabled();
-  await expect(page.getByText("Redirecting to Google...")).toBeVisible();
+  await expect(google).toHaveAttribute("aria-busy", "true");
+  await expect(google).toHaveText("Continue with Google");
+  await expect(google).toHaveAccessibleName("Continue with Google");
+  await expect(google.locator("img")).toHaveCount(0);
+  const spinner = google.locator(".oauth-spinner");
+  await expect(spinner).toBeVisible();
+  expect(await google.locator(".oauth-button-icon").boundingBox()).toEqual(
+    idleIcon,
+  );
+  await expect(google.locator(".oauth-button-icon")).toHaveAttribute(
+    "aria-hidden",
+    "true",
+  );
+  await expect(page.getByText("Redirecting to Google...")).toHaveCount(0);
+  await expect(page.locator(".google-sign-in p")).toHaveCount(0);
+  await expect(spinner).toHaveCSS("animation-name", "oauth-spin");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(spinner).toHaveCSS("animation-name", "none");
   await expect.poll(() => requests.length).toBe(1);
   expect(requests[0]).toEqual({
     provider: "google",
@@ -246,8 +271,18 @@ test("guards double Google clicks, sanitizes initiation errors and retries using
   ).toHaveCount(0);
   await expect(google).toBeEnabled();
   await google.focus();
+  await expect(google).toHaveAttribute("aria-busy", "false");
+  await expect(google).toHaveText("Continue with Google");
+  await expect(google.locator("img")).toBeVisible();
+  await expect(spinner).toHaveCount(0);
   await expect(google).toBeFocused();
   await google.press("Enter");
+  await expect(google).toBeDisabled();
+  await expect(spinner).toBeVisible();
+  await expect(google).toHaveText("Continue with Google");
+  await expect(page.locator(".google-sign-in p")).toHaveCount(0);
+  await expect(page.getByText("Redirecting to Google...")).toHaveCount(0);
+  releaseRedirect();
   await expect(page).toHaveURL(/\/__oauth-ui-test$/);
   expect(requests).toHaveLength(2);
 });
@@ -255,9 +290,11 @@ test("guards double Google clicks, sanitizes initiation errors and retries using
 test("handles sanitized Google cancellation and clears pending on a persisted Back event", async ({
   page,
 }) => {
-  await page.route("**/api/config", (route) =>
-    route.fulfill({ json: { googleEnabled: true } }),
-  );
+  let capabilityRequests = 0;
+  await page.route("**/api/config", (route) => {
+    capabilityRequests++;
+    return route.fulfill({ json: { googleEnabled: true } });
+  });
   await page.goto(
     "/login?oauth=failed&error=access_denied&error_description=unsafe-reflected-text&state=secret-state",
   );
@@ -285,8 +322,13 @@ test("handles sanitized Google cancellation and clears pending on a persisted Ba
   await expect(google).toBeEnabled();
   await google.click();
   await expect(google).toBeDisabled();
+  await expect(google.locator(".oauth-spinner")).toBeVisible();
+  await expect(google.locator("img")).toHaveCount(0);
+  await expect(google).toHaveText("Continue with Google");
+  await expect(page.getByText("Redirecting to Google...")).toHaveCount(0);
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByRole("alert")).toHaveCount(0);
+  const beforeRestore = capabilityRequests;
   // Exercise our lifecycle handling deterministically; browser BFCache eligibility varies.
   await page.evaluate(() =>
     window.dispatchEvent(
@@ -295,6 +337,11 @@ test("handles sanitized Google cancellation and clears pending on a persisted Ba
   );
   await expect(google).toBeEnabled();
   release();
+  await expect(google).toHaveAttribute("aria-busy", "false");
+  await expect(google.locator("img")).toBeVisible();
+  await expect(google.locator(".oauth-spinner")).toHaveCount(0);
+  await expect.poll(() => capabilityRequests).toBeGreaterThan(beforeRestore);
+  await expect(page.getByRole("alert")).toHaveCount(0);
   await expect(page.getByText("Redirecting to Google...")).toHaveCount(0);
 });
 

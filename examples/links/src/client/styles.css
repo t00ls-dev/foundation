@@ -141,15 +141,38 @@ button:disabled {
   font-weight: 500;
   letter-spacing: 0.25px;
 }
-.google-button img {
-  flex-shrink: 0;
+.oauth-button-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 20px;
+  inline-size: 20px;
+  block-size: 20px;
+}
+.oauth-button > span:last-child {
+  min-inline-size: 0;
+}
+.oauth-spinner {
+  inline-size: 20px;
+  block-size: 20px;
+  border: 2px solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: var(--radius-pill);
+  animation: oauth-spin 0.8s linear infinite;
+}
+@keyframes oauth-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .oauth-spinner {
+    animation: none;
+  }
 }
 .google-button:not(:disabled):hover {
   background: #f8f9fa;
   box-shadow: 0 1px 3px #3c404326;
-}
-.google-sign-in p:empty {
-  display: none;
 }
 .auth-divider {
   display: flex;

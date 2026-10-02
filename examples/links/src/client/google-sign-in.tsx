@@ -4,11 +4,17 @@ import { publicAuthConfigSchema } from "../shared/auth-config.js";
 import { apiRequest } from "./api.js";
 import { authClient } from "./auth-client.js";
 import googleLogo from "./google-g.svg";
+import { OAuthButton, type OAuthProviderPresentation } from "./oauth-button.js";
 
 type Capability =
   { status: "loading" | "error" } | { status: "ready"; googleEnabled: boolean };
 
 const signInError = "Could not sign in with Google. Please try again.";
+const googlePresentation: OAuthProviderPresentation = {
+  label: "Continue with Google",
+  icon: <img src={googleLogo} width="20" height="20" alt="" />,
+  className: "google-button",
+};
 
 export function GoogleSignIn() {
   const [capability, setCapability] = useState<Capability>({
@@ -26,6 +32,7 @@ export function GoogleSignIn() {
         ? "Google sign-in was canceled."
         : signInError
       : "";
+  const feedback = error || callbackError;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -112,22 +119,19 @@ export function GoogleSignIn() {
           <div className="auth-divider" role="separator" aria-label="or">
             <span aria-hidden="true">or</span>
           </div>
-          <button
-            type="button"
-            className="google-button"
-            disabled={pending}
-            aria-busy={pending}
-            aria-describedby={feedbackId}
+          <OAuthButton
+            provider={googlePresentation}
+            pending={pending}
+            describedBy={feedback ? feedbackId : undefined}
             onClick={() => void signIn()}
-          >
-            <img src={googleLogo} width="20" height="20" alt="" />
-            Continue with Google
-          </button>
+          />
         </>
       ) : null}
-      <p id={feedbackId} role={error || callbackError ? "alert" : "status"}>
-        {error || callbackError || (pending ? "Redirecting to Google..." : "")}
-      </p>
+      {feedback ? (
+        <p id={feedbackId} role="alert">
+          {feedback}
+        </p>
+      ) : null}
     </div>
   );
 }
