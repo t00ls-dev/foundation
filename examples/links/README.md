@@ -5,6 +5,32 @@ bookmarks com React SPA, Hono, Better Auth, Drizzle e Cloudflare D1 no mesmo
 Worker. O exemplo está em `examples/links`, com package
 `@t00ls-dev/example-links`. O preset autônomo `basic-d1` permanece independente.
 
+## Shared visual foundation
+
+`src/client/styles.css` defines the Links visual tokens (colors, spacing,
+typography, borders, radii, container widths and touch targets). The existing
+pages share these defaults without a UI library or changes to their flows.
+
+- Layout: `.container`, `.container--narrow`, `.stack` and `.cluster`; flex/grid
+  children can shrink and long content wraps instead of being clipped.
+- Buttons: `.button`, `.button--secondary`, `.button--quiet` and
+  `.button--danger`; native buttons default to primary, and `.secondary` remains
+  a compatible alias. Use native `disabled` for disabled buttons. Google keeps
+  its provider-specific branding and shares the minimum 44px touch target.
+- Surfaces: `.card`; forms, articles and empty states use the same surface,
+  border and responsive padding.
+- Feedback: `.alert`, `.alert--error` and `.alert--success`. Apply the correct
+  semantic role in markup: `alert` for errors, `status` for non-urgent updates.
+  `AsyncForm` exposes `data-kind` for its existing error/success feedback; field
+  errors remain associated with their inputs.
+- Controls use 16px text at the default font size, visible invalid borders and a
+  shared keyboard focus ring. High-contrast mode preserves control borders and
+  focus. No animation is required to communicate a state.
+
+The foundation is mobile-first. Reflow tests cover 320px through desktop,
+reduced CSS viewport widths for zoom, 200% CSS scale/text enlargement and long
+content. These checks do not emulate a browser's toolbar zoom UI.
+
 ## Desenvolvimento local
 
 Requer Node.js >=22.22.0 e pnpm do workspace.

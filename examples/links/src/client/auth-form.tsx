@@ -82,6 +82,7 @@ export function AsyncForm(props: {
         </button>
         <p
           className="form-message"
+          data-kind={feedback?.kind}
           id={feedbackId}
           role={feedback?.kind === "error" ? "alert" : "status"}
           aria-live={feedback?.kind === "error" ? "assertive" : "polite"}
