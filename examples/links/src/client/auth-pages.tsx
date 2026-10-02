@@ -1,4 +1,5 @@
 import { Link, useNavigate, useSearchParams } from "react-router";
+import { useEffect, useRef, useState } from "react";
 import { authClient } from "./auth-client.js";
 import {
   AsyncForm,
@@ -8,6 +9,7 @@ import {
 } from "./auth-form.js";
 import { GoogleSignIn } from "./google-sign-in.js";
 import { authDestination, authPath } from "./auth-destination.js";
+import { checkResetToken, type ResetTokenResult } from "./reset-token.js";
 
 export function AuthPage({
   mode,
@@ -161,45 +163,132 @@ export function Verification() {
   );
 }
 
-export function ResetPassword() {
+export function ResetPassword({ authenticated }: { authenticated: boolean }) {
   const [params] = useSearchParams();
+  const token = params.get("token");
+  const callbackInvalid = params.get("error") === "INVALID_TOKEN";
+  const [revision, setRevision] = useState(0);
+  const [validation, setValidation] = useState<{
+    token: string | null;
+    status: ResetTokenResult | "checking";
+  }>({ token: null, status: "checking" });
+  const mutation = useRef<AbortController | null>(null);
+  const status =
+    !token || callbackInvalid
+      ? "invalid"
+      : validation.token !== token
+        ? "checking"
+        : validation.status;
+  useEffect(() => {
+    if (!token || callbackInvalid) return;
+    const controller = new AbortController();
+    setValidation({ token, status: "checking" });
+    void checkResetToken(token, controller.signal)
+      .then((status) => {
+        if (!controller.signal.aborted) setValidation({ token, status });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted)
+          setValidation({ token, status: "error" });
+      });
+    return () => controller.abort();
+  }, [token, callbackInvalid, revision]);
+  useEffect(() => () => mutation.current?.abort(), [token, callbackInvalid]);
   async function reset(data: FormValues): Promise<Feedback> {
-    const token = params.get("token");
-    if (!token) return { kind: "error", message: "The reset link is invalid" };
-    const result = await authClient.resetPassword({
-      newPassword: field(data, "password"),
-      token,
-    });
-    return {
-      ...feedback(result.error, "Password updated. You can sign in now."),
-      clearFields: !result.error,
-    };
+    if (!token || status !== "ready")
+      return {
+        kind: "error",
+        message: "The reset link is unavailable.",
+        clearFields: true,
+      };
+    const controller = new AbortController();
+    mutation.current = controller;
+    try {
+      const result = await authClient.resetPassword({
+        newPassword: field(data, "password"),
+        token,
+        fetchOptions: { signal: controller.signal, retry: 0 },
+      });
+      if (
+        result.error?.status === 400 &&
+        result.error.code === "INVALID_TOKEN"
+      ) {
+        if (!controller.signal.aborted)
+          setValidation({ token, status: "invalid" });
+        return {
+          kind: "error",
+          message: "The reset link is unavailable.",
+          clearFields: true,
+        };
+      }
+      if (result.error) throw new Error("Unconfirmed password reset");
+      return {
+        kind: "success",
+        message: authenticated
+          ? "Password updated."
+          : "Password updated. You can sign in now.",
+        clearFields: true,
+      };
+    } catch {
+      return {
+        kind: "error",
+        message:
+          "We couldn't confirm whether your password was updated. Try signing in. If needed, request a new password link.",
+        clearFields: true,
+      };
+    } finally {
+      if (mutation.current === controller) mutation.current = null;
+    }
   }
   return (
     <section className="auth-page">
       <h1>Choose a new password.</h1>
-      <AsyncForm
-        title="Reset password"
-        submitLabel="Update password"
-        pendingLabel="Updating password..."
-        action={reset}
-        requiredFields={["password", "confirmPassword"]}
-      >
-        <FormField
-          label="New password"
-          name="password"
-          type="password"
-          minLength={8}
-          autoComplete="new-password"
-        />
-        <FormField
-          label="Confirm new password"
-          name="confirmPassword"
-          type="password"
-          autoComplete="new-password"
-        />
-      </AsyncForm>
-      <Link to="/login">Back to sign in</Link>
+      {status === "checking" ? (
+        <p role="status">Checking password link...</p>
+      ) : status === "invalid" ? (
+        <>
+          <p role="alert">
+            This password link is invalid, expired, or already used.
+          </p>
+          <Link to="/forgot-password">Request a new password link</Link>
+        </>
+      ) : status === "error" ? (
+        <>
+          <p role="alert">
+            Could not verify this password link. Please try again.
+          </p>
+          <button onClick={() => setRevision((value) => value + 1)}>
+            Retry password link
+          </button>
+        </>
+      ) : (
+        <AsyncForm
+          title="Reset password"
+          submitLabel="Update password"
+          pendingLabel="Updating password..."
+          action={reset}
+          requiredFields={["password", "confirmPassword"]}
+        >
+          <FormField
+            label="New password"
+            name="password"
+            type="password"
+            minLength={8}
+            autoComplete="new-password"
+          />
+          <FormField
+            label="Confirm new password"
+            name="confirmPassword"
+            type="password"
+            autoComplete="new-password"
+          />
+        </AsyncForm>
+      )}
+      <nav className="auth-links" aria-label="Password reset options">
+        <Link to={authenticated ? "/account" : "/login"}>
+          {authenticated ? "Back to Account" : "Back to sign in"}
+        </Link>
+      </nav>
     </section>
   );
 }

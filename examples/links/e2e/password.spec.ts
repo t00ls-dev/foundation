@@ -369,7 +369,7 @@ test("passwordless Security sends the official email reset and confirms the firs
   });
   await page.getByRole("button", { name: "Send password link" }).click();
   await expect(
-    page.getByText("If the account exists, a reset link was sent.", {
+    page.getByText("Password link requested. Check your account email.", {
       exact: true,
     }),
   ).toBeVisible();
@@ -403,7 +403,7 @@ test("passwordless Security sends the official email reset and confirms the firs
     .fill(newPassword);
   await page.getByRole("button", { name: "Update password" }).click();
   await expect(
-    page.getByText("Password updated. You can sign in now.", { exact: true }),
+    page.getByText("Password updated.", { exact: true }),
   ).toBeVisible();
   expect(resets).toBe(1);
   expect(resetKeys).toEqual(["newPassword", "token"]);

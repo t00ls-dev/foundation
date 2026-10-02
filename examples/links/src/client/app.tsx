@@ -86,11 +86,12 @@ export function App() {
   }
 
   const isHome = location.pathname === "/";
+  const isReset = location.pathname === "/reset-password";
   const destination = authDestination(
     new URLSearchParams(location.search).get("next"),
   );
   const blocked =
-    session.isPending || signingOut || (session.error && !expired);
+    session.isPending || signingOut || (session.error && (!expired || isReset));
   function privatePage(page: ReactNode) {
     return user ? (
       page
@@ -146,7 +147,7 @@ export function App() {
         <p role="status">
           {signingOut ? "Signing out..." : "Loading your session..."}
         </p>
-      ) : session.error && !expired ? (
+      ) : session.error && (!expired || isReset) ? (
         <section>
           <h1>Unable to load your session</h1>
           <p role="alert">Please check your connection.</p>
@@ -186,7 +187,10 @@ export function App() {
             element={<AuthPage mode="recover" onSignedIn={signedIn} />}
           />
           <Route path="/verify-email" element={<Verification />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route
+            path="/reset-password"
+            element={<ResetPassword authenticated={Boolean(user)} />}
+          />
           <Route
             path="/account"
             element={privatePage(

@@ -113,7 +113,7 @@ export function AccountSecurity({
           }
         : {
             kind: "success",
-            message: "If the account exists, a reset link was sent.",
+            message: "Password link requested. Check your account email.",
           };
     } catch {
       return {

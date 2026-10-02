@@ -83,8 +83,8 @@ editor and returning from Security also lead to `/bookmarks`.
 Session expiry removes private content and directs visitors to sign-in with a
 generic explanation. Voluntary logout from a private page goes to sign-in;
 logout on public pages retains the current page. Unknown routes go to Home for
-visitors and Bookmarks for signed-in users. Password reset and Security behavior
-are unchanged, except for the Back to bookmarks destination.
+visitors and Bookmarks for signed-in users. Password-management session
+semantics remain unchanged.
 
 - criação, leitura, edição e exclusão de bookmarks;
 - título, URL HTTP/HTTPS, descrição opcional e tags;
@@ -161,6 +161,28 @@ notifies session listeners. The UI confirms the user/name/email through public
 `getSession` with cookie cache disabled, then refetches the displayed session.
 Unexpected failure is indeterminate, with no automatic retry. Requests are
 aborted on logout/unmount and obsolete feedback cannot affect another account.
+
+### Password reset UX
+
+Before showing password fields, ResetPassword checks the public Better Auth GET
+`/api/auth/reset-password/:token` with a fixed `/reset-password` callback. Fetch
+follows redirects in same-origin/no-store mode with an AbortSignal; the final
+response must be a redirected 200 on this origin and exact callback path, with
+only the matching token or `error=INVALID_TOKEN`. Unexpected responses or
+network failures offer verification retry, never imply token invalidity.
+
+The real Worker/Assets harness verifies that this fetch neither navigates nor
+executes the SPA and does not consume the token. The official `resetPassword`
+POST remains authoritative. Late INVALID_TOKEN removes password fields and
+offers a new link. Indeterminate mutation errors clear fields without automatic
+retry or raw upstream messages. Tokens are not logged or stored outside the
+existing URL/in-memory flow. Requests are aborted on unmount/token changes.
+
+Reset navigation uses the central App session: authenticated visitors get **Back
+to Account**, confirmed visitors **Back to sign in**; unresolved/error sessions
+remain in the existing session loading/retry UI. Reset retains the existing
+session policy. Account's accepted email-link request says **Password link
+requested. Check your account email.**; public Forgot stays anti-enumeration.
 
 ### Security — senha da conta
 
