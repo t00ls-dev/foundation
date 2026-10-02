@@ -106,12 +106,12 @@ export function BookmarkEditor() {
   }
   const pending = form.formState.isSubmitting;
   return (
-    <section className="editor">
+    <section className="editor bookmark-editor">
       <h1>{id ? "Edit bookmark" : "Add bookmark"}</h1>
       {loading ? (
         <p role="status">Loading bookmark...</p>
       ) : id && !item ? (
-        <div>
+        <div className="card bookmark-state">
           <p role="alert">{error}</p>
           <button onClick={() => setRevision((value) => value + 1)}>
             Try again
@@ -133,7 +133,11 @@ export function BookmarkEditor() {
               };
               const fieldError = form.formState.errors[name];
               return (
-                <label key={name} htmlFor={`bookmark-${name}`}>
+                <label
+                  className={`bookmark-field bookmark-field-${name}`}
+                  key={name}
+                  htmlFor={`bookmark-${name}`}
+                >
                   {labels[name]}
                   {name === "description" ? (
                     <textarea
@@ -174,7 +178,9 @@ export function BookmarkEditor() {
             <button disabled={pending} type="submit">
               {pending ? "Saving..." : "Save bookmark"}
             </button>
-            <Link to="/bookmarks">Cancel</Link>
+            <Link className="button button--secondary" to="/bookmarks">
+              Cancel
+            </Link>
           </div>
           {error ? <p role="alert">{error}</p> : null}
         </form>

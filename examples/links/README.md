@@ -31,6 +31,21 @@ The foundation is mobile-first. Reflow tests cover 320px through desktop,
 reduced CSS viewport widths for zoom, 200% CSS scale/text enlargement and long
 content. These checks do not emulate a browser's toolbar zoom UI.
 
+## Bookmarks and compact navigation
+
+The shared header keeps all navigation/actions visible: compact two-row mobile
+layout, one-row desktop layout, 44px targets and active-route semantics. Long
+account names use a single-line ellipsis with the full name retained in text and
+the title attribute; Account still displays/edits the complete name.
+
+The library consistently uses **Add bookmark**. Search/tag rows keep labels,
+Search and Clear filters visible, wrapping controls when text grows. Bookmark
+cards preserve full titles, URLs, descriptions and tags with safe wrapping;
+Edit/Delete remain explicit actions. The editor uses stacked mobile fields and
+wide actions, with two-column Title/URL on larger screens. These changes are
+presentation only: CRUD, validation, filters, pagination and navigation are
+unchanged.
+
 ## Desenvolvimento local
 
 Requer Node.js >=22.22.0 e pnpm do workspace.

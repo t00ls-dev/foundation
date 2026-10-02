@@ -64,55 +64,63 @@ export function BookmarkLibrary() {
     setFilters({ q: q.trim(), tag: tag.trim(), offset: 0 });
   }
   return (
-    <section>
+    <section className="bookmark-library">
       <div className="page-heading">
         <div>
           <h1>Your bookmarks</h1>
-          <p>A private home for things worth keeping.</p>
+          <p>Your private bookmark library.</p>
         </div>
         <Link className="button" to="/bookmarks/new">
-          Add link
+          Add bookmark
         </Link>
       </div>
       <form className="search" onSubmit={search} aria-label="Search bookmarks">
-        <label>
-          Search
-          <input
-            name="q"
-            value={q}
-            maxLength={200}
-            onChange={(event) => setQ(event.target.value)}
-            placeholder="Title, URL or description"
-          />
-        </label>
-        <label>
-          Filter by tag
-          <input
-            name="tag"
-            value={tag}
-            maxLength={40}
-            onChange={(event) => setTag(event.target.value)}
-            placeholder="Exact tag"
-          />
-        </label>
-        <button type="submit">Search</button>
-        <button
-          type="button"
-          className="secondary"
-          onClick={() => {
-            setQ("");
-            setTag("");
-            setFilters({ q: "", tag: "", offset: 0 });
-          }}
-        >
-          Clear filters
-        </button>
+        <div className="bookmark-filter-row">
+          <label className="bookmark-search">
+            Search
+            <input
+              name="q"
+              value={q}
+              maxLength={200}
+              onChange={(event) => setQ(event.target.value)}
+              placeholder="Title, URL or description"
+            />
+          </label>
+          <button className="bookmark-search-submit" type="submit">
+            Search
+          </button>
+        </div>
+        <div className="bookmark-filter-row">
+          <label className="bookmark-tag">
+            Filter by tag
+            <input
+              name="tag"
+              value={tag}
+              maxLength={40}
+              onChange={(event) => setTag(event.target.value)}
+              placeholder="Exact tag"
+            />
+          </label>
+          <button
+            type="button"
+            className="secondary bookmark-clear"
+            onClick={() => {
+              setQ("");
+              setTag("");
+              setFilters({ q: "", tag: "", offset: 0 });
+            }}
+          >
+            Clear filters
+          </button>
+        </div>
       </form>
       {mutationError ? <p role="alert">{mutationError}</p> : null}
       {loading ? (
-        <p role="status">Loading bookmarks...</p>
+        <p className="bookmark-loading" role="status">
+          Loading bookmarks...
+        </p>
       ) : error ? (
-        <div>
+        <div className="card bookmark-state">
           <p role="alert">{error}</p>
           <button onClick={() => setRevision((value) => value + 1)}>
             Try again
@@ -122,21 +130,32 @@ export function BookmarkLibrary() {
         <>
           <div className="bookmarks">
             {data.items.map((item) => (
-              <article key={item.id} aria-label={item.title}>
+              <article
+                className="bookmark-card"
+                key={item.id}
+                aria-label={item.title}
+              >
                 <h2>
                   <a href={item.url} target="_blank" rel="noopener noreferrer">
                     {item.title}
                   </a>
                 </h2>
                 <p className="bookmark-url">{item.url}</p>
-                {item.description ? <p>{item.description}</p> : null}
+                {item.description ? (
+                  <p className="bookmark-description">{item.description}</p>
+                ) : null}
                 <ul className="tags" aria-label="Tags">
                   {item.tags.map((value) => (
                     <li key={value}>{value}</li>
                   ))}
                 </ul>
                 <div className="actions">
-                  <Link to={`/bookmarks/${item.id}/edit`}>Edit</Link>
+                  <Link
+                    className="button button--secondary"
+                    to={`/bookmarks/${item.id}/edit`}
+                  >
+                    Edit
+                  </Link>
                   <button
                     className="secondary"
                     disabled={!!deleting}
@@ -184,7 +203,7 @@ export function BookmarkLibrary() {
           <p>
             {filters.q || filters.tag
               ? "Try another search or clear your filters."
-              : "Save your first link to get started."}
+              : "Save your first bookmark to get started."}
           </p>
         </div>
       )}

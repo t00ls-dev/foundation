@@ -50,7 +50,7 @@ async function signIn(page: Page, address: string) {
   ).toBeVisible();
 }
 async function addBookmark(page: Page, title: string) {
-  await page.getByRole("link", { name: "Add link", exact: true }).click();
+  await page.getByRole("link", { name: "Add bookmark", exact: true }).click();
   await page.getByLabel("Title", { exact: true }).fill(title);
   await page
     .getByLabel("URL", { exact: true })

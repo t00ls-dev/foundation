@@ -116,7 +116,7 @@ export function App() {
         <Link to="/" className="brand">
           Foundation
         </Link>
-        <nav className="cluster" aria-label="Main navigation">
+        <nav className="cluster header-main" aria-label="Main navigation">
           <NavLink to="/" end>
             Home
           </NavLink>
@@ -124,16 +124,26 @@ export function App() {
         </nav>
         {user ? (
           <div className="account">
-            <span>{user.name}</span>
-            <nav className="cluster" aria-label="Account navigation">
+            <span title={user.name}>{user.name}</span>
+            <nav
+              className="cluster header-account"
+              aria-label="Account navigation"
+            >
               <NavLink to="/account">Account</NavLink>
-              <button disabled={signingOut} onClick={() => void signOut()}>
+              <button
+                className="button--quiet"
+                disabled={signingOut}
+                onClick={() => void signOut()}
+              >
                 {signingOut ? "Signing out..." : "Sign out"}
               </button>
             </nav>
           </div>
         ) : !blocked ? (
-          <nav className="cluster" aria-label="Account navigation">
+          <nav
+            className="cluster header-account"
+            aria-label="Account navigation"
+          >
             <Link to={authPath("/login", destination)}>Sign in</Link>
             <Link to={authPath("/signup", destination)}>Create account</Link>
           </nav>
