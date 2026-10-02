@@ -261,6 +261,13 @@ button:disabled {
   justify-content: center;
   text-align: center;
 }
+.app-header nav > * {
+  flex: 1 1 0;
+  line-height: inherit;
+}
+.header-main > a:first-child {
+  flex: 0 1 auto;
+}
 .app-header > .header-account > a {
   flex: 1 1 0;
   max-inline-size: max-content;
@@ -652,6 +659,9 @@ article h2 {
   .app-header nav {
     font-size: var(--text-body);
     gap: var(--space-2);
+  }
+  .app-header nav > * {
+    flex: 0 1 auto;
   }
 }
 @media (forced-colors: active) {

@@ -63,6 +63,12 @@ test("compact header and bookmark layouts preserve targets and long content at 3
       "title",
       name,
     );
+    if (width === 320)
+      await page.locator(".app-header").evaluate((header) => {
+        // Exercise wider fallback-font metrics, not just this host's system-ui.
+        header.style.fontFamily = "Arial, sans-serif";
+        header.style.letterSpacing = "1.5px";
+      });
     const header = await page.locator(".app-header").boundingBox();
     expect(header!.height).toBeLessThanOrEqual(width < 896 ? 112 : 80);
     if (width === 320)
