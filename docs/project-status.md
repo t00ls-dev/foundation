@@ -156,9 +156,17 @@ normal do Vitest para evitar dezenas de summaries fragmentados no GitHub.
 
 - `CI`: executa o gate completo em PRs e pushes para `master`; execuções antigas
   da mesma ref são canceladas.
+- Version Packages é um job isolado da CI de push/master, dependente de
+  `checks`, sem repetir o gate. Compartilha a serialização global com Release
+  manual.
+- `Release`: somente manual; audit/preflight/publisher verificam pela API a CI
+  aprovada do SHA exato, preservando autorização, provenance e checks de
+  registry.
 - `Deploy DEV`: inicia após uma CI verde em `master`, faz checkout do SHA
   validado, aplica migrations D1, implanta e consulta `/health` quando uma URL
-  foi configurada. Não repete a suíte de testes.
+  foi configurada. Verifica evento push/master, repositório de origem,
+  identidade do workflow e job aprovado na mesma tentativa. Não repete a suíte
+  de testes.
 - O Foundation não possui ambiente ou workflow PROD. Aplicações consumidoras
   definem seus próprios ambientes e processos de deploy.
 - `Smoke Hyperdrive`: execução manual contra um endpoint configurado. É apenas

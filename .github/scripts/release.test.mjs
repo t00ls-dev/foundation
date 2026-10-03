@@ -38,6 +38,11 @@ import {
   contentBinding,
   treeAtCommit,
 } from "./release-planning.mjs";
+import {
+  approvedCi,
+  validateCiRun,
+  validateDeployEvent,
+} from "./ci-evidence.mjs";
 
 const sha = "a".repeat(40);
 const record = () => ({
@@ -127,6 +132,10 @@ function inputTree() {
     ".npmrc",
     "tests/distribution.mjs",
     "tooling/typescript-config/base.json",
+    ".github/workflows/ci.yml",
+    ".github/workflows/deploy-dev.yml",
+    ".github/scripts/ci-evidence.mjs",
+    ".github/scripts/release-version.mjs",
     ...names.flatMap((name) => {
       const dir = `packages/${name.split("/")[1]}`;
       return [
@@ -1400,10 +1409,8 @@ test("actual Changesets 3.0.3 pack-directory format works offline without publis
 
 test("workflow cannot publish on push or audit; only publisher has packages:write", () => {
   const workflow = parse(readFileSync(".github/workflows/release.yml", "utf8"));
-  assert.deepEqual(Object.keys(workflow.on).sort(), [
-    "push",
-    "workflow_dispatch",
-  ]);
+  const ci = parse(readFileSync(".github/workflows/ci.yml", "utf8"));
+  assert.deepEqual(Object.keys(workflow.on), ["workflow_dispatch"]);
   assert.equal(workflow.on.workflow_dispatch.inputs.mode.default, "audit");
   assert(!("expected_sha" in workflow.on.workflow_dispatch.inputs));
   assert.equal(workflow.on.workflow_dispatch.inputs.release_sha.required, true);
@@ -1437,17 +1444,47 @@ test("workflow cannot publish on push or audit; only publisher has packages:writ
       condition.includes("needs.preflight.result == 'success'") &&
       condition.includes("inputs.mode == 'publish' || inputs.mode == 'resume'"),
   );
+  assert(!ci.jobs.version.steps.some((step) => step.with?.["publish-script"]));
   assert(
-    !workflow.jobs.version.steps.some((step) => step.with?.["publish-script"]),
-  );
-  assert(
-    workflow.jobs.version.steps.some(
+    ci.jobs.version.steps.some(
       (step) =>
         step.with?.["version-script"] ===
         "node .github/scripts/release-version.mjs",
     ),
   );
   assert.equal(workflow.concurrency["cancel-in-progress"], false);
+  assert.deepEqual(ci.jobs.version.concurrency, workflow.concurrency);
+  assert.equal(ci.jobs.version.needs, "checks");
+  assert(ci.jobs.version.if.includes("github.event_name == 'push'"));
+  assert(ci.jobs.version.if.includes("github.ref == 'refs/heads/master'"));
+  assert.equal(ci.jobs.version.permissions.contents, "write");
+  assert.equal(ci.jobs.version.permissions["pull-requests"], "write");
+  assert(!("packages" in ci.jobs.version.permissions));
+  assert.equal(ci.permissions.contents, "read");
+  assert.equal(
+    ci.jobs.checks.steps.filter((step) => step.run === "pnpm check").length,
+    1,
+  );
+  for (const job of [ci.jobs.version, ...Object.values(workflow.jobs)]) {
+    assert(
+      !job.steps.some((step) =>
+        /pnpm check|playwright install/.test(step.run ?? ""),
+      ),
+    );
+  }
+  for (const job of Object.values(workflow.jobs)) {
+    assert.equal(job.permissions.actions, "read");
+  }
+  assert(
+    workflow.jobs.audit.steps.some(
+      (step) => step.run === "pnpm --filter './packages/*' -r build",
+    ),
+  );
+  assert(
+    !workflow.jobs.preflight.steps.some((step) =>
+      /\bbuild\b/.test(step.run ?? ""),
+    ),
+  );
   assert(workflow.jobs.publish.steps.some((step) => step.if === "always()"));
   const expression = condition.slice(3, -2).trim();
   const valid = {
@@ -1474,4 +1511,224 @@ test("workflow cannot publish on push or audit; only publisher has packages:writ
       runInNewContext(expression, candidate, { timeout: 1000 }),
       false,
     );
+});
+
+const ciWorkflow = () => ({ id: 123, path: ".github/workflows/ci.yml" });
+const ciRun = () => ({
+  id: 100,
+  run_attempt: 2,
+  workflow_id: 123,
+  path: ".github/workflows/ci.yml",
+  repository: { full_name: "t00ls-dev/foundation" },
+  head_repository: { full_name: "t00ls-dev/foundation" },
+  event: "push",
+  head_branch: "master",
+  head_sha: sha,
+  status: "completed",
+  conclusion: "success",
+});
+const ciJob = () => ({
+  name: "checks",
+  run_id: 100,
+  run_attempt: 2,
+  head_sha: sha,
+  status: "completed",
+  conclusion: "success",
+});
+
+test("CI evidence accepts only the exact completed master push and checks attempt", () => {
+  assert.deepEqual(validateCiRun(ciRun(), [ciJob()], ciWorkflow(), sha), {
+    runId: 100,
+    attempt: 2,
+    sha,
+  });
+  for (const patch of [
+    { repository: { full_name: "attacker/foundation" } },
+    { head_repository: { full_name: "attacker/foundation" } },
+    { head_repository: null },
+    { workflow_id: 999 },
+    { path: ".github/workflows/fake.yml" },
+    { event: "pull_request" },
+    { event: "workflow_dispatch" },
+    { head_branch: "feature" },
+    { head_sha: "b".repeat(40) },
+    { status: "in_progress" },
+    ...["failure", "cancelled", "skipped", "neutral", null].map(
+      (conclusion) => ({ conclusion }),
+    ),
+    { run_attempt: 0 },
+    { id: undefined },
+  ])
+    assert.throws(() =>
+      validateCiRun({ ...ciRun(), ...patch }, [ciJob()], ciWorkflow(), sha),
+    );
+  for (const patch of [
+    { name: "version" },
+    { run_id: 999 },
+    { run_attempt: 1 },
+    { head_sha: "b".repeat(40) },
+    { status: "in_progress" },
+    ...["failure", "cancelled", "skipped", "neutral", null].map(
+      (conclusion) => ({ conclusion }),
+    ),
+  ])
+    assert.throws(() =>
+      validateCiRun(ciRun(), [{ ...ciJob(), ...patch }], ciWorkflow(), sha),
+    );
+  for (const jobs of [[], [ciJob(), ciJob()], null])
+    assert.throws(() => validateCiRun(ciRun(), jobs, ciWorkflow(), sha));
+  assert.throws(() =>
+    validateCiRun(
+      ciRun(),
+      [ciJob()],
+      { ...ciWorkflow(), path: "fake.yml" },
+      sha,
+    ),
+  );
+  assert.throws(() =>
+    validateCiRun(ciRun(), [ciJob()], ciWorkflow(), "master"),
+  );
+});
+
+test("deploy event rejects PRs, forks, incomplete runs and invalid SHAs before checkout", () => {
+  const event = { repository: ciRun().repository, workflow_run: ciRun() };
+  assert.equal(validateDeployEvent(event).head_sha, sha);
+  assert.throws(() =>
+    validateDeployEvent({
+      ...event,
+      repository: { full_name: "attacker/foundation" },
+    }),
+  );
+  assert.throws(() =>
+    validateDeployEvent({ ...event, workflow_run: undefined }),
+  );
+  for (const patch of [
+    { repository: { full_name: "attacker/foundation" } },
+    { head_repository: { full_name: "attacker/foundation" } },
+    { event: "pull_request" },
+    { head_branch: "feature" },
+    { head_sha: "master; malicious" },
+    { status: "in_progress" },
+    { conclusion: "failure" },
+    { id: 0 },
+    { run_attempt: undefined },
+  ])
+    assert.throws(() =>
+      validateDeployEvent({ ...event, workflow_run: { ...ciRun(), ...patch } }),
+    );
+});
+
+test("CI lookup binds workflow, newest run, attempt jobs and fails closed on API errors or reruns", async () => {
+  const requests = [];
+  const request = async (url) => {
+    requests.push(url);
+    if (url.endsWith("/actions/workflows/ci.yml")) return ciWorkflow();
+    if (url.includes("/runs?"))
+      return { workflow_runs: [ciRun(), { ...ciRun(), id: 99 }] };
+    if (url.includes("/jobs?")) return { jobs: [ciJob()] };
+    return ciRun();
+  };
+  await approvedCi(sha, { request });
+  assert(
+    requests.some((url) =>
+      url.includes(`head_sha=${sha}&event=push&branch=master`),
+    ),
+  );
+  assert(requests.some((url) => url.includes("/runs/100/attempts/2/jobs?")));
+  assert(!requests.some((url) => url.includes("/runs/99")));
+  for (const override of [
+    async () => {
+      throw new Error("403");
+    },
+    async (url) =>
+      url.includes("/runs?") ? { workflow_runs: [] } : request(url),
+    async (url) => (url.includes("/runs?") ? {} : request(url)),
+    async (url) =>
+      url.endsWith("/runs/100")
+        ? { ...ciRun(), conclusion: "failure" }
+        : request(url),
+    async (url) => (url.includes("/jobs?") ? { jobs: [] } : request(url)),
+  ])
+    await assert.rejects(approvedCi(sha, { request: override }));
+  let reads = 0;
+  await assert.rejects(
+    approvedCi(sha, {
+      request: async (url) => {
+        if (url.endsWith("/runs/100") && ++reads === 2)
+          return { ...ciRun(), run_attempt: 3 };
+        return request(url);
+      },
+    }),
+  );
+  await assert.rejects(
+    approvedCi(sha, { request, origin: { ...ciRun(), run_attempt: 1 } }),
+  );
+  await approvedCi(sha, { request, origin: ciRun() });
+});
+
+test("CI evidence paginates attempt jobs and rejects a newly created run", async () => {
+  let lists = 0;
+  const requestedPages = [];
+  const request = async (url) => {
+    if (url.endsWith("/actions/workflows/ci.yml")) return ciWorkflow();
+    if (url.includes("/runs?")) {
+      lists++;
+      return { workflow_runs: [ciRun()] };
+    }
+    if (url.includes("/jobs?")) {
+      const page = Number(new URL(url).searchParams.get("page"));
+      requestedPages.push(page);
+      return {
+        jobs:
+          page === 1
+            ? Array.from({ length: 100 }, (_, index) => ({
+                name: `other-${index}`,
+              }))
+            : [ciJob()],
+      };
+    }
+    return ciRun();
+  };
+  await approvedCi(sha, { request });
+  assert.deepEqual(requestedPages, [1, 2]);
+  assert.equal(lists, 2);
+  lists = 0;
+  await assert.rejects(
+    approvedCi(sha, {
+      request: async (url) => {
+        const value = await request(url);
+        if (url.includes("/runs?") && lists === 2)
+          return { workflow_runs: [{ ...ciRun(), id: 101 }] };
+        return value;
+      },
+    }),
+  );
+});
+
+test("deploy validates trusted workflow code before exact-SHA checkout and limits secrets", () => {
+  const workflow = parse(
+    readFileSync(".github/workflows/deploy-dev.yml", "utf8"),
+  );
+  const job = workflow.jobs.deploy;
+  const steps = job.steps;
+  assert.equal(workflow.permissions.actions, "read");
+  assert(job.if.includes("github.event.workflow_run.event == 'push'"));
+  assert(
+    job.if.includes(
+      "github.event.workflow_run.head_repository.full_name == 't00ls-dev/foundation'",
+    ),
+  );
+  assert(!job.env);
+  assert.equal(steps[0].with.ref, "${{ github.sha }}");
+  assert.equal(steps[1].run, "node .github/scripts/ci-evidence.mjs deploy");
+  assert.equal(steps[2].with.ref, "${{ steps.ci.outputs.sha }}");
+  for (const step of steps.filter((step) =>
+    step.uses?.startsWith("actions/checkout@"),
+  ))
+    assert.equal(step.with["persist-credentials"], false);
+  assert(
+    !steps.some((step) => step.uses?.startsWith("actions/download-artifact@")),
+  );
+  for (const step of steps.filter((step) => step.env?.CLOUDFLARE_API_TOKEN))
+    assert(["Apply DEV D1 migrations", "Deploy DEV"].includes(step.name));
 });

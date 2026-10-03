@@ -23,9 +23,12 @@ safe-audit-logs) já integram a base inicial `0.1.0`.
    selecionando os pacotes e patch/minor/major apropriados. Não edite versões
    manualmente; dependências internas podem produzir bumps derivados pelo
    Changesets.
-2. Após o merge do PR de desenvolvimento, o workflow Release na `master` instala
-   com lockfile congelado, executa `pnpm check` e cria/atualiza Version
-   Packages. Não há `publish-script`: **pushes nunca publicam pacotes**.
+2. Após o merge do PR de desenvolvimento, a CI de `push` na `master` executa
+   `pnpm check`. Seu job `version`, dependente de `checks`, instala com lockfile
+   congelado e cria/atualiza Version Packages sem repetir o gate. O SHA validado
+   deve continuar sendo master. Não há `publish-script`: **pushes nunca publicam
+   pacotes**. A branch permanece `changeset-release/master`, com commits
+   assinados pela API da Changesets Action e sem commits manuais.
 3. O Version Packages inclui `.changeset/release-plan.json`, registro
    determinístico de packages/versões anteriores e novas, bumps, changesets
    consumidos e seus hashes, dependências que justificam bumps derivados, versão
@@ -55,10 +58,34 @@ fallback. Dispatches antigos não devem ser reutilizados.
 O job audit tem somente leitura de packages. Verifica repositório privado,
 evento/ref/SHA, estado/base/head/autor do PR gerado, commit do bot, registro
 revisado, changesets consumidos e hashes no SHA base. Confere o checkout,
-instalação congelada, `pnpm check`, ausência de changesets ativos, allowlist dos
-nove nomes, demais workspaces privados, UNLICENSED e registry. O registry é
-consultado autenticadamente; erros não são interpretados como versões ausentes.
-Versões inesperadas, downgrade, pacote inacessível ou alvo já publicado falham.
+instalação congelada, CI aprovada do `execution_sha`, ausência de changesets
+ativos, allowlist dos nove nomes, demais workspaces privados, UNLICENSED e
+registry. O registry é consultado autenticadamente; erros não são interpretados
+como versões ausentes. Versões inesperadas, downgrade, pacote inacessível ou
+alvo já publicado falham.
+
+Release consulta a API de Actions com `actions: read` em cada validação de
+contexto, inclusive imediatamente antes e após a publicação. A evidência exige
+repositório e origem `t00ls-dev/foundation`, identidade e path do workflow
+`.github/workflows/ci.yml`, evento `push`, branch `master`, SHA exato, run
+concluído com `success` e exatamente um job `checks` concluído com `success`,
+vinculado ao mesmo run, SHA e tentativa. O run mais recente de push/master desse
+SHA é usado sem fallback para aprovação antiga; uma reexecução pendente ou com
+falha, dados incompletos e erros da API bloqueiam a operação. IDs e tentativa
+são registrados nos logs. A evidência permanece válida enquanto esses requisitos
+forem verificáveis; uma nova tentativa invalida a aprovação anterior até passar.
+
+Audit compila os packages no próprio runner antes de empacotar. Preflight e
+publisher não recompilam nem reempacotam os tarballs autorizados. Não se baixam
+artifacts de CI/PR nem se reutilizam caches de PR como código confiável: o cache
+pnpm usa o escopo de master do GitHub, sem importação de caches de refs de PR. O
+gate completo continua na CI de PR e de master, incluindo integrações, E2E,
+distribuição e contratos de release. Reexecuções explícitas da CI ainda repetem
+o gate, mas Release não o duplica.
+
+Esta mudança exige nova base revisada: CI e o validador compartilhado são inputs
+protegidos. A allowlist de infraestrutura abaixo não foi ampliada para
+reaproveitar releases ou autorizações anteriores.
 
 ### Conteúdo aprovado e executor autorizado
 
@@ -150,7 +177,7 @@ Em uma execução separada, Release em `master` exige:
 - `plan_digest` exato revisado;
 - `audit_run`: ID do audit bem-sucedido que possui os artifacts.
 
-Um preflight só-leitura reexecuta os checks e revalida master/PR/registro,
+Um preflight só-leitura revalida a CI do SHA exato e master/PR/registro,
 proveniência da execução audit, digest, tarballs e registry. Não reempacota os
 artifacts autorizados. Um job separado com `packages: write` repete os gates
 imediatamente antes da tentativa. Autenticação usa exclusivamente
@@ -168,8 +195,9 @@ pnpm exec changeset publish --from-pack-dir <diretório-validado> --no-git-tag
 ```
 
 Não há GitHub Releases nem tags Git automáticas. O plano preserva os grupos de
-dependências calculados pelo Changesets. As operações têm concurrency global e
-não cancelam uma publicação em andamento. Não existe retry automático.
+dependências calculados pelo Changesets. As operações e o job de versionamento
+da CI têm concurrency global e não cancelam uma publicação em andamento. Não
+existe retry automático.
 
 ## Reconciliação e resume
 
@@ -207,8 +235,9 @@ existentes e SemVer estável.
 ## Permissões e limitações
 
 - Versionamento: contents/pull-requests write, sem packages write.
-- Audit: contents/pull-requests/packages read.
-- Preflight: adiciona actions read para recuperar o artifact do audit.
+- Audit: contents/pull-requests/packages/actions read.
+- Preflight: contents/pull-requests/packages/actions read; recupera o artifact
+  do audit.
 - Publish/resume: contents/pull-requests/actions read e packages write; sem PAT,
   contents write, aprovação automática de PR, OIDC npmjs ou criação de Releases.
 

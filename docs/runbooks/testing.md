@@ -10,6 +10,13 @@ Ele verifica a formatação e executa lint, typecheck, testes unitários,
 integrações, builds e Playwright. O Docker deve estar disponível para PostgreSQL
 por Testcontainers. O Playwright requer Chromium instalado.
 
+Em Actions, o gate completo e a instalação Chromium ficam no job `checks` da CI,
+tanto em PR como no push de master. Version Packages depende desse job; Release
+manual valida pela API a CI aprovada do `execution_sha` exato, sem repetir a
+suíte. Não se substituem testes por cache de resultados. Reexecuções explícitas
+da CI e SHAs distintos (PR/merge) continuam sendo validados integralmente. Veja
+[Pacotes](packages.md) para os requisitos da evidência reutilizada.
+
 ## Durante o desenvolvimento
 
 Execute primeiro o pacote alterado:

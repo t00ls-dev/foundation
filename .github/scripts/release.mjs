@@ -37,6 +37,7 @@ import {
   contentBinding,
   treeAtCommit,
 } from "./release-planning.mjs";
+import { approvedCi } from "./ci-evidence.mjs";
 
 const require = createRequire(import.meta.url);
 const recordPath = ".changeset/release-plan.json";
@@ -100,6 +101,12 @@ async function context() {
     run("git", ["rev-parse", "HEAD"]).trim(),
     value.executionSha,
     "Checkout must match authorized execution SHA",
+  );
+  await approvedCi(value.executionSha);
+  assert.equal(
+    (await request(`${gh}/git/ref/heads/master`)).object.sha,
+    value.executionSha,
+    "Master advanced while validating CI evidence",
   );
   return value;
 }

@@ -39,3 +39,41 @@ jobs:
 
       - name: Run checks
         run: pnpm check
+
+  version:
+    if:
+      github.event_name == 'push' && github.ref == 'refs/heads/master' &&
+      github.repository == 't00ls-dev/foundation'
+    needs: checks
+    runs-on: ubuntu-24.04
+    # Shared with manual Release; never interrupt a publication.
+    concurrency:
+      group: foundation-private-release
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.23.2
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Require the validated SHA to remain master
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run:
+          test "$(gh api repos/t00ls-dev/foundation/git/ref/heads/master --jq
+          .object.sha)" = "$EXPECTED_SHA"
+      - name: Create or update Version Packages and reviewed release record
+        uses: changesets/action@v2.1.2
+        with:
+          version-script: node .github/scripts/release-version.mjs
+          create-github-releases: false
+          push-git-tags: false
+          # Deliberately no publish-script: pushes can never publish packages.
