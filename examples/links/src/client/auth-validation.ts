@@ -9,6 +9,10 @@ const formSchema = z.object({
     .optional(),
   currentPassword: z.string().optional(),
   confirmPassword: z.string().optional(),
+  code: z
+    .string()
+    .regex(/^\d{6}$/, "Enter the six-digit authenticator code")
+    .optional(),
 });
 
 export type FormValues = z.infer<typeof formSchema>;

@@ -88,7 +88,7 @@ describe("Foundation TOTP integration on the production Links D1 migration", () 
     expect(after.data?.user.twoFactorEnabled).toBe(true);
   });
 
-  it("blocks enrollment in the actual Links handler before the UI rollout", async () => {
+  it("allows TOTP enrollment in the Links handler without activating before confirmation", async () => {
     const jar = await h.signup();
     const app = createApp(() => ({ send: h.captureEmail }));
     const env = {
@@ -112,7 +112,12 @@ describe("Foundation TOTP integration on the production Links D1 migration", () 
       },
       env,
     );
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(200);
+    const setup = z
+      .object({ backupCodes: z.array(z.string()), totpURI: z.string() })
+      .parse(await response.json());
+    expect(setup.backupCodes).toEqual([]);
+    expect(new URL(setup.totpURI).searchParams.get("issuer")).toBe("Links");
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect((await resolved(jar)).data?.user.twoFactorEnabled).toBe(false);
     const security = await app.request(

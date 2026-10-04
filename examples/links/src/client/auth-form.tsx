@@ -70,6 +70,7 @@ export function AsyncForm(props: {
   return (
     <FormProvider {...form}>
       <form
+        aria-label={props.title}
         noValidate
         aria-busy={pending}
         aria-describedby={feedback ? feedbackId : undefined}
@@ -101,6 +102,8 @@ export function FormField(props: {
   minLength?: number;
   name: keyof FormValues;
   type?: "email" | "password" | "text";
+  inputMode?: "numeric";
+  maxLength?: number;
 }) {
   const inputId = useId();
   const errorId = `${inputId}-error`;
@@ -121,6 +124,8 @@ export function FormField(props: {
           minLength={props.minLength}
           type={props.type}
           autoComplete={props.autoComplete}
+          inputMode={props.inputMode}
+          maxLength={props.maxLength}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
         />

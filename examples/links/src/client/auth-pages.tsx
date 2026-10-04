@@ -10,13 +10,27 @@ import {
 import { GoogleSignIn } from "./google-sign-in.js";
 import { authDestination, authPath } from "./auth-destination.js";
 import { checkResetToken, type ResetTokenResult } from "./reset-token.js";
+import {
+  currentSessionGeneration,
+  registerSessionRequest,
+  releaseSessionRequest,
+} from "./session-generation.js";
+import {
+  passwordChallenge,
+  totpPolicy,
+  totpUnconfirmed,
+  type PasswordChallenge,
+} from "./totp.js";
+import { readTotpSession } from "./totp-session.js";
 
 export function AuthPage({
   mode,
   onSignedIn,
+  onChallenge,
 }: {
   mode: "login" | "signup" | "magic" | "recover";
   onSignedIn: () => Promise<void>;
+  onChallenge?: (challenge: PasswordChallenge) => void;
 }) {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -28,6 +42,8 @@ export function AuthPage({
     recover: "Reset password",
   }[mode];
   const hasPassword = mode === "login" || mode === "signup";
+  const loginRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => loginRequest.current?.abort(), [mode]);
   async function submit(data: FormValues): Promise<Feedback> {
     const email = field(data, "email");
     if (mode === "signup") {
@@ -42,15 +58,76 @@ export function AuthPage({
       return feedback(result.error, "Check your email to verify your account");
     }
     if (mode === "login") {
-      const result = await authClient.signIn.email({
-        email,
-        password: field(data, "password"),
-      });
-      if (!result.error) {
-        await onSignedIn();
-        await navigate(destination);
+      const controller = registerSessionRequest();
+      loginRequest.current = controller;
+      const generation = currentSessionGeneration();
+      const active = () =>
+        !controller.signal.aborted &&
+        window.location.pathname === "/login" &&
+        generation === currentSessionGeneration();
+      async function challengePage(available: boolean, uncertain: boolean) {
+        onChallenge?.({
+          email: email.toLowerCase(),
+          destination,
+          available,
+          uncertain,
+        });
+        await navigate(authPath("/two-factor", destination));
       }
-      return feedback(result.error, "Signed in");
+      try {
+        const result = await authClient.signIn.email({
+          email,
+          password: field(data, "password"),
+          fetchOptions: {
+            signal: controller.signal,
+            retry: 0,
+            disableSignal: true,
+          },
+        });
+        if (!active())
+          return { kind: "error", message: totpUnconfirmed, clearFields: true };
+        if (result.error) {
+          if (
+            result.error.status >= 500 ||
+            result.error.code === "AUTH_STATE_INDETERMINATE"
+          ) {
+            await challengePage(false, true);
+            return {
+              kind: "error",
+              message: totpUnconfirmed,
+              clearFields: true,
+            };
+          }
+          return feedback(result.error, "Signed in");
+        }
+        const challenge = passwordChallenge(result.data);
+        if (challenge) {
+          await challengePage(challenge.available, false);
+          return {
+            kind: "success",
+            message: "Authenticator code required.",
+            clearFields: true,
+          };
+        }
+        const resolved = await readTotpSession(controller.signal);
+        if (!active())
+          return { kind: "error", message: totpUnconfirmed, clearFields: true };
+        if (
+          !resolved ||
+          resolved.user.email.toLowerCase() !== email.toLowerCase()
+        )
+          throw new Error("Identity not confirmed");
+        releaseSessionRequest(controller);
+        await onSignedIn();
+        if (!controller.signal.aborted) await navigate(destination);
+        return { kind: "success", message: "Signed in", clearFields: true };
+      } catch {
+        if (active()) await challengePage(false, true);
+        return { kind: "error", message: totpUnconfirmed, clearFields: true };
+      } finally {
+        releaseSessionRequest(controller);
+        if (loginRequest.current === controller) loginRequest.current = null;
+      }
     }
     if (mode === "magic") {
       const result = await authClient.signIn.magicLink({
@@ -73,6 +150,7 @@ export function AuthPage({
       <div className="cross-page-intro">
         <h1>{title === "Sign in" ? "Your links, in one place." : title}</h1>
         <p>Save useful bookmarks in your own private library.</p>
+        {mode === "login" || mode === "magic" ? <p>{totpPolicy}</p> : null}
       </div>
       <AsyncForm
         key={mode}

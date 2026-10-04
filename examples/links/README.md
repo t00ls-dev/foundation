@@ -170,6 +170,13 @@ remoto é disparado pelos testes da UI.
 
 ### Account Settings
 
+Account also provides the password-only authenticator flow: password → local
+QR/setup key → six-digit confirmation, with password-based disable. Password
+sign-in with `twoFactorRedirect` moves to `/two-factor` before any
+completed-login navigation. Magic Link and Google remain alternatives without a
+Links TOTP challenge; this is not account-wide MFA. See
+[TOTP flows and recovery](../../docs/runbooks/links-totp.md).
+
 `/account` is the canonical authenticated page. The legacy `/account/security`
 URL redirects to it, preserving query/fragment and authentication return paths.
 The Account section always provides an editable Name with explicit **Save

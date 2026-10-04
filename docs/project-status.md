@@ -88,11 +88,11 @@ package é `@t00ls-dev/example-links`. Demonstra:
   cadastro/verificação/login/logout, persistência, isolamento e respostas
   atrasadas;
 - harness E2E com banco temporário e e-mails capturados, sem providers externos.
-- Backend TOTP opt-in pelo wrapper auth, com schema/migration D1 e limiter em
-  database. Enrollment HTTP permanece bloqueado até a UI/challenge completos;
-  Magic Link/Google continuam alternativas sem TOTP. Backup codes, OTP e trusted
-  devices são bloqueados. Veja a
-  [integração](../examples/links/test/integration/totp-integration.md).
+- TOTP password-only: Account oferece senha → QR/key local → confirmação e
+  desativação com senha; login por senha passa por `/two-factor` antes de
+  concluir sessão/retorno privado. Magic Link/Google continuam alternativas sem
+  TOTP. Backend opt-in, schema D1 e limiter database já existentes; sem backup
+  codes, OTP ou trusted devices. Veja o [fluxo](runbooks/links-totp.md).
 
 O ambiente local usa `.dev.vars.example` como contrato de nomes de secrets, sem
 versionar valores reais.

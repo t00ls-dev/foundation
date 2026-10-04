@@ -14,6 +14,8 @@ import { AccountSettings } from "./account-settings.js";
 import { BookmarkEditor } from "./bookmark-editor.js";
 import { BookmarkLibrary } from "./bookmark-library.js";
 import { Home } from "./home.js";
+import { TotpChallenge } from "./totp-challenge.js";
+import type { PasswordChallenge } from "./totp.js";
 import { authDestination, authPath } from "./auth-destination.js";
 import {
   invalidateSessionGeneration,
@@ -24,6 +26,10 @@ export function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const session = authClient.useSession();
+  const [challenge, setChallenge] = useState<PasswordChallenge | null>(null);
+  useEffect(() => {
+    if (location.pathname !== "/two-factor") setChallenge(null);
+  }, [location.pathname]);
   const [expired, setExpired] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -174,7 +180,11 @@ export function App() {
               user ? (
                 <Navigate to={destination} replace />
               ) : (
-                <AuthPage mode="login" onSignedIn={signedIn} />
+                <AuthPage
+                  mode="login"
+                  onSignedIn={signedIn}
+                  onChallenge={setChallenge}
+                />
               )
             }
           />
@@ -198,6 +208,21 @@ export function App() {
           />
           <Route path="/verify-email" element={<Verification />} />
           <Route
+            path="/two-factor"
+            element={
+              <TotpChallenge
+                challenge={challenge}
+                destination={destination}
+                onSignedIn={signedIn}
+                onReconciling={() =>
+                  setChallenge((value) =>
+                    value ? { ...value, uncertain: true } : null,
+                  )
+                }
+              />
+            }
+          />
+          <Route
             path="/reset-password"
             element={<ResetPassword authenticated={Boolean(user)} />}
           />
@@ -208,6 +233,7 @@ export function App() {
                 <AccountSettings
                   user={user}
                   onSessionChanged={signedIn}
+                  sessionId={session.data?.session.id ?? ""}
                   onNameChanged={async () => {
                     await session.refetch();
                   }}

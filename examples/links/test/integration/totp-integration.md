@@ -1,9 +1,10 @@
 # Integração TOTP — etapa 2
 
-O Links instala TOTP pelo wrapper Foundation e compõe schema/migration D1, mas
-mantém `/two-factor/enable` bloqueado. A UI e o tratamento de challenge no
-cliente não foram implementados; habilitar enrollment pertence à próxima etapa.
-Não há opção pública de environment para liberar enrollment nesta entrega.
+A etapa 2 instalou TOTP pelo wrapper Foundation e compôs schema/migration D1,
+mantendo enrollment bloqueado até o cliente completo. A etapa 3 agora libera
+`/two-factor/enable` junto com Account/QR/confirmação e o challenge de senha.
+Veja o [fluxo do usuário](../../../../docs/runbooks/links-totp.md). Não há flag
+pública de environment que contorne os guards de backup/OTP/trusted device.
 
 Política: TOTP protege login com senha. Magic Link e Google continuam
 alternativas sem desafio local, inclusive em lockout. Senha é necessária para
@@ -53,6 +54,6 @@ migration, não para implementar TOTP ou criar/observar seu estado funcional.
 Characterization permanece independente com seu schema isolado e migrations
 base.
 
-Antes de ativar UI/enrollment: tratar `twoFactorRedirect` sem anunciar login,
-preservar cookies, reconciliar estado/identidade após rotações, comunicar
-alcance password-only e alternativas, e cobrir fluxos desktop/mobile no cliente.
+A UI trata `twoFactorRedirect` antes de anunciar login e só conclui após sessão
+autoritativa da identidade esperada. Cookies, rotações, erros indeterminados,
+limpeza de secrets e respostas antigas são cobertos em desktop/mobile.

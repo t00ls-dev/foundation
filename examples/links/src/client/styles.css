@@ -188,6 +188,16 @@ button:disabled {
   flex: 1;
   border-top: var(--border);
 }
+.totp-qr {
+  display: block;
+  background: white;
+  inline-size: min(16rem, 100%);
+  block-size: auto;
+}
+.totp-secret {
+  font-family: ui-monospace, monospace;
+  font-size: var(--text-small);
+}
 :focus-visible {
   outline: var(--focus-ring);
   outline-offset: 3px;
