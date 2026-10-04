@@ -46,7 +46,7 @@ async function reader(page: Page) {
   ).toBeVisible();
   await page.goto("/account");
   await expect(
-    settings(page).getByText("Password sign-in authenticator: Off", {
+    settings(page).getByText("Off", {
       exact: true,
     }),
   ).toBeVisible();
@@ -83,7 +83,7 @@ async function confirm(page: Page, uri: string) {
   await settings(page).getByRole("button", { name: "Confirm code" }).click();
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await expect(
-    settings(page).getByText("Password sign-in authenticator: On", {
+    settings(page).getByText("On", {
       exact: true,
     }),
   ).toBeVisible();
@@ -120,7 +120,7 @@ test("enrolls with a local QR, confirms authoritative rotation, challenges passw
       name: "Authenticator settings",
       includeHidden: true,
     }),
-  ).toContainText("password sign-in only");
+  ).toContainText("Adds an authenticator code to password sign-in.");
   const secret = new URL(uri).searchParams.get("secret")!;
   const persisted = await page.evaluate(() =>
     JSON.stringify([
@@ -177,7 +177,7 @@ test("enrolls with a local QR, confirms authoritative rotation, challenges passw
     .click();
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await expect(
-    settings(page).getByText("Password sign-in authenticator: Off", {
+    settings(page).getByText("Off", {
       exact: true,
     }),
   ).toBeVisible();
@@ -259,8 +259,8 @@ for (const [code, status, text] of [
       0,
     );
     await expect(
-      page.getByRole("link", { name: "Use Magic Link instead" }),
-    ).toHaveAttribute("href", "/magic-link?next=%2Faccount");
+      page.getByRole("link", { name: "Use another sign-in method" }),
+    ).toHaveAttribute("href", "/login?next=%2Faccount");
     expect(calls).toBe(1);
     expect(
       (await page.locator("body").innerText()).includes(
@@ -309,7 +309,7 @@ test("handles lost confirmation response as indeterminate, clears secrets and re
   ).toBeVisible();
   await page.goto(await mail(page, email, "Sign in"));
   await expect(
-    settings(page).getByText("Last reported status: On", {
+    settings(page).getByText("Last reported: On", {
       exact: true,
     }),
   ).toBeVisible();
@@ -433,7 +433,7 @@ test("suppresses a late confirmation after logout and another identity signs in"
   expect(a === b).toBe(false);
   release();
   await expect(
-    settings(page).getByText("Password sign-in authenticator: Off", {
+    settings(page).getByText("Off", {
       exact: true,
     }),
   ).toBeVisible();
@@ -582,6 +582,14 @@ test("normal Off and On never expose recovery and unknown never becomes Off", as
   page,
 }) => {
   await reader(page);
+  const status = settings(page).getByRole("status", {
+    name: "Authenticator status",
+  });
+  await expect(status).toHaveText("Off");
+  await expect(settings(page)).not.toContainText(
+    "Password sign-in authenticator:",
+  );
+  await expect(settings(page)).not.toContainText("No recovery codes");
   await expect(
     page.getByRole("button", { name: "Finish interrupted setup" }),
   ).toHaveCount(0);
@@ -596,6 +604,7 @@ test("normal Off and On never expose recovery and unknown never becomes Off", as
   await page.getByRole("button", { name: "Cancel name edit" }).click();
   const uri = await begin(page);
   await confirm(page, uri);
+  await expect(status).toHaveText("On");
   await expect(
     page.getByRole("button", { name: "Turn off", exact: true }),
   ).toBeVisible();
@@ -612,11 +621,9 @@ test("normal Off and On never expose recovery and unknown never becomes Off", as
   });
   await page.reload();
   await expect(
-    page.getByText("Authenticator status: Unknown", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("Password sign-in authenticator: Off", { exact: true }),
-  ).toHaveCount(0);
+    page.getByRole("status", { name: "Authenticator status" }),
+  ).toHaveText("Unknown");
+  await expect(page.getByText("Off", { exact: true })).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Set up", exact: true }),
   ).toHaveCount(0);
@@ -879,7 +886,7 @@ test("setup completion waits for authoritative reconciliation and cleans fields 
   await expect(page.getByLabel("Setup key")).toHaveCount(0);
   await expect(page.getByLabel("Authenticator code")).toHaveCount(0);
   await expect(
-    settings(page).getByText("Password sign-in authenticator: On", {
+    settings(page).getByText("On", {
       exact: true,
     }),
   ).toBeVisible();
@@ -902,8 +909,12 @@ test("an observed incomplete verification keeps Account recovery contextual afte
   await expect(page.getByRole("alert")).toContainText(
     "setup needs to be checked",
   );
-  await page.getByRole("link", { name: "Use Magic Link instead" }).click();
-  await page.getByLabel("Email", { exact: true }).fill(email);
+  await page.getByRole("link", { name: "Use another sign-in method" }).click();
+  await page.getByRole("link", { name: "Use a magic link" }).click();
+  await page
+    .getByRole("form", { name: "Magic link", exact: true })
+    .getByLabel("Email", { exact: true })
+    .fill(email);
   await page.getByRole("button", { name: "Send link", exact: true }).click();
   await expect(
     page.getByText("Magic link sent", { exact: true }),
@@ -929,4 +940,116 @@ test("an observed incomplete verification keeps Account recovery contextual afte
   await expect(
     page.getByRole("button", { name: "Finish interrupted setup" }),
   ).toHaveCount(0);
+});
+
+test("normal challenge centers the code and another method abandons its context before normal sign-in", async ({
+  page,
+}) => {
+  const email = await reader(page);
+  const uri = await begin(page);
+  await confirm(page, uri);
+  await signOut(page);
+  await page.route("**/api/config", (route) =>
+    route.fulfill({ json: { googleEnabled: true } }),
+  );
+  await login(page, email, "/account");
+  const region = page.getByRole("region", { name: "Authenticator sign-in" });
+  await expect(
+    region.getByRole("heading", { name: "Enter your authenticator code" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Authenticator code")).toBeFocused();
+  await expect(
+    region.getByRole("button", { name: "Continue with Google" }),
+  ).toHaveCount(0);
+  await expect(
+    region.getByRole("link", { name: /Magic Link|password reset/i }),
+  ).toHaveCount(0);
+  await expect(region).not.toContainText("No private access");
+  await expect(region).not.toContainText("ten minutes");
+  let verifications = 0;
+  await page.route("**/api/auth/two-factor/verify-totp", async (route) => {
+    verifications++;
+    await route.continue();
+  });
+  await page.getByLabel("Authenticator code").fill("123456");
+  await page.getByRole("link", { name: "Use another sign-in method" }).click();
+  await expect(page).toHaveURL(/\/login\?next=%2Faccount$/);
+  await expect(signIn(page)).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Continue with Google" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Authenticator code")).toHaveCount(0);
+  expect(verifications).toBe(0);
+  expect((await page.request.get("/api/bookmarks")).status()).toBe(401);
+  await page.goto("/two-factor?next=%2Faccount");
+  await expect(page.getByRole("alert")).toContainText(
+    "Start a new password sign-in",
+  );
+  await expect(page.getByLabel("Authenticator code")).toHaveCount(0);
+  await page.getByRole("link", { name: "Use another sign-in method" }).click();
+  await page.getByRole("link", { name: "Use a magic link" }).click();
+  await expect(page).toHaveURL(/\/magic-link\?next=%2Faccount$/);
+  await page
+    .getByRole("form", { name: "Magic link", exact: true })
+    .getByLabel("Email", { exact: true })
+    .fill(email);
+  await page.getByRole("button", { name: "Send link", exact: true }).click();
+  await expect(
+    page.getByText("Magic link sent", { exact: true }),
+  ).toBeVisible();
+  await page.goto(await mail(page, email, "Sign in"));
+  await expect(
+    settings(page).getByRole("status", { name: "Authenticator status" }),
+  ).toHaveText("On");
+  expect(verifications).toBe(0);
+});
+
+test("another sign-in method aborts an in-flight verification without accepting stale feedback or cookies as context", async ({
+  page,
+}) => {
+  const email = await reader(page);
+  const uri = await begin(page);
+  await confirm(page, uri);
+  await signOut(page);
+  await login(page, email);
+  await expect(page.getByRole("button", { name: "Verify code" })).toBeVisible();
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let calls = 0;
+  await page.route("**/api/auth/two-factor/verify-totp", async (route) => {
+    calls++;
+    await held;
+    await route
+      .fulfill({ status: 500, json: { code: "AUTH_STATE_INDETERMINATE" } })
+      .catch(() => undefined);
+  });
+  await page.getByLabel("Authenticator code").fill(totp(uri));
+  await page.getByRole("button", { name: "Verify code" }).click();
+  await expect.poll(() => calls).toBe(1);
+  const aborted = page.waitForEvent(
+    "requestfailed",
+    (request) =>
+      new URL(request.url()).pathname === "/api/auth/two-factor/verify-totp",
+  );
+  await page.getByRole("link", { name: "Use another sign-in method" }).click();
+  await aborted;
+  await expect(signIn(page)).toBeVisible();
+  release();
+  await page.unrouteAll({ behavior: "wait" });
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.getByLabel("Authenticator code")).toHaveCount(0);
+  expect(calls).toBe(1);
+  await page.goto("/two-factor");
+  await expect(page.getByRole("alert")).toContainText(
+    "Start a new password sign-in",
+  );
+  await expect(page.getByLabel("Authenticator code")).toHaveCount(0);
+  await login(page, email);
+  await page.getByLabel("Authenticator code").fill(totp(uri));
+  await page.getByRole("button", { name: "Verify code" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Your bookmarks" }),
+  ).toBeVisible();
 });

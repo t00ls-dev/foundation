@@ -40,8 +40,13 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
         id={scope}
         theme="light"
         position="bottom-right"
+        mobileOffset={{
+          bottom: "max(16px, env(safe-area-inset-bottom))",
+          left: 16,
+          right: 16,
+        }}
         closeButton
-        toastOptions={{ className: "foundation-toast" }}
+        toastOptions={{ className: "foundation-toast", unstyled: true }}
       />
     </FeedbackContext.Provider>
   );

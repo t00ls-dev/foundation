@@ -39,6 +39,9 @@ ARIA; aplique classes visuais explícitas.
   identidade mantém estrutura e conteúdo; erro recuperável é contextual.
 - `PendingButton` bloqueia a ação e comunica `aria-busy`, spinner oculto e label
   explícita. Não prometa porcentagem, sucesso ou rollback de resultado incerto.
+- Button preenchido (default/destructive) mantém o foreground do variant mesmo
+  quando o consumidor passa `text-inherit`; use outline/ghost para superfícies
+  secundárias. Isso preserva contraste sem overrides locais em cada formulário.
 - Movimento reduzido elimina animações, preservando indicação visual estática.
 
 ## Feedback
@@ -56,18 +59,23 @@ ARIA; aplique classes visuais explícitas.
 - Sem toast de loading, sem sucesso redundante toast + alert + mensagem. Não use
   `toast.promise` em auth; HTTP concluído não comprova reconciliação. Use o
   padrão scoped, sem importar `toast` diretamente nos apps.
+- Sonner usa apresentação Foundation compacta, com ícone de sucesso e close de
+  44px dentro do toast. Os estilos são scoped/unlayered para coexistir com o CSS
+  unlayered injetado pelo Sonner; margens mobile respeitam a safe area. Duração,
+  deduplicação e fronteiras de identidade permanecem no provider existente.
 - Estado desconhecido nunca vira estado negativo (TOTP desconhecido ≠ Off).
   Settings escolhe Dialog ou inline pela tarefa, não por obrigatoriedade global.
 
 ## Fronteiras
 
 `SettingSection`, `SettingRow` e `SettingFlow` organizam settings sem conhecer
-domínio/API. O consumidor controla uma tarefa aberta por vez. Dialog requer
-título/descrição e descarta os campos ao fechar; usa portal, trap, Escape e
-scroll em viewport estreito. O app restaura foco num controle estável quando a
-sessão rotaciona e substitui o trigger original. Collapsible não deve usar
-`forceMount` para secrets: renderize o conteúdo sensível somente quando aberto.
-O app mantém feedback de clipboard local e ignora promises após unmount.
+domínio/API. SettingFlow fornece espaçamento sem um card adicional; o consumidor
+controla uma tarefa aberta por vez. Dialog requer título/descrição e descarta os
+campos ao fechar; usa portal, trap, Escape e scroll em viewport estreito. O app
+restaura foco num controle estável quando a sessão rotaciona e substitui o
+trigger original. Collapsible não deve usar `forceMount` para secrets: renderize
+o conteúdo sensível somente quando aberto. O app mantém feedback de clipboard
+local e ignora promises após unmount.
 
 AlertDialog é a confirmação de uma ação destrutiva, com título/descrição
 obrigatórios no consumidor, Cancel como foco inicial, trap de foco, Escape e

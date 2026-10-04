@@ -325,6 +325,7 @@ export function App() {
                 path="/two-factor"
                 element={
                   <TotpChallenge
+                    onAbandon={() => setChallenge(null)}
                     onRecoveryObserved={() => {
                       if (challenge)
                         setAuthenticatorRecoveryEmail(challenge.email);

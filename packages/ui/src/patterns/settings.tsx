@@ -46,9 +46,5 @@ export function SettingRow({
   );
 }
 export function SettingFlow({ children }: { children: ReactNode }) {
-  return (
-    <div className="grid gap-4 rounded-md border border-border bg-background p-4">
-      {children}
-    </div>
-  );
+  return <div className="grid gap-4">{children}</div>;
 }

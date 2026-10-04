@@ -7,19 +7,13 @@ import {
   type Feedback,
   type FormValues,
 } from "./auth-form.js";
-import { GoogleSignIn } from "./google-sign-in.js";
 import { authPath } from "./auth-destination.js";
 import {
   currentSessionGeneration,
   registerSessionRequest,
   releaseSessionRequest,
 } from "./session-generation.js";
-import {
-  totpError,
-  totpPolicy,
-  totpUnconfirmed,
-  type PasswordChallenge,
-} from "./totp.js";
+import { totpError, totpUnconfirmed, type PasswordChallenge } from "./totp.js";
 import { readTotpSession } from "./totp-session.js";
 import { InlineFeedback } from "@t00ls-dev/ui/patterns/inline-feedback";
 import { PendingButton } from "@t00ls-dev/ui/patterns/pending-button";
@@ -30,12 +24,14 @@ export function TotpChallenge({
   onSignedIn,
   onReconciling,
   onRecoveryObserved,
+  onAbandon,
 }: {
   challenge: PasswordChallenge | null;
   destination: string;
   onSignedIn: () => Promise<void>;
   onReconciling: () => void;
   onRecoveryObserved: () => void;
+  onAbandon: () => void;
 }) {
   const navigate = useNavigate();
   const [blocked, setBlocked] = useState(
@@ -195,12 +191,8 @@ export function TotpChallenge({
 
   return (
     <section className="auth-page stack" aria-label="Authenticator sign-in">
-      <h1>Confirm password sign-in</h1>
-      <p>{totpPolicy}</p>
-      <p>
-        No private access is granted by a password challenge alone. Challenges
-        expire after ten minutes.
-      </p>
+      <h1>Enter your authenticator code</h1>
+      <p>Use the six-digit code from your authenticator app.</p>
       {blocked ? (
         <>
           <InlineFeedback tone="error" announce="assertive">
@@ -218,6 +210,7 @@ export function TotpChallenge({
         </>
       ) : (
         <AsyncForm
+          hideTitle
           title="Authenticator sign-in code"
           submitLabel="Verify code"
           pendingLabel="Verifying code..."
@@ -225,6 +218,7 @@ export function TotpChallenge({
           requiredFields={["code"]}
         >
           <FormField
+            autoFocus
             label="Authenticator code"
             name="code"
             autoComplete="one-time-code"
@@ -233,19 +227,12 @@ export function TotpChallenge({
           />
         </AsyncForm>
       )}
-      <GoogleSignIn />
       <nav
         className="auth-links"
         aria-label="Authenticator sign-in alternatives"
       >
-        <Link to={authPath("/login", destination)}>
-          Start a new password sign-in
-        </Link>
-        <Link to={authPath("/magic-link", destination)}>
-          Use Magic Link instead
-        </Link>
-        <Link to={authPath("/forgot-password", destination)}>
-          Password reset (does not remove TOTP)
+        <Link to={authPath("/login", destination)} replace onClick={onAbandon}>
+          Use another sign-in method
         </Link>
       </nav>
     </section>

@@ -12,6 +12,7 @@ import { authFormSchema, type FormValues } from "./auth-validation.js";
 import { Input } from "@t00ls-dev/ui/components/input";
 import { PendingButton } from "@t00ls-dev/ui/patterns/pending-button";
 import { InlineFeedback } from "@t00ls-dev/ui/patterns/inline-feedback";
+import { cn } from "@t00ls-dev/ui/lib/utils";
 export type { FormValues } from "./auth-validation.js";
 
 export type Feedback = {
@@ -30,6 +31,7 @@ export function AsyncForm(props: {
   title: string;
   requiredFields: Array<keyof FormValues>;
   hideTitle?: boolean;
+  className?: string;
 }) {
   const feedbackId = useId();
   const [feedback, setFeedback] = useState<Feedback>();
@@ -88,7 +90,7 @@ export function AsyncForm(props: {
         aria-busy={pending}
         aria-describedby={feedback ? feedbackId : undefined}
         onSubmit={validate}
-        className="grid gap-4"
+        className={cn("grid gap-4", props.className)}
       >
         {props.hideTitle ? null : (
           <h2 className="m-0 text-lg font-semibold">{props.title}</h2>

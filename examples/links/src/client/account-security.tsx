@@ -196,44 +196,49 @@ export function AccountSecurity({
           </>
         ) : !open ? null : passwordPresent ? (
           <SettingFlow>
-            <>
-              <p>
-                Changing your password signs out other sessions. This browser
-                receives a replacement session.
-              </p>
-              <AsyncForm
-                title="Change password"
-                action={change}
-                submitLabel="Change password"
-                pendingLabel="Changing password..."
-                requiredFields={[
-                  "currentPassword",
-                  "password",
-                  "confirmPassword",
-                ]}
-              >
-                <FormField
-                  autoFocus
-                  label="Current password"
-                  name="currentPassword"
-                  type="password"
-                  autoComplete="current-password"
-                />
-                <FormField
-                  label="New password"
-                  name="password"
-                  type="password"
-                  autoComplete="new-password"
-                  minLength={8}
-                />
-                <FormField
-                  label="Confirm new password"
-                  name="confirmPassword"
-                  type="password"
-                  autoComplete="new-password"
-                />
-              </AsyncForm>
-            </>
+            <p>
+              Changing your password signs out other sessions. This browser
+              receives a replacement session.
+            </p>
+            <AsyncForm
+              hideTitle
+              className="border-0 bg-transparent p-0"
+              title="Change password"
+              action={change}
+              submitLabel="Change password"
+              pendingLabel="Changing password..."
+              requiredFields={[
+                "currentPassword",
+                "password",
+                "confirmPassword",
+              ]}
+              alternativeAction={
+                <Link className="text-sm" to="/forgot-password">
+                  Forgot your current password? Use password reset
+                </Link>
+              }
+            >
+              <FormField
+                autoFocus
+                label="Current password"
+                name="currentPassword"
+                type="password"
+                autoComplete="current-password"
+              />
+              <FormField
+                label="New password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                minLength={8}
+              />
+              <FormField
+                label="Confirm new password"
+                name="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+              />
+            </AsyncForm>
           </SettingFlow>
         ) : (
           <SettingFlow>
@@ -243,6 +248,7 @@ export function AccountSecurity({
               existing sessions.
             </p>
             <AsyncForm
+              className="border-0 bg-transparent p-0"
               title="Set a password by email"
               action={sendReset}
               submitLabel="Send password link"
@@ -253,12 +259,6 @@ export function AccountSecurity({
             </AsyncForm>
           </SettingFlow>
         )}
-        {open ? (
-          <nav className="auth-links" aria-label="Security options">
-            <Link to="/bookmarks">Back to bookmarks</Link>
-            <Link to="/forgot-password">Use password reset</Link>
-          </nav>
-        ) : null}
       </SettingRow>
     </section>
   );

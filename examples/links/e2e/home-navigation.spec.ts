@@ -141,7 +141,10 @@ test("authenticated Home and navigation lead to Bookmarks, editor and unchanged 
   await expect(
     page.getByLabel("Current password", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Back to bookmarks" }).click();
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: "Bookmarks", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/bookmarks$/);
   await page
     .getByRole("navigation", { name: "Main navigation" })

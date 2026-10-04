@@ -56,6 +56,14 @@ challenge sem método TOTP disponível indica setup incompleto, não login váli
 Refresh ou saída da página descarta a identidade em memória e exige novo login,
 em vez de confiar somente no cookie de challenge. O prazo nativo é dez minutos.
 
+A tela normal prioriza o código e Verify code. **Use another sign-in method**
+descarta o contexto/código local e retorna ao sign-in normal com o destino
+validado, onde Magic Link/Google permanecem alternativas. Requests em andamento
+são abortados pelo cleanup existente; não há novo endpoint nem alteração da
+validade nativa do cookie de challenge. Reabrir a rota sem contexto não permite
+verification, mesmo que esse cookie ainda exista. Account mostra status compacto
+On/Off/Unknown e uma explicação curta da proteção do login por senha.
+
 ## Sessão autoritativa e estados indeterminados
 
 Todos os requests TOTP usam as APIs públicas do Better Auth, `retry: 0` e

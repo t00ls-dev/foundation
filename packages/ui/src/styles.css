@@ -81,12 +81,6 @@
     background: var(--primary);
     animation: foundation-progress var(--motion-duration) ease-in-out infinite;
   }
-  .foundation-toast {
-    --normal-bg: var(--card);
-    --normal-text: var(--foreground);
-    --normal-border: var(--border);
-    font-family: var(--font-sans);
-  }
   @keyframes foundation-progress {
     from {
       transform: translateX(-100%);
@@ -105,5 +99,73 @@
     .foundation-page-progress > div {
       background: Highlight;
     }
+  }
+}
+
+/* Sonner injects unlayered layout CSS. Keep these overrides unlayered and
+   scoped to Foundation's unstyled toasts, not global button/ARIA selectors. */
+.foundation-toast[data-sonner-toast] {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 12px;
+  width: var(--width);
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-inline-start: 3px solid var(--primary);
+  border-radius: var(--radius-card);
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 4px 16px #17231d26;
+  font-family: var(--font-sans);
+  font-size: var(--text-small);
+  line-height: 1.5;
+}
+.foundation-toast[data-sonner-toast] [data-icon] {
+  grid-column: 1;
+  grid-row: 1;
+  margin: 0;
+  color: var(--primary);
+}
+.foundation-toast[data-sonner-toast] [data-content] {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.foundation-toast[data-sonner-toast] [data-title] {
+  font-weight: 600;
+}
+.foundation-toast[data-expanded="false"][data-front="false"] > * {
+  opacity: 0;
+}
+.foundation-toast[data-sonner-toast] [data-close-button] {
+  position: static;
+  grid-column: 3;
+  grid-row: 1;
+  transform: none;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--muted-foreground);
+  box-shadow: none;
+}
+.foundation-toast[data-sonner-toast] [data-close-button]:hover {
+  background: var(--accent);
+  color: var(--primary);
+}
+.foundation-toast[data-sonner-toast] [data-close-button]:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 0;
+}
+@media (max-width: 600px) {
+  [data-sonner-toaster] .foundation-toast[data-sonner-toast] {
+    width: calc(100% - var(--mobile-offset-left) - var(--mobile-offset-right));
   }
 }

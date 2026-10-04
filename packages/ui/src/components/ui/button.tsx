@@ -32,7 +32,13 @@ export function Button({
   return (
     <Component
       data-slot="button"
-      className={cn(buttonVariants({ variant, className }))}
+      // Filled variants own their foreground: consumer text-inherit must not
+      // remove the contrast contract while leaving the filled background intact.
+      className={cn(
+        buttonVariants({ variant, className }),
+        (!variant || variant === "default" || variant === "destructive") &&
+          "text-primary-foreground",
+      )}
       {...props}
     />
   );

@@ -25,12 +25,7 @@ import {
   registerSessionRequest,
   releaseSessionRequest,
 } from "./session-generation.js";
-import {
-  enrollmentSecret,
-  totpError,
-  totpPolicy,
-  totpUnconfirmed,
-} from "./totp.js";
+import { enrollmentSecret, totpError, totpUnconfirmed } from "./totp.js";
 import { readTotpSession } from "./totp-session.js";
 
 type Stage =
@@ -319,12 +314,18 @@ export function AccountTotp({
           title="Authenticator"
           description={
             <>
-              <p className="m-0">{totpPolicy}</p>
-              <p role="status" className="mt-2 min-h-6">
-                {status !== "ready"
-                  ? "Authenticator status: Unknown"
-                  : `${stage === "uncertain" ? "Last reported status: " : "Password sign-in authenticator: "}${enabled ? "On" : "Off"}`}
+              <p className="m-0">
+                Adds an authenticator code to password sign-in.
               </p>
+              <span
+                role="status"
+                aria-label="Authenticator status"
+                className="mt-2 inline-flex min-h-6 items-center rounded-md border border-border bg-accent px-2 py-1 text-sm font-medium text-primary"
+              >
+                {status !== "ready"
+                  ? "Unknown"
+                  : `${stage === "uncertain" ? "Last reported: " : ""}${enabled ? "On" : "Off"}`}
+              </span>
             </>
           }
           action={

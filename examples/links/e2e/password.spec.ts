@@ -216,7 +216,13 @@ test("Security protects its route and changes password with one submit and a usa
   await expect(
     page.getByLabel("Current password", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Back to bookmarks" }).click();
+  await expect(
+    page.getByRole("link", { name: "Back to bookmarks" }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: "Bookmarks", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Your bookmarks" }),
   ).toBeVisible();
@@ -277,7 +283,9 @@ test("Security capability loading/error/retry is distinct from false and unexpec
   await expect(page.getByRole("alert")).toHaveText(unconfirmed);
   await expect(page.getByText("unsafe-token-details")).toHaveCount(0);
   await expect(
-    page.getByRole("link", { name: "Use password reset" }),
+    page.getByRole("form", { name: "Change password" }).getByRole("link", {
+      name: "Forgot your current password? Use password reset",
+    }),
   ).toBeVisible();
   for (const name of [
     "Current password",
