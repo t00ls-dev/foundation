@@ -22,6 +22,10 @@ import {
   type PasswordChallenge,
 } from "./totp.js";
 import { readTotpSession } from "./totp-session.js";
+import { Button } from "@t00ls-dev/ui/components/button";
+import { Skeleton } from "@t00ls-dev/ui/components/skeleton";
+import { InlineFeedback } from "@t00ls-dev/ui/patterns/inline-feedback";
+import { useProgressOperation } from "@t00ls-dev/ui/patterns/page-progress";
 
 export function AuthPage({
   mode,
@@ -264,6 +268,7 @@ export function ResetPassword({ authenticated }: { authenticated: boolean }) {
       : validation.token !== token
         ? "checking"
         : validation.status;
+  useProgressOperation(status === "checking");
   useEffect(() => {
     if (!token || callbackInvalid) return;
     const controller = new AbortController();
@@ -329,25 +334,32 @@ export function ResetPassword({ authenticated }: { authenticated: boolean }) {
     <section className="auth-page">
       <h1>Choose a new password.</h1>
       {status === "checking" ? (
-        <p role="status">Checking password link...</p>
+        <div
+          aria-label="Checking password link"
+          aria-busy="true"
+          className="grid gap-4"
+        >
+          <p role="status">Checking password link...</p>
+          <Skeleton className="h-40 w-full" />
+        </div>
       ) : status === "invalid" ? (
         <>
-          <p role="alert">
+          <InlineFeedback tone="error" announce="assertive">
             This password link is invalid, expired, or already used.
-          </p>
+          </InlineFeedback>
           <div className="actions">
             <Link to="/forgot-password">Request a new password link</Link>
           </div>
         </>
       ) : status === "error" ? (
         <>
-          <p role="alert">
+          <InlineFeedback tone="error" announce="assertive">
             Could not verify this password link. Please try again.
-          </p>
+          </InlineFeedback>
           <div className="actions">
-            <button onClick={() => setRevision((value) => value + 1)}>
+            <Button onClick={() => setRevision((value) => value + 1)}>
               Retry password link
-            </button>
+            </Button>
           </div>
         </>
       ) : (

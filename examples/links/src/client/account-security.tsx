@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
+import { Button } from "@t00ls-dev/ui/components/button";
+import { Skeleton } from "@t00ls-dev/ui/components/skeleton";
+import { InlineFeedback } from "@t00ls-dev/ui/patterns/inline-feedback";
+import { SettingRow, SettingFlow } from "@t00ls-dev/ui/patterns/settings";
 import { accountSecuritySchema } from "../shared/account-security.js";
 import { apiRequest } from "./api.js";
 import { authClient } from "./auth-client.js";
@@ -22,16 +26,23 @@ export function AccountSecurity({
   sessionId,
   onSessionChanged,
   onPasswordConfirmed,
+  open,
+  onOpenChange,
+  disabled,
 }: {
   user: { id: string; email: string };
   sessionId: string;
   onSessionChanged: () => Promise<void>;
   onPasswordConfirmed: (identity: string) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  disabled: boolean;
 }) {
   const [state, setState] = useState<"loading" | "error" | "ready">("loading");
   const [passwordPresent, setPasswordPresent] = useState(false);
   const [revision, setRevision] = useState(0);
   const authRequest = useRef<AbortController | null>(null);
+  const [mutating, setMutating] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
     setState("loading");
@@ -53,6 +64,7 @@ export function AccountSecurity({
   }, [user.id, revision]);
 
   async function change(values: FormValues): Promise<Feedback> {
+    setMutating(true);
     const controller = registerSessionRequest();
     authRequest.current = controller;
     try {
@@ -69,7 +81,11 @@ export function AccountSecurity({
           result.error.status === 400 &&
           result.error.code === "INVALID_PASSWORD"
         )
-          return { kind: "error", message: "Current password is incorrect." };
+          return {
+            kind: "error",
+            message: "Current password is incorrect.",
+            field: "currentPassword",
+          };
         if (
           result.error.status === 400 &&
           ["PASSWORD_TOO_SHORT", "PASSWORD_TOO_LONG"].includes(
@@ -103,12 +119,14 @@ export function AccountSecurity({
     } catch {
       return { kind: "error", message: unconfirmed, clearFields: true };
     } finally {
+      setMutating(false);
       releaseSessionRequest(controller);
       if (authRequest.current === controller) authRequest.current = null;
     }
   }
 
   async function sendReset(): Promise<Feedback> {
+    setMutating(true);
     const controller = registerSessionRequest();
     authRequest.current = controller;
     try {
@@ -132,81 +150,116 @@ export function AccountSecurity({
         message: "Could not request a password link. Please try again.",
       };
     } finally {
+      setMutating(false);
       releaseSessionRequest(controller);
       if (authRequest.current === controller) authRequest.current = null;
     }
   }
 
   return (
-    <section className="auth-page" aria-label="Account security">
-      <h2>Security</h2>
-      {state === "loading" ? (
-        <p role="status">Loading security settings...</p>
-      ) : state === "error" ? (
-        <>
-          <p role="alert">
-            Could not load security settings. Please try again.
-          </p>
-          <button onClick={() => setRevision((value) => value + 1)}>
-            Retry security settings
-          </button>
-        </>
-      ) : passwordPresent ? (
-        <>
-          <p>
-            Changing your password signs out other sessions. This browser
-            receives a replacement session.
-          </p>
-          <AsyncForm
-            title="Change password"
-            action={change}
-            submitLabel="Change password"
-            pendingLabel="Changing password..."
-            requiredFields={["currentPassword", "password", "confirmPassword"]}
-          >
-            <FormField
-              label="Current password"
-              name="currentPassword"
-              type="password"
-              autoComplete="current-password"
-            />
-            <FormField
-              label="New password"
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              minLength={8}
-            />
-            <FormField
-              label="Confirm new password"
-              name="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-            />
-          </AsyncForm>
-        </>
-      ) : (
-        <>
-          <p>You don't have a password yet.</p>
-          <p>
-            Use an email link to set one. Password reset does not sign out
-            existing sessions.
-          </p>
-          <AsyncForm
-            title="Set a password by email"
-            action={sendReset}
-            submitLabel="Send password link"
-            pendingLabel="Sending password link..."
-            requiredFields={[]}
-          >
-            <p>The link will be sent to your account email.</p>
-          </AsyncForm>
-        </>
-      )}
-      <nav className="auth-links" aria-label="Security options">
-        <Link to="/bookmarks">Back to bookmarks</Link>
-        <Link to="/forgot-password">Use password reset</Link>
-      </nav>
+    <section aria-label="Account security">
+      <SettingRow
+        title="Password"
+        description={
+          state === "ready"
+            ? passwordPresent
+              ? "Change your password or request a reset link."
+              : "You don't have a password yet."
+            : "Checking password settings…"
+        }
+        action={
+          state === "ready" ? (
+            <Button
+              disabled={disabled || mutating}
+              variant="outline"
+              onClick={() => onOpenChange(!open)}
+            >
+              {open
+                ? "Cancel password edit"
+                : passwordPresent
+                  ? "Change password"
+                  : "Set password"}
+            </Button>
+          ) : undefined
+        }
+      >
+        {state === "loading" ? (
+          <Skeleton className="h-11 w-full" />
+        ) : state === "error" ? (
+          <>
+            <InlineFeedback tone="error" announce="assertive">
+              Could not load security settings. Please try again.
+            </InlineFeedback>
+            <Button onClick={() => setRevision((value) => value + 1)}>
+              Retry security settings
+            </Button>
+          </>
+        ) : !open ? null : passwordPresent ? (
+          <SettingFlow>
+            <>
+              <p>
+                Changing your password signs out other sessions. This browser
+                receives a replacement session.
+              </p>
+              <AsyncForm
+                title="Change password"
+                action={change}
+                submitLabel="Change password"
+                pendingLabel="Changing password..."
+                requiredFields={[
+                  "currentPassword",
+                  "password",
+                  "confirmPassword",
+                ]}
+              >
+                <FormField
+                  autoFocus
+                  label="Current password"
+                  name="currentPassword"
+                  type="password"
+                  autoComplete="current-password"
+                />
+                <FormField
+                  label="New password"
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={8}
+                />
+                <FormField
+                  label="Confirm new password"
+                  name="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                />
+              </AsyncForm>
+            </>
+          </SettingFlow>
+        ) : (
+          <SettingFlow>
+            <p>You don't have a password yet.</p>
+            <p>
+              Use an email link to set one. Password reset does not sign out
+              existing sessions.
+            </p>
+            <AsyncForm
+              title="Set a password by email"
+              action={sendReset}
+              submitLabel="Send password link"
+              pendingLabel="Sending password link..."
+              requiredFields={[]}
+            >
+              <p>The link will be sent to your account email.</p>
+            </AsyncForm>
+          </SettingFlow>
+        )}
+        {open ? (
+          <nav className="auth-links" aria-label="Security options">
+            <Link to="/bookmarks">Back to bookmarks</Link>
+            <Link to="/forgot-password">Use password reset</Link>
+          </nav>
+        ) : null}
+      </SettingRow>
     </section>
   );
 }

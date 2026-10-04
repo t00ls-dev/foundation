@@ -122,6 +122,9 @@ test("Security protects its route and changes password with one submit and a usa
   await expect(
     page.getByRole("heading", { name: "Security", exact: true }),
   ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Change password", exact: true })
+    .click();
   await expect(
     page.getByLabel("Current password", { exact: true }),
   ).toBeVisible();
@@ -187,7 +190,7 @@ test("Security protects its route and changes password with one submit and a usa
     "New password",
     "Confirm new password",
   ])
-    await expect(page.getByLabel(name, { exact: true })).toHaveValue("");
+    await expect(page.getByLabel(name, { exact: true })).toHaveCount(0);
   expect(keys).toEqual([
     "currentPassword",
     "newPassword",
@@ -207,6 +210,9 @@ test("Security protects its route and changes password with one submit and a usa
     ).status(),
   ).toBe(401);
   await page.reload();
+  await page
+    .getByRole("button", { name: "Change password", exact: true })
+    .click();
   await expect(
     page.getByLabel("Current password", { exact: true }),
   ).toBeVisible();
@@ -238,7 +244,7 @@ test("Security capability loading/error/retry is distinct from false and unexpec
   });
   await page.getByRole("link", { name: "Account", exact: true }).click();
   await expect(
-    page.getByText("Loading security settings...", { exact: true }),
+    page.getByText("Checking password settings…", { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Send password link" }),
@@ -250,6 +256,9 @@ test("Security capability loading/error/retry is distinct from false and unexpec
   await expect(page.getByText("unsafe-sql-details")).toHaveCount(0);
   failed = false;
   await page.getByRole("button", { name: "Retry security settings" }).click();
+  await page
+    .getByRole("button", { name: "Change password", exact: true })
+    .click();
   await expect(
     page.getByLabel("Current password", { exact: true }),
   ).toBeVisible();
@@ -284,6 +293,9 @@ test("a delayed password failure cannot affect Security after logout and account
 }) => {
   await passwordUser(page, address());
   await page.getByRole("link", { name: "Account", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Change password", exact: true })
+    .click();
   await expect(
     page.getByLabel("Current password", { exact: true }),
   ).toBeVisible();
@@ -313,6 +325,9 @@ test("a delayed password failure cannot affect Security after logout and account
   ).toBeVisible();
   await passwordUser(page, address());
   await page.getByRole("link", { name: "Account", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Change password", exact: true })
+    .click();
   await expect(
     page.getByLabel("Current password", { exact: true }),
   ).toBeVisible();
@@ -325,6 +340,9 @@ test("a delayed password failure cannot affect Security after logout and account
     page.getByRole("button", { name: "Change password", exact: true }),
   ).toBeEnabled();
   await page.reload();
+  await page
+    .getByRole("button", { name: "Change password", exact: true })
+    .click();
   await expect(
     page.getByLabel("Current password", { exact: true }),
   ).toBeVisible();
@@ -367,6 +385,7 @@ test("passwordless Security sends the official email reset and confirms the firs
     resetRequestKeys = Object.keys(body).sort();
     await route.continue();
   });
+  await page.getByRole("button", { name: "Set password", exact: true }).click();
   await page.getByRole("button", { name: "Send password link" }).click();
   await expect(
     page.getByText("Password link requested. Check your account email.", {
@@ -418,6 +437,9 @@ test("passwordless Security sends the official email reset and confirms the firs
   );
   expect(after).toEqual(before);
   await page.getByRole("link", { name: "Account", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Change password", exact: true })
+    .click();
   await expect(
     page.getByLabel("Current password", { exact: true }),
   ).toBeVisible();

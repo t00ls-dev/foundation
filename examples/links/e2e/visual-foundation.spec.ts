@@ -144,13 +144,14 @@ test("Account title and grouped Name errors stay separate from submit on narrow 
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/account");
+    await page.getByRole("button", { name: "Edit name" }).click();
     const form = page.getByRole("form", { name: "Account name" });
     const name = form.getByLabel("Name", { exact: true });
     await expect(name).toHaveValue("N".repeat(200));
     expect(
       await verticalGap(
         page.getByRole("heading", { name: "Account Settings" }),
-        form,
+        page.getByRole("region", { name: "Profile", exact: true }),
       ),
     ).toBe(16);
     await name.fill(" ");
@@ -295,10 +296,12 @@ test("shared controls provide touch targets, keyboard focus and readable feedbac
   await page.goto("/forgot-password");
   await page.getByLabel("Email", { exact: true }).fill("reader@example.com");
   await page.getByRole("button", { name: "Request reset" }).click();
-  const success = page.locator('.form-message[data-kind="success"]');
+  const success = page
+    .getByRole("status")
+    .filter({ hasText: "If the account exists" });
   await expect(success).toContainText("If the account exists");
   await expect(success).toHaveAttribute("role", "status");
-  await expect(success).toHaveCSS("color", "rgb(36, 91, 60)");
+  await expect(success).toHaveCSS("color", "rgb(36, 75, 53)");
   await noHorizontalOverflow(page);
   await page.emulateMedia({ forcedColors: "active" });
   await page.getByLabel("Email", { exact: true }).focus();

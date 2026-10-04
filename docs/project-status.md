@@ -102,6 +102,10 @@ package é `@t00ls-dev/example-links`. Demonstra:
   concluir sessão/retorno privado. Magic Link/Google continuam alternativas sem
   TOTP. Backend opt-in, schema D1 e limiter database já existentes; sem backup
   codes, OTP ou trusted devices. Veja o [fluxo](runbooks/links-totp.md).
+- Account usa seções Profile/Security, edição explícita e uma tarefa por vez;
+  Auth/Password usam Input/PendingButton/feedback Foundation. TOTP usa Dialog
+  responsivo, QR primário, key sob demanda e Copy local; recuperação aparece
+  somente após exceção observada, preservando reconciliação e limites de sessão.
 
 O ambiente local usa `.dev.vars.example` como contrato de nomes de secrets, sem
 versionar valores reais.

@@ -11,6 +11,10 @@ export default defineConfig({
     include: [
       "@t00ls-dev/ui/components/skeleton",
       "@t00ls-dev/ui/components/alert-dialog",
+      "@t00ls-dev/ui/components/dialog",
+      "@t00ls-dev/ui/components/collapsible",
+      "@t00ls-dev/ui/components/input",
+      "@t00ls-dev/ui/patterns/settings",
       "@t00ls-dev/ui/patterns/page-progress",
       "@t00ls-dev/ui/patterns/pending-button",
       "@t00ls-dev/ui/patterns/inline-feedback",

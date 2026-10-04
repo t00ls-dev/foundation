@@ -8,9 +8,10 @@ Changeset. Veja [ADR-008](../../docs/decisions/008-foundation-ui-v1.md).
 Importe por componente, por exemplo `@t00ls-dev/ui/components/skeleton` ou
 `@t00ls-dev/ui/patterns/pending-button`. O app importa Tailwind v4 e
 `@t00ls-dev/ui/styles.css`, com `@source` explícito para `packages/ui/src`. O
-`components.json` configura shadcn/ui (família Radix); Button, Skeleton e
-AlertDialog são adaptações MIT das primitives shadcn. Spinner é decorativo. Só
-acrescente primitives com consumidor real. Composições pertencem ao Foundation.
+`components.json` configura shadcn/ui (família Radix); Button, Input, Skeleton,
+Dialog, Collapsible e AlertDialog são adaptações MIT das primitives shadcn.
+Spinner é decorativo. Só acrescente primitives com consumidor real. Composições
+pertencem ao Foundation.
 
 O Vite do Links pré-otimiza os imports TSX do shell (incluindo `.tsx` nas
 extensões do optimizer), para evitar uma cadeia de requests de módulos do
@@ -59,6 +60,14 @@ ARIA; aplique classes visuais explícitas.
   Settings escolhe Dialog ou inline pela tarefa, não por obrigatoriedade global.
 
 ## Fronteiras
+
+`SettingSection`, `SettingRow` e `SettingFlow` organizam settings sem conhecer
+domínio/API. O consumidor controla uma tarefa aberta por vez. Dialog requer
+título/descrição e descarta os campos ao fechar; usa portal, trap, Escape e
+scroll em viewport estreito. O app restaura foco num controle estável quando a
+sessão rotaciona e substitui o trigger original. Collapsible não deve usar
+`forceMount` para secrets: renderize o conteúdo sensível somente quando aberto.
+O app mantém feedback de clipboard local e ignora promises após unmount.
 
 AlertDialog é a confirmação de uma ação destrutiva, com título/descrição
 obrigatórios no consumidor, Cancel como foco inicial, trap de foco, Escape e

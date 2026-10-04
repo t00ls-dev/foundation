@@ -33,6 +33,10 @@ import { BookmarkLibrary } from "./bookmark-library.js";
 import { Home } from "./home.js";
 import { TotpChallenge } from "./totp-challenge.js";
 import type { PasswordChallenge } from "./totp.js";
+import {
+  readAuthenticatorRecovery,
+  writeAuthenticatorRecovery,
+} from "./totp-recovery.js";
 import { authDestination, authPath } from "./auth-destination.js";
 import {
   invalidateSessionGeneration,
@@ -59,6 +63,19 @@ export function App() {
     if (!session.isPending && !session.error) sessionResolved.current = true;
   }, [session.isPending, session.error]);
   const [challenge, setChallenge] = useState<PasswordChallenge | null>(null);
+  const [authenticatorConfirmation, setAuthenticatorConfirmation] = useState<{
+    identity: string;
+    enabled: boolean;
+  } | null>(null);
+  const [authenticatorRecoveryEmail, setAuthenticatorRecoveryEmail] = useState<
+    string | null
+  >(readAuthenticatorRecovery);
+  useEffect(() => {
+    writeAuthenticatorRecovery(authenticatorRecoveryEmail);
+  }, [authenticatorRecoveryEmail]);
+  useEffect(() => {
+    if (location.pathname !== "/account") setAuthenticatorConfirmation(null);
+  }, [location.pathname]);
   useEffect(() => {
     if (location.pathname !== "/two-factor") setChallenge(null);
   }, [location.pathname]);
@@ -99,6 +116,8 @@ export function App() {
     setSessionExpired(false);
   }
   async function signOut() {
+    setAuthenticatorConfirmation(null);
+    setAuthenticatorRecoveryEmail(null);
     invalidateSessionGeneration();
     setSigningOut(true);
     setLogoutSource(location.pathname);
@@ -274,7 +293,11 @@ export function App() {
                     <AuthPage
                       mode="login"
                       onSignedIn={signedIn}
-                      onChallenge={setChallenge}
+                      onChallenge={(value) => {
+                        setChallenge(value);
+                        if (!value.available || value.uncertain)
+                          setAuthenticatorRecoveryEmail(value.email);
+                      }}
                     />
                   )
                 }
@@ -302,6 +325,10 @@ export function App() {
                 path="/two-factor"
                 element={
                   <TotpChallenge
+                    onRecoveryObserved={() => {
+                      if (challenge)
+                        setAuthenticatorRecoveryEmail(challenge.email);
+                    }}
                     challenge={challenge}
                     destination={destination}
                     onSignedIn={signedIn}
@@ -322,6 +349,30 @@ export function App() {
                 element={privatePage(
                   user ? (
                     <AccountSettings
+                      authenticatorCompletion={
+                        authenticatorConfirmation &&
+                        authenticatorConfirmation.identity === identity
+                          ? authenticatorConfirmation.enabled
+                          : null
+                      }
+                      onAuthenticatorConfirmed={(
+                        confirmedIdentity,
+                        enabled,
+                      ) => {
+                        setAuthenticatorConfirmation(
+                          enabled === null
+                            ? null
+                            : { identity: confirmedIdentity, enabled },
+                        );
+                        if (enabled !== null)
+                          setAuthenticatorRecoveryEmail(null);
+                      }}
+                      authenticatorRecoveryObserved={
+                        authenticatorRecoveryEmail === user.email.toLowerCase()
+                      }
+                      onAuthenticatorRecoveryObserved={() =>
+                        setAuthenticatorRecoveryEmail(user.email.toLowerCase())
+                      }
                       user={user}
                       onSessionChanged={signedIn}
                       sessionId={session.data?.session.id ?? ""}

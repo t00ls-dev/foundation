@@ -180,12 +180,19 @@ Links TOTP challenge; this is not account-wide MFA. See
 
 `/account` is the canonical authenticated page. The legacy `/account/security`
 URL redirects to it, preserving query/fragment and authentication return paths.
-The Account section always provides an editable Name with explicit **Save
-name**; Email is informational text, never a disabled input. Names are trimmed,
-required, limited to 200 characters and cannot contain control characters.
-International names and punctuation are allowed. Shared validation also guards
-the example's official `/api/auth/update-user` request before delegating to
-Better Auth.
+Profile provides **Edit name** followed by explicit **Save name**; Email is
+informational text, never a disabled input. Security presents independent
+Password and Authenticator rows, with only one task open at a time. Normal
+authenticator status offers Off → Set up / On → Turn off; unknown never becomes
+Off. A single responsive Dialog handles password, QR/code and authoritatively
+confirmed completion. The setup key is absent from textual DOM until **Can't
+scan? Use setup key** is opened. Copy writes the original secret and reports
+success locally only after the Clipboard API succeeds; failure permits manual
+selection. Recovery appears only after an observed exceptional state, not just
+because the flag is On. Names are trimmed, required, limited to 200 characters
+and cannot contain control characters. International names and punctuation are
+allowed. Shared validation also guards the example's official
+`/api/auth/update-user` request before delegating to Better Auth.
 
 Name updates use public `authClient.updateUser({ name })` in Better Auth 1.7.7,
 which updates the current user/cookie without rotating or revoking sessions and
@@ -219,12 +226,12 @@ requested. Check your account email.**; public Forgot stays anti-enumeration.
 ### Security — senha da conta
 
 O link **Account** do header autenticado abre `/account`, com a seção Security
-preservada abaixo de Account. `GET /api/account/security` exige sessão e retorna
-somente `{ "hasPassword": boolean }`, com `private, no-store`. Não aceita
-parâmetros de query ou identidade do cliente. A consulta usa o usuário da sessão
-e a chave credential (`userId`, `providerId=credential`, `accountId=user.id`);
-verifica senha não vazia no banco sem carregar/retornar hash ou metadata de
-accounts. Erro de consulta é erro/retry, nunca `false`.
+abaixo de Profile. `GET /api/account/security` exige sessão e retorna somente
+`{ "hasPassword": boolean }`, com `private, no-store`. Não aceita parâmetros de
+query ou identidade do cliente. A consulta usa o usuário da sessão e a chave
+credential (`userId`, `providerId=credential`, `accountId=user.id`); verifica
+senha não vazia no banco sem carregar/retornar hash ou metadata de accounts.
+Erro de consulta é erro/retry, nunca `false`.
 
 Com senha, a tela pede senha atual, nova e confirmação e usa exclusivamente
 `authClient.changePassword` com `revokeOtherSessions: true`. Better Auth revoga
@@ -380,9 +387,9 @@ dois secrets existentes.
 ## Base UI e shell
 
 O Links consome `@t00ls-dev/ui` como workspace privado, com Tailwind v4 e scan
-explícito das fontes. A migração é incremental: base/shell (PR 1) e Bookmarks
-(PR 2) usam os padrões; a reformulação Account/Auth/TOTP continua para PR
-própria. Veja os [padrões de UI](../../packages/ui/README.md) e o
+explícito das fontes. Base/shell (PR 1), Bookmarks (PR 2) e Account/Auth/TOTP
+(PR 3) usam os padrões compartilhados. Veja os
+[padrões de UI](../../packages/ui/README.md) e o
 [ADR-008](../../docs/decisions/008-foundation-ui-v1.md).
 
 ### Bookmarks

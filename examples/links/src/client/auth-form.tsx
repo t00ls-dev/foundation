@@ -9,12 +9,16 @@ import {
 } from "react";
 import { FormProvider, useForm, useFormContext } from "react-hook-form";
 import { authFormSchema, type FormValues } from "./auth-validation.js";
+import { Input } from "@t00ls-dev/ui/components/input";
+import { PendingButton } from "@t00ls-dev/ui/patterns/pending-button";
+import { InlineFeedback } from "@t00ls-dev/ui/patterns/inline-feedback";
 export type { FormValues } from "./auth-validation.js";
 
 export type Feedback = {
   kind: "error" | "success";
   message: string;
   clearFields?: boolean;
+  field?: keyof FormValues;
 };
 
 export function AsyncForm(props: {
@@ -25,6 +29,7 @@ export function AsyncForm(props: {
   submitLabel: string;
   title: string;
   requiredFields: Array<keyof FormValues>;
+  hideTitle?: boolean;
 }) {
   const feedbackId = useId();
   const [feedback, setFeedback] = useState<Feedback>();
@@ -45,6 +50,14 @@ export function AsyncForm(props: {
       const result = await props.action(data);
       if (!mounted.current) return;
       if (result.clearFields) form.reset();
+      if (result.field) {
+        form.setError(
+          result.field,
+          { type: "server", message: result.message },
+          { shouldFocus: true },
+        );
+        return;
+      }
       setFeedback(result);
     } catch {
       if (mounted.current)
@@ -75,21 +88,29 @@ export function AsyncForm(props: {
         aria-busy={pending}
         aria-describedby={feedback ? feedbackId : undefined}
         onSubmit={validate}
+        className="grid gap-4"
       >
-        <h2>{props.title}</h2>
+        {props.hideTitle ? null : (
+          <h2 className="m-0 text-lg font-semibold">{props.title}</h2>
+        )}
         {props.children}
-        <button type="submit" disabled={pending}>
-          {pending ? props.pendingLabel : props.submitLabel}
-        </button>
-        <p
-          className="form-message"
-          data-kind={feedback?.kind}
-          id={feedbackId}
-          role={feedback?.kind === "error" ? "alert" : "status"}
-          aria-live={feedback?.kind === "error" ? "assertive" : "polite"}
+        <PendingButton
+          type="submit"
+          pending={pending}
+          pendingLabel={props.pendingLabel}
         >
-          {feedback?.message}
-        </p>
+          {props.submitLabel}
+        </PendingButton>
+        <div id={feedbackId} className="min-h-6">
+          {feedback ? (
+            <InlineFeedback
+              tone={feedback.kind}
+              announce={feedback.kind === "error" ? "assertive" : "polite"}
+            >
+              {feedback.message}
+            </InlineFeedback>
+          ) : null}
+        </div>
         {props.alternativeAction}
       </form>
     </FormProvider>
@@ -104,6 +125,7 @@ export function FormField(props: {
   type?: "email" | "password" | "text";
   inputMode?: "numeric";
   maxLength?: number;
+  autoFocus?: boolean;
 }) {
   const inputId = useId();
   const errorId = `${inputId}-error`;
@@ -117,7 +139,7 @@ export function FormField(props: {
     <div className="cross-page-field">
       <label htmlFor={inputId}>
         {props.label}
-        <input
+        <Input
           {...register(props.name)}
           id={inputId}
           required
@@ -126,6 +148,7 @@ export function FormField(props: {
           autoComplete={props.autoComplete}
           inputMode={props.inputMode}
           maxLength={props.maxLength}
+          autoFocus={props.autoFocus}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
         />

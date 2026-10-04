@@ -21,17 +21,21 @@ import {
   type PasswordChallenge,
 } from "./totp.js";
 import { readTotpSession } from "./totp-session.js";
+import { InlineFeedback } from "@t00ls-dev/ui/patterns/inline-feedback";
+import { PendingButton } from "@t00ls-dev/ui/patterns/pending-button";
 
 export function TotpChallenge({
   challenge,
   destination,
   onSignedIn,
   onReconciling,
+  onRecoveryObserved,
 }: {
   challenge: PasswordChallenge | null;
   destination: string;
   onSignedIn: () => Promise<void>;
   onReconciling: () => void;
+  onRecoveryObserved: () => void;
 }) {
   const navigate = useNavigate();
   const [blocked, setBlocked] = useState(
@@ -138,6 +142,8 @@ export function TotpChallenge({
         return { kind: "error", message: totpUnconfirmed, clearFields: true };
       if (result.error) {
         const failure = totpError(result.error);
+        if (failure.kind === "setup" || failure.kind === "indeterminate")
+          onRecoveryObserved();
         if (failure.kind !== "code" && failure.kind !== "rate") {
           setBlocked(true);
           setMessage(failure.message);
@@ -154,6 +160,7 @@ export function TotpChallenge({
       if (active()) {
         setBlocked(true);
         setMessage(totpUnconfirmed);
+        onRecoveryObserved();
       }
       return { kind: "error", message: totpUnconfirmed, clearFields: true };
     } finally {
@@ -196,13 +203,17 @@ export function TotpChallenge({
       </p>
       {blocked ? (
         <>
-          <p role="alert">{message}</p>
+          <InlineFeedback tone="error" announce="assertive">
+            {message}
+          </InlineFeedback>
           {challenge ? (
-            <button disabled={checking} onClick={() => void checkSession()}>
-              {checking
-                ? "Checking current session..."
-                : "Check current session"}
-            </button>
+            <PendingButton
+              pending={checking}
+              pendingLabel="Checking current session..."
+              onClick={() => void checkSession()}
+            >
+              Check current session
+            </PendingButton>
           ) : null}
         </>
       ) : (
