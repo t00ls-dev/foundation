@@ -82,6 +82,10 @@ package é `@t00ls-dev/example-links`. Demonstra:
 - formulários com labels, erros associados, foco inválido e estados de envio;
 - CRUD de bookmarks, tags JSON, busca simples, filtro exato e paginação
   limit/offset;
+- Bookmarks usa Skeleton inicial, refresh que mantém resultados e feedback
+  local, PendingButton e AlertDialog de exclusão com foco acessível. Filtros e
+  página aplicada acompanham o retorno de add/edit; sucessos breves usam Sonner,
+  falhas recuperáveis permanecem inline;
 - isolamento por usuário em todas as queries e mutações, sem tenancy/RBAC;
 - sessão tipada no servidor pela API mínima `resolveSession` de
   `@t00ls-dev/auth`, com propagação de cookies e verificação de e-mail

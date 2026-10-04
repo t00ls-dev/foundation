@@ -14,6 +14,7 @@ export default defineConfig(() => {
       extensions: [".tsx"],
       include: [
         "@t00ls-dev/ui/components/skeleton",
+        "@t00ls-dev/ui/components/alert-dialog",
         "@t00ls-dev/ui/patterns/page-progress",
         "@t00ls-dev/ui/patterns/pending-button",
         "@t00ls-dev/ui/patterns/inline-feedback",

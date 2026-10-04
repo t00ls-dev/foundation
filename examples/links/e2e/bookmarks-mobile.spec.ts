@@ -218,8 +218,11 @@ test("bookmark CRUD, search, tag and clear filters remain usable at 320px with r
   await expect(updated).toBeVisible();
   await page.reload();
   await expect(updated).toBeVisible();
-  page.once("dialog", (dialog) => void dialog.accept());
   await updated.getByRole("button", { name: "Delete", exact: true }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Delete bookmark", exact: true })
+    .click();
   await expect(updated).toHaveCount(0);
   await expect(
     page.getByRole("article", { name: "Other bookmark", exact: true }),

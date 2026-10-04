@@ -1,7 +1,7 @@
 # Third-party notices
 
-Button and Skeleton are adapted from shadcn/ui (https://ui.shadcn.com), licensed
-under MIT:
+Button, Skeleton and AlertDialog are adapted from shadcn/ui
+(https://ui.shadcn.com), licensed under MIT:
 
 MIT License
 

@@ -8,9 +8,9 @@ Changeset. Veja [ADR-008](../../docs/decisions/008-foundation-ui-v1.md).
 Importe por componente, por exemplo `@t00ls-dev/ui/components/skeleton` ou
 `@t00ls-dev/ui/patterns/pending-button`. O app importa Tailwind v4 e
 `@t00ls-dev/ui/styles.css`, com `@source` explícito para `packages/ui/src`. O
-`components.json` configura shadcn/ui (família Radix); Button e Skeleton são
-adaptações MIT das primitives shadcn. Spinner é decorativo. Só acrescente
-primitives com consumidor real. Composições pertencem ao Foundation.
+`components.json` configura shadcn/ui (família Radix); Button, Skeleton e
+AlertDialog são adaptações MIT das primitives shadcn. Spinner é decorativo. Só
+acrescente primitives com consumidor real. Composições pertencem ao Foundation.
 
 O Vite do Links pré-otimiza os imports TSX do shell (incluindo `.tsx` nas
 extensões do optimizer), para evitar uma cadeia de requests de módulos do
@@ -59,6 +59,14 @@ ARIA; aplique classes visuais explícitas.
   Settings escolhe Dialog ou inline pela tarefa, não por obrigatoriedade global.
 
 ## Fronteiras
+
+AlertDialog é a confirmação de uma ação destrutiva, com título/descrição
+obrigatórios no consumidor, Cancel como foco inicial, trap de foco, Escape e
+scroll no conteúdo em viewport estreito. A composição decide quando fechar e
+restaurar foco; se o trigger for removido, devolva foco a um ponto estável da
+página. A action pode usar `asChild` + PendingButton e impedir fechamento
+automático durante a mutation. Fechar a confirmação não comprova rollback;
+erros/resultados indeterminados continuam inline no app.
 
 Esta base não contém router, auth, API ou domínio. O app conserva geração de
 requests e descarte de secrets na troca/rotação de sessão, logout, expiração,

@@ -1,35 +1,116 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { Link } from "react-router";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
+import { Link, useSearchParams } from "react-router";
 import { z } from "zod";
-import { bookmarkListSchema, type BookmarkList } from "../shared/bookmarks.js";
+import { Button } from "@t00ls-dev/ui/components/button";
+import { Skeleton } from "@t00ls-dev/ui/components/skeleton";
+import { Spinner } from "@t00ls-dev/ui/components/spinner";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@t00ls-dev/ui/components/alert-dialog";
+import { PendingButton } from "@t00ls-dev/ui/patterns/pending-button";
+import { InlineFeedback } from "@t00ls-dev/ui/patterns/inline-feedback";
+import { useConfirmedFeedback } from "@t00ls-dev/ui/patterns/feedback";
+import {
+  bookmarkListSchema,
+  type Bookmark,
+  type BookmarkList,
+} from "../shared/bookmarks.js";
 import { apiRequest } from "./api.js";
 import { currentSessionGeneration } from "./session-generation.js";
+import {
+  bookmarkTaskPath,
+  libraryFilters,
+  libraryPath,
+  type LibraryFilters,
+} from "./bookmark-navigation.js";
 
 export function BookmarkLibrary() {
-  const [filters, setFilters] = useState({ q: "", tag: "", offset: 0 });
-  const [q, setQ] = useState("");
-  const [tag, setTag] = useState("");
+  const [params, setParams] = useSearchParams();
+  const filters = libraryFilters(params);
+  const { q: query, tag: filterTag, offset } = filters;
+  const [q, setQ] = useState(query);
+  const [tag, setTag] = useState(filterTag);
+  useLayoutEffect(() => {
+    setQ(query);
+    setTag(filterTag);
+  }, [query, filterTag]);
   const [revision, setRevision] = useState(0);
-  const [data, setData] = useState<BookmarkList>();
+  const [result, setResult] = useState<{
+    data: BookmarkList;
+    filters: LibraryFilters;
+  }>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [mutationError, setMutationError] = useState("");
+  const [target, setTarget] = useState<Pick<
+    Bookmark,
+    "id" | "title" | "url"
+  > | null>(null);
   const [deleting, setDeleting] = useState("");
+  const busy = useRef(false);
+  const mounted = useRef(false);
+  const mutation = useRef<AbortController | null>(null);
+  const opener = useRef<HTMLButtonElement | null>(null);
+  const heading = useRef<HTMLHeadingElement | null>(null);
+  const confirmed = useConfirmedFeedback();
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      mutation.current?.abort();
+    };
+  }, []);
+
+  function changeFilters(next: LibraryFilters) {
+    setLoading(true);
+    setParams(new URLSearchParams(libraryPath(next).split("?")[1] ?? ""));
+  }
+
+  function refresh() {
+    setLoading(true);
+    setRevision((value) => value + 1);
+  }
+
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     setError("");
-    setData(undefined);
-    const query = new URLSearchParams({
-      ...filters,
-      offset: String(filters.offset),
+    const requested = { q: query, tag: filterTag, offset };
+    const search = new URLSearchParams({
+      q: query,
+      tag: filterTag,
+      offset: String(offset),
       limit: "20",
     });
-    void apiRequest(`/api/bookmarks?${query}`, bookmarkListSchema, {
+    void apiRequest(`/api/bookmarks?${search}`, bookmarkListSchema, {
       signal: controller.signal,
     })
-      .then((result) => {
-        if (!controller.signal.aborted) setData(result);
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        // Empty out-of-range pages are not an empty library. Delete uses the
+        // immediately preceding page; other stale/deep links recover to page 1.
+        if (!data.items.length && offset > 0) {
+          setParams(
+            new URLSearchParams(
+              libraryPath({ ...requested, offset: 0 }).split("?")[1] ?? "",
+            ),
+            { replace: true },
+          );
+          return;
+        }
+        setResult({ data, filters: requested });
       })
       .catch(() => {
         if (!controller.signal.aborted)
@@ -39,38 +120,93 @@ export function BookmarkLibrary() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [filters, revision]);
+  }, [query, filterTag, offset, revision, setParams]);
 
-  async function remove(id: string) {
-    if (!window.confirm("Delete this bookmark?")) return;
+  async function remove() {
+    if (!target || busy.current || loading) return;
+    busy.current = true;
+    const selected = target;
+    const displayed = result;
     const generation = currentSessionGeneration();
-    setDeleting(id);
+    const controller = new AbortController();
+    mutation.current = controller;
+    const active = () =>
+      mounted.current &&
+      !controller.signal.aborted &&
+      generation === currentSessionGeneration();
+    setDeleting(selected.id);
     setMutationError("");
     try {
-      await apiRequest(`/api/bookmarks/${id}`, z.undefined(), {
+      await apiRequest(`/api/bookmarks/${selected.id}`, z.undefined(), {
         method: "DELETE",
+        signal: controller.signal,
       });
-      if (generation === currentSessionGeneration())
-        setFilters((current) => ({ ...current, offset: 0 }));
+      if (!active()) return;
+      setLoading(true);
+      setResult((current) =>
+        current
+          ? {
+              ...current,
+              data: {
+                ...current.data,
+                items: current.data.items.filter(
+                  (item) => item.id !== selected.id,
+                ),
+              },
+            }
+          : current,
+      );
+      setTarget(null);
+      if (
+        displayed &&
+        displayed.data.items.length === 1 &&
+        !displayed.data.hasMore &&
+        displayed.filters.offset > 0
+      ) {
+        changeFilters({
+          ...displayed.filters,
+          offset: Math.max(0, displayed.filters.offset - 20),
+        });
+      }
+      setRevision((value) => value + 1);
+      confirmed(crypto.randomUUID(), "Bookmark deleted.");
     } catch {
-      if (generation === currentSessionGeneration())
-        setMutationError("Could not delete the bookmark. Please try again.");
+      if (active())
+        setMutationError(
+          "We couldn't confirm whether the bookmark was deleted. Refresh the list before trying again.",
+        );
     } finally {
-      if (generation === currentSessionGeneration()) setDeleting("");
+      busy.current = false;
+      if (mutation.current === controller) mutation.current = null;
+      if (active()) setDeleting("");
     }
   }
+
   function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setFilters({ q: q.trim(), tag: tag.trim(), offset: 0 });
+    if (busy.current) return;
+    changeFilters({ q: q.trim(), tag: tag.trim(), offset: 0 });
+    setRevision((value) => value + 1);
   }
+  const data = result?.data;
+  const displayedFilters = result?.filters ?? filters;
+  const matchesQuery =
+    displayedFilters.q === query &&
+    displayedFilters.tag === filterTag &&
+    displayedFilters.offset === offset;
   return (
     <section className="bookmark-library">
       <div className="page-heading">
         <div>
-          <h1>Your bookmarks</h1>
+          <h1 ref={heading} tabIndex={-1}>
+            Your bookmarks
+          </h1>
           <p>Your private bookmark library.</p>
         </div>
-        <Link className="button" to="/bookmarks/new">
+        <Link
+          className="button"
+          to={bookmarkTaskPath("/bookmarks/new", displayedFilters)}
+        >
           Add bookmark
         </Link>
       </div>
@@ -86,9 +222,13 @@ export function BookmarkLibrary() {
               placeholder="Title, URL or description"
             />
           </label>
-          <button className="bookmark-search-submit" type="submit">
+          <Button
+            className="bookmark-search-submit text-inherit"
+            disabled={!!deleting}
+            type="submit"
+          >
             Search
-          </button>
+          </Button>
         </div>
         <div className="bookmark-filter-row">
           <label className="bookmark-tag">
@@ -101,112 +241,220 @@ export function BookmarkLibrary() {
               placeholder="Exact tag"
             />
           </label>
-          <button
+          <Button
+            variant="outline"
+            className="bookmark-clear text-inherit"
             type="button"
-            className="secondary bookmark-clear"
+            disabled={!!deleting}
             onClick={() => {
               setQ("");
               setTag("");
-              setFilters({ q: "", tag: "", offset: 0 });
+              changeFilters({ q: "", tag: "", offset: 0 });
+              setRevision((value) => value + 1);
             }}
           >
             Clear filters
-          </button>
+          </Button>
         </div>
       </form>
-      {mutationError ? <p role="alert">{mutationError}</p> : null}
-      {loading ? (
-        <p className="bookmark-loading" role="status">
-          Loading bookmarks...
+      <div className="bookmark-update">
+        <p role="status" className="bookmark-update-label">
+          {loading ? (
+            <>
+              <Spinner />
+              {result ? "Updating bookmarks..." : "Loading bookmarks..."}
+            </>
+          ) : deleting ? (
+            <>
+              <Spinner />
+              Deleting bookmark...
+            </>
+          ) : null}
         </p>
-      ) : error ? (
-        <div className="card bookmark-state">
-          <p role="alert">{error}</p>
-          <button onClick={() => setRevision((value) => value + 1)}>
+        {result ? (
+          <Button
+            variant="ghost"
+            disabled={loading || !!deleting}
+            onClick={refresh}
+          >
+            Refresh list
+          </Button>
+        ) : null}
+      </div>
+      {mutationError && !target ? (
+        <InlineFeedback tone="error" announce="assertive">
+          {mutationError}
+        </InlineFeedback>
+      ) : null}
+      {error ? (
+        <div className="bookmark-state">
+          <InlineFeedback tone="error" announce="assertive">
+            {error}
+            {result ? " Showing previously loaded results." : ""}
+          </InlineFeedback>
+          <Button disabled={loading || !!deleting} onClick={refresh}>
             Try again
-          </button>
+          </Button>
         </div>
-      ) : data?.items.length ? (
-        <>
-          <div className="bookmarks">
-            {data.items.map((item) => (
-              <article
-                className="bookmark-card"
-                key={item.id}
-                aria-label={item.title}
-              >
-                <h2>
-                  <a href={item.url} target="_blank" rel="noopener noreferrer">
-                    {item.title}
-                  </a>
-                </h2>
-                <p className="bookmark-url">{item.url}</p>
-                {item.description ? (
-                  <p className="bookmark-description">{item.description}</p>
-                ) : null}
-                <ul className="tags" aria-label="Tags">
-                  {item.tags.map((value) => (
-                    <li key={value}>{value}</li>
-                  ))}
-                </ul>
-                <div className="actions">
-                  <Link
-                    className="button button--secondary"
-                    to={`/bookmarks/${item.id}/edit`}
-                  >
-                    Edit
-                  </Link>
-                  <button
-                    className="secondary"
-                    disabled={!!deleting}
-                    onClick={() => void remove(item.id)}
-                  >
-                    {deleting === item.id ? "Deleting..." : "Delete"}
-                  </button>
-                </div>
-              </article>
+      ) : null}
+      <div role="region" aria-label="Bookmark results" aria-busy={loading}>
+        {loading && (!data || !data.items.length) ? (
+          <div className="bookmarks" aria-label="Loading bookmark cards">
+            {[0, 1, 2].map((index) => (
+              <div className="card bookmark-card bookmark-skeleton" key={index}>
+                <Skeleton className="h-7 w-3/4" />
+                <Skeleton className="h-5 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-11 w-full" />
+              </div>
             ))}
           </div>
-          <nav className="pagination" aria-label="Bookmark pages">
-            <button
-              disabled={filters.offset === 0}
-              onClick={() =>
-                setFilters((current) => ({
-                  ...current,
-                  offset: Math.max(0, current.offset - 20),
-                }))
-              }
-            >
-              Previous
-            </button>
-            <span>Page {Math.floor(filters.offset / 20) + 1}</span>
-            <button
-              disabled={!data.hasMore}
-              onClick={() =>
-                setFilters((current) => ({
-                  ...current,
-                  offset: current.offset + 20,
-                }))
-              }
-            >
-              Next
-            </button>
-          </nav>
-        </>
-      ) : (
-        <div className="empty">
-          <h2>
-            {filters.q || filters.tag
-              ? "No matching bookmarks"
-              : "No bookmarks yet"}
-          </h2>
-          <p>
-            {filters.q || filters.tag
-              ? "Try another search or clear your filters."
-              : "Save your first bookmark to get started."}
-          </p>
-        </div>
-      )}
+        ) : data?.items.length ? (
+          <>
+            <div className="bookmarks">
+              {data.items.map((item) => (
+                <article
+                  className="bookmark-card"
+                  key={item.id}
+                  aria-label={item.title}
+                >
+                  <h2>
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {item.title}
+                    </a>
+                  </h2>
+                  <p className="bookmark-url">{item.url}</p>
+                  {item.description ? (
+                    <p className="bookmark-description">{item.description}</p>
+                  ) : null}
+                  <ul className="tags" aria-label="Tags">
+                    {item.tags.map((value) => (
+                      <li key={value}>{value}</li>
+                    ))}
+                  </ul>
+                  <div className="actions">
+                    <Link
+                      className="button button--secondary"
+                      to={bookmarkTaskPath(
+                        `/bookmarks/${item.id}/edit`,
+                        displayedFilters,
+                      )}
+                    >
+                      Edit
+                    </Link>
+                    <PendingButton
+                      variant="outline"
+                      className="text-inherit"
+                      pending={deleting === item.id}
+                      pendingLabel="Deleting..."
+                      disabled={loading || !!deleting}
+                      onClick={(event) => {
+                        opener.current = event.currentTarget;
+                        setMutationError("");
+                        setTarget({
+                          id: item.id,
+                          title: item.title,
+                          url: item.url,
+                        });
+                      }}
+                    >
+                      Delete
+                    </PendingButton>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <nav className="pagination" aria-label="Bookmark pages">
+              <Button
+                disabled={
+                  loading || !!deleting || displayedFilters.offset === 0
+                }
+                onClick={() =>
+                  changeFilters({
+                    ...displayedFilters,
+                    offset: Math.max(0, displayedFilters.offset - 20),
+                  })
+                }
+              >
+                Previous
+              </Button>
+              <span>Page {Math.floor(displayedFilters.offset / 20) + 1}</span>
+              <Button
+                disabled={loading || !!deleting || !data.hasMore}
+                onClick={() =>
+                  changeFilters({
+                    ...displayedFilters,
+                    offset: displayedFilters.offset + 20,
+                  })
+                }
+              >
+                Next
+              </Button>
+            </nav>
+          </>
+        ) : data && !loading && matchesQuery ? (
+          <div className="empty">
+            <h2>
+              {displayedFilters.q || displayedFilters.tag
+                ? "No matching bookmarks"
+                : "No bookmarks yet"}
+            </h2>
+            <p>
+              {displayedFilters.q || displayedFilters.tag
+                ? "Try another search or clear your filters."
+                : "Save your first bookmark to get started."}
+            </p>
+          </div>
+        ) : null}
+      </div>
+      <AlertDialog
+        open={!!target}
+        onOpenChange={(open) => {
+          if (!open) setTarget(null);
+        }}
+      >
+        <AlertDialogContent
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            if (opener.current?.isConnected && !opener.current.disabled)
+              opener.current.focus();
+            else heading.current?.focus();
+          }}
+        >
+          <AlertDialogTitle>Delete bookmark?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Delete <strong className="text-foreground">{target?.title}</strong>?
+            This cannot be undone.
+            <span className="mt-2 block break-all">{target?.url}</span>
+          </AlertDialogDescription>
+          {mutationError ? (
+            <InlineFeedback tone="error" announce="assertive">
+              {mutationError}
+            </InlineFeedback>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <PendingButton
+                variant="destructive"
+                pending={!!deleting}
+                pendingLabel="Deleting..."
+                disabled={loading}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void remove();
+                }}
+              >
+                Delete bookmark
+              </PendingButton>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }

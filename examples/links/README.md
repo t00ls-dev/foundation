@@ -380,7 +380,35 @@ dois secrets existentes.
 ## Base UI e shell
 
 O Links consome `@t00ls-dev/ui` como workspace privado, com Tailwind v4 e scan
-explícito das fontes. A migração é incremental: esta etapa trata tokens,
-loading/feedback e shell; Bookmarks e Account/TOTP mantêm seus fluxos atuais.
-Veja os [padrões de UI](../../packages/ui/README.md) e o
+explícito das fontes. A migração é incremental: base/shell (PR 1) e Bookmarks
+(PR 2) usam os padrões; a reformulação Account/Auth/TOTP continua para PR
+própria. Veja os [padrões de UI](../../packages/ui/README.md) e o
 [ADR-008](../../docs/decisions/008-foundation-ui-v1.md).
+
+### Bookmarks
+
+A primeira leitura reserva cards/form por Skeleton; refresh mantém os resultados
+da mesma identidade, com indicação local e erros persistentes inline. Erro na
+primeira leitura nunca vira “No bookmarks yet”. Requests superados/navegação são
+abortados, mantendo as fronteiras de usuário/sessão e gerações existentes.
+
+Os filtros aplicados `q`, `tag` e `offset` ficam na URL da biblioteca. Links de
+add/edit usam `returnTo` somente quando necessário; a allowlist aceita apenas
+`/bookmarks` e filtros validados. Save/Cancel retornam à página filtrada; rotas
+sem filtros preservam seus paths originais. Drafts do editor sobrevivem a erros
+de save e refetch da mesma sessão, sem storage persistente.
+
+Delete usa AlertDialog que identifica título/URL, começa com foco em Cancel,
+trava o foco e aceita Escape. Após sucesso, foco volta ao trigger ou ao heading
+se o card foi removido. Cancel durante um delete fecha o diálogo, mas o request
+continua: não promete rollback. Resposta perdida mantém o resultado
+indeterminado inline e permite refresh explícito; não anuncia sucesso presumido
+ou undo.
+
+PendingButton bloqueia submits duplicados em save/delete. Sucesso confirmado
+após navegação/fechamento usa uma mensagem fixa Sonner; erro de campo fica
+associado ao input e erros recuperáveis ficam inline. Delete preserva filtros e
+página, retornando à anterior somente quando remove o último item da última
+página. Uma página vazia por stale/deep link recupera a primeira página sem
+confundir isso com biblioteca vazia. Backend/contratos CRUD permanecem os
+mesmos.

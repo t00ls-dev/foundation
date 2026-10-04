@@ -401,8 +401,11 @@ test("verifies email, persists session and performs CRUD with filters", async ({
     exact: true,
   });
   await expect(updated).toBeVisible();
-  page.once("dialog", (dialog) => void dialog.accept());
   await updated.getByRole("button", { name: "Delete", exact: true }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Delete bookmark", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "No matching bookmarks" }),
   ).toBeVisible();
