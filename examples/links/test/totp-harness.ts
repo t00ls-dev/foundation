@@ -142,30 +142,35 @@ function base64url(bytes: Uint8Array) {
     .replaceAll("/", "_");
 }
 
-export async function createTotpHarness() {
+export async function createTotpHarness(productionMigrations = false) {
   const database = await createTestDatabase();
-  await applyMigrations(database.binding);
-  // DDL only: no fixture identities, sessions or plugin state inserted directly.
-  await database.binding.batch([
-    database.binding.prepare(
-      "ALTER TABLE user ADD COLUMN two_factor_enabled INTEGER DEFAULT 0",
-    ),
-    database.binding.prepare(`CREATE TABLE two_factor (
+  if (productionMigrations) await applyMigrations(database.binding);
+  else {
+    // Keep characterization independent from the production TOTP migration.
+    await applyMigrations(database.binding, "0001_better_auth.sql");
+    await applyMigrations(database.binding, "0002_links.sql");
+    // DDL only: no fixture identities, sessions or plugin state inserted directly.
+    await database.binding.batch([
+      database.binding.prepare(
+        "ALTER TABLE user ADD COLUMN two_factor_enabled INTEGER DEFAULT 0",
+      ),
+      database.binding.prepare(`CREATE TABLE two_factor (
       id TEXT PRIMARY KEY NOT NULL, user_id TEXT NOT NULL REFERENCES user(id),
       secret TEXT NOT NULL, backup_codes TEXT NOT NULL, verified INTEGER DEFAULT 1,
       failed_verification_count INTEGER DEFAULT 0, locked_until INTEGER
     )`),
-    database.binding.prepare(
-      "CREATE INDEX two_factor_user_idx ON two_factor(user_id)",
-    ),
-    database.binding.prepare(
-      "CREATE INDEX two_factor_secret_idx ON two_factor(secret)",
-    ),
-    database.binding.prepare(`CREATE TABLE rate_limit (
+      database.binding.prepare(
+        "CREATE INDEX two_factor_user_idx ON two_factor(user_id)",
+      ),
+      database.binding.prepare(
+        "CREATE INDEX two_factor_secret_idx ON two_factor(secret)",
+      ),
+      database.binding.prepare(`CREATE TABLE rate_limit (
       id TEXT PRIMARY KEY NOT NULL, key TEXT NOT NULL UNIQUE,
       count INTEGER NOT NULL, last_request INTEGER NOT NULL
     )`),
-  ]);
+    ]);
+  }
   const sent: Array<{ subject: string; url: string }> = [];
   const harness = {
     database,
@@ -176,6 +181,18 @@ export async function createTotpHarness() {
     allowPasswordless: false,
     ip: `192.0.2.${nextIp++}`,
     throws: 0,
+    transport: undefined as
+      ((request: Request) => Promise<Response>) | undefined,
+    captureEmail(this: void, input: { subject: string; text: string }) {
+      const subject = {
+        "Verify your email": "verify",
+        "Reset your password": "reset",
+        "Sign in": "magic",
+      }[input.subject];
+      if (!subject) throw new Error("Unexpected Foundation email subject");
+      sent.push({ subject, url: input.text });
+      return Promise.resolve();
+    },
     // New auth per request matches Links' lifetime; durable state remains in D1.
     auth() {
       return betterAuth({
@@ -238,7 +255,10 @@ export async function createTotpHarness() {
     ) {
       let response: Response;
       try {
-        response = await harness.auth().handler(
+        response = await (
+          harness.transport ??
+          ((request: Request) => harness.auth().handler(request))
+        )(
           new Request(
             new URL(path.startsWith("/") ? `/api/auth${path}` : path, origin),
             {

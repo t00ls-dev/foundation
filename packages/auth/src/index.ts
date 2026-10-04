@@ -1,5 +1,6 @@
 import { betterAuth, type Auth } from "better-auth";
-import { magicLink } from "better-auth/plugins";
+import { APIError, createAuthMiddleware } from "better-auth/api";
+import { magicLink, twoFactor } from "better-auth/plugins";
 
 export interface FoundationEmail {
   send(input: { to: string; subject: string; text: string }): Promise<void>;
@@ -15,6 +16,14 @@ export interface FoundationAuthOptions {
   email: FoundationEmail;
   google?: { clientId: string; clientSecret: string };
   secret: string;
+  /** TOTP for password login only; enrollment requires a separate explicit opt-in. */
+  totp?: { issuer: string; enrollmentEnabled?: boolean };
+  /** Requires the consumer's rateLimit schema. Enabled follows Better Auth's production default. */
+  rateLimit?: {
+    storage: "database";
+    enabled?: boolean;
+    ipAddressHeaders?: string[];
+  };
 }
 
 export interface FoundationAuth {
@@ -25,7 +34,9 @@ export interface FoundationAuth {
   }>;
 }
 
-export type FoundationSession = Auth["$Infer"]["Session"];
+export type FoundationSession = Auth["$Infer"]["Session"] & {
+  user: { twoFactorEnabled?: boolean };
+};
 
 const authLogEvents = new Map([
   ["INTERNAL_SERVER_ERROR", "auth.internal_error"],
@@ -58,7 +69,63 @@ export function createFoundationAuth(
     secret: options.secret,
     // Better Auth otherwise skips origin checks automatically under NODE_ENV=test.
     // Keep the same protection in tests and deployed applications.
-    advanced: { disableOriginCheck: false },
+    advanced: {
+      disableOriginCheck: false,
+      ...(options.rateLimit?.ipAddressHeaders
+        ? {
+            ipAddress: { ipAddressHeaders: options.rateLimit.ipAddressHeaders },
+          }
+        : {}),
+    },
+    ...(options.rateLimit
+      ? {
+          rateLimit: {
+            storage: options.rateLimit.storage,
+            ...(options.rateLimit.enabled !== undefined
+              ? { enabled: options.rateLimit.enabled }
+              : {}),
+          },
+        }
+      : {}),
+    ...(options.totp
+      ? {
+          appName: options.totp.issuer,
+          disabledPaths: [
+            "/two-factor/generate-backup-codes",
+            "/two-factor/verify-backup-code",
+            "/two-factor/send-otp",
+            "/two-factor/verify-otp",
+            ...(!options.totp.enrollmentEnabled ? ["/two-factor/enable"] : []),
+          ],
+          hooks: {
+            before: createAuthMiddleware((ctx) => {
+              if (!ctx.path?.startsWith("/two-factor/"))
+                return Promise.resolve();
+              const body = ctx.body as Record<string, unknown> | undefined;
+              if (body?.trustDevice === true)
+                throw new APIError("BAD_REQUEST", {
+                  code: "TRUSTED_DEVICE_DISABLED",
+                  message: "Trusted devices are not supported.",
+                });
+              if (ctx.path === "/two-factor/enable" && body?.method === "otp")
+                throw new APIError("BAD_REQUEST", {
+                  code: "OTP_DISABLED",
+                  message: "Only authenticator TOTP is supported.",
+                });
+              if (
+                ctx.path === "/two-factor/enable" &&
+                body?.issuer !== undefined &&
+                body.issuer !== options.totp?.issuer
+              )
+                throw new APIError("BAD_REQUEST", {
+                  code: "INVALID_TOTP_ISSUER",
+                  message: "Use the configured authenticator issuer.",
+                });
+              return Promise.resolve();
+            }),
+          },
+        }
+      : {}),
     logger: { log: logAuth },
     // Let the Foundation handler sanitize unexpected errors instead of the
     // HTTP router's direct-console fallback (which ignores the custom logger).
@@ -93,11 +160,27 @@ export function createFoundationAuth(
           });
         },
       }),
+      ...(options.totp
+        ? [
+            twoFactor({
+              issuer: options.totp.issuer,
+              allowPasswordless: false,
+              skipVerificationOnEnable: false,
+              totpOptions: { digits: 6, period: 30 },
+              backupCodeOptions: { customBackupCodesGenerate: () => [] },
+            }),
+          ]
+        : []),
     ],
     ...(options.google ? { socialProviders: { google: options.google } } : {}),
   });
   return {
     async handler(request) {
+      const path = new URL(request.url).pathname.replace(/\/+$/, "");
+      const indeterminate = Boolean(
+        options.totp &&
+        (path.includes("/two-factor/") || path.endsWith("/sign-in/email")),
+      );
       let response: Response;
       try {
         response = await auth.handler(request);
@@ -105,13 +188,26 @@ export function createFoundationAuth(
         logAuth("error", "AUTH_ENDPOINT_FAILED");
         return Response.json(
           {
-            code: "AUTH_FAILURE",
-            message: "Authentication request failed. Please try again.",
+            code: indeterminate ? "AUTH_STATE_INDETERMINATE" : "AUTH_FAILURE",
+            message: indeterminate
+              ? "Authentication outcome could not be confirmed. Resolve your session before taking further action."
+              : "Authentication request failed. Please try again.",
           },
           { status: 500, headers: { "Cache-Control": "private, no-store" } },
         );
       }
-      if (response.status >= 500) logAuth("error", "AUTH_ENDPOINT_FAILED");
+      if (response.status >= 500) {
+        logAuth("error", "AUTH_ENDPOINT_FAILED");
+        if (indeterminate)
+          return Response.json(
+            {
+              code: "AUTH_STATE_INDETERMINATE",
+              message:
+                "Authentication outcome could not be confirmed. Resolve your session before taking further action.",
+            },
+            { status: 500, headers: { "Cache-Control": "private, no-store" } },
+          );
+      }
       if (request.method !== "POST" || !response.ok) return response;
       const basePath = new URL((await auth.$context).baseURL).pathname.replace(
         /\/+$/,

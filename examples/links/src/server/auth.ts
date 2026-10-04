@@ -48,6 +48,8 @@ export function createRequestAuth(env: Env, emailFactory: EmailFactory) {
     email: emailFactory(env),
     ...(google ? { google } : {}),
     secret: env.AUTH_SECRET,
+    totp: { issuer: "Links", enrollmentEnabled: false },
+    rateLimit: { storage: "database", ipAddressHeaders: ["cf-connecting-ip"] },
   });
   return { auth, database };
 }

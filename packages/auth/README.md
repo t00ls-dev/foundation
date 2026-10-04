@@ -26,9 +26,46 @@ pnpm --filter <app> add '@t00ls-dev/auth@workspace:*'
   são convertidas em sessão anônima. Encaminhe os headers retornados, incluindo
   cada `Set-Cookie`, para preservar renovação e limpeza de cookies.
 - `FoundationAuthOptions`: exige `baseURL`, adaptador `database`, `email` e
-  `secret`; aceita credenciais `google`.
+  `secret`; aceita credenciais `google`, `totp` e `rateLimit` opt-in.
 - `FoundationEmail`: contrato mínimo de envio usado pelos fluxos de
   autenticação.
+
+### TOTP opt-in
+
+`totp: { issuer: "Links", enrollmentEnabled: false }` instala o plugin público
+twoFactor, alinha appName/issuer, exige senha e confirmação para habilitar TOTP
+de seis dígitos/30 segundos. Sem a opção, consumidores mantêm seu comportamento
+anterior. `twoFactorEnabled` é opcional no tipo público de sessão; estado deve
+ser obtido por sessão autoritativa, não pelo body de confirmação (que pode
+conter o snapshot anterior). Não há exposição da instância, contexto ou APIs
+server-side do Better Auth, incluindo geração/visualização de backup codes.
+
+Enrollment HTTP fica bloqueado por padrão e requer `enrollmentEnabled: true`
+somente quando o consumidor estiver pronto para enrollment e challenge de login.
+O plugin não aplica desafio TOTP a Magic Link/Google: eles continuam
+alternativas. Não há recovery codes, OTP ou trusted devices: gerador de backup
+retorna lista vazia, endpoints de backup/OTP são bloqueados e
+`trustDevice: true` é rejeitado por hook público antes da operação. Issuer
+alternativo no request é rejeitado.
+
+O consumidor deve compor o schema `user.twoFactorEnabled` e `twoFactor`, com
+verified, failedVerificationCount e lockedUntil, e suas migrations. O pacote não
+aplica migrations nem consulta diretamente tabelas para implementar TOTP.
+
+`rateLimit: { storage: "database", ipAddressHeaders: ["cf-connecting-ip"] }`
+seleciona storage do adapter e requer modelo `rateLimit` (key único, count e
+lastRequest numérico em milissegundos). `enabled` omitido preserva o default de
+produção do Better Auth; testes podem habilitá-lo explicitamente. Configure
+somente headers garantidos pelo runtime/proxy confiável, nunca headers
+arbitrários encaminhados pelo cliente. Falha do storage não degrada para
+memória.
+
+Em operações TOTP e login por senha com opt-in, falhas inesperadas retornam
+`500/AUTH_STATE_INDETERMINATE`, sanitizado e sem cookies de sucesso: não
+presumir rollback ou repetir mutation automaticamente. Consulte sessão
+autoritativa e identidade; o flag sozinho não prova setup confirmado após falha.
+Magic Link/Google são caminhos explícitos de recuperação. O comportamento
+anterior `AUTH_FAILURE` permanece nos demais endpoints e sem TOTP.
 
 O handler só confirma `POST /api/auth/sign-out` após uma leitura autoritativa
 sem renovação nem cache de cookie. Se a exclusão falhar ou não puder ser

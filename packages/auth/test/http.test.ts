@@ -39,6 +39,35 @@ describe("foundation auth HTTP flows", () => {
     expect(sent[0]?.subject).toBe("Verify your email");
   });
 
+  it("does not enable TOTP or expose plugin server APIs without an opt-in", async () => {
+    expect(
+      (await post("/api/auth/two-factor/enable", { password: "unused" }))
+        .status,
+    ).toBe(404);
+    expect(Object.keys(auth).sort()).toEqual(["handler", "resolveSession"]);
+  });
+
+  it("requires a second explicit opt-in before exposing enrollment", async () => {
+    auth = createFoundationAuth({
+      baseURL: "http://localhost:3000",
+      database: memoryAdapter({
+        account: [],
+        session: [],
+        user: [],
+        verification: [],
+        twoFactor: [],
+      }),
+      email: { send: () => Promise.resolve() },
+      secret: "test-secret-with-at-least-thirty-two-characters",
+      totp: { issuer: "Links" },
+    });
+    expect(
+      (await post("/api/auth/two-factor/enable", { password: "unused" }))
+        .status,
+    ).toBe(404);
+    expect(Object.keys(auth).sort()).toEqual(["handler", "resolveSession"]);
+  });
+
   it("accepts magic-link and password-reset requests without user enumeration", async () => {
     await post("/api/auth/sign-up/email", {
       email: "person@example.com",

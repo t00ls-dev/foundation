@@ -15,6 +15,13 @@
       "when": 1790812115834,
       "tag": "0002_links",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791077287659,
+      "tag": "0003_links_totp",
+      "breakpoints": true
     }
   ]
 }
