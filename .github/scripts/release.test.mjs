@@ -1513,6 +1513,30 @@ test("workflow cannot publish on push or audit; only publisher has packages:writ
     );
 });
 
+test("only Version Packages retains checkout credentials for Changesets history fetches", () => {
+  const ci = parse(readFileSync(".github/workflows/ci.yml", "utf8"));
+  const release = parse(readFileSync(".github/workflows/release.yml", "utf8"));
+  const deploy = parse(
+    readFileSync(".github/workflows/deploy-dev.yml", "utf8"),
+  );
+  const checkouts = (job) =>
+    job.steps.filter((step) => step.uses?.startsWith("actions/checkout@"));
+  assert.equal(checkouts(ci.jobs.version).length, 1);
+  assert.equal(checkouts(ci.jobs.version)[0].with["persist-credentials"], true);
+  assert(!("token" in checkouts(ci.jobs.version)[0].with));
+  for (const job of [...Object.values(release.jobs), deploy.jobs.deploy]) {
+    assert(checkouts(job).length > 0);
+    for (const step of checkouts(job))
+      assert.equal(step.with["persist-credentials"], false);
+  }
+  const action = ci.jobs.version.steps.find(
+    (step) => step.uses === "changesets/action@v2.1.2",
+  );
+  assert(action);
+  assert(!action.with["push-with-git-cli"]);
+  assert(!action.with["publish-script"]);
+});
+
 const ciWorkflow = () => ({ id: 123, path: ".github/workflows/ci.yml" });
 const ciRun = () => ({
   id: 100,

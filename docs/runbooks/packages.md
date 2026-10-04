@@ -43,6 +43,13 @@ safe-audit-logs) já integram a base inicial `0.1.0`.
    com o executor autorizado. Correções posteriores do mecanismo só podem mudar
    os arquivos de infraestrutura explicitamente permitidos abaixo.
 
+O checkout do job CI `version` mantém a credencial Git temporária do
+`GITHUB_TOKEN`: o CLI Changesets pode aprofundar o clone via `git fetch` para
+identificar os commits que adicionaram changesets ao gerar changelogs. O cleanup
+da Checkout Action remove a credencial ao finalizar o job. Os checkouts de
+Release e Deploy DEV continuam com `persist-credentials: false`. Isso não muda o
+push via API da Changesets Action nem autoriza publicação via Git CLI.
+
 ## Audit manual (nenhuma publicação)
 
 Execute Release em `master` por `workflow_dispatch` com:

@@ -56,7 +56,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          persist-credentials: false
+          # Changesets may deepen the clone via Git; credentials stay in this job.
+          persist-credentials: true
       - uses: pnpm/action-setup@v6.1.0
       - uses: actions/setup-node@v7
         with:
