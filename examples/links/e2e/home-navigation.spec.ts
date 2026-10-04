@@ -293,7 +293,7 @@ test("Home remains available during session loading and recoverable errors", asy
   });
   await page.goto("/");
   await expect(
-    page.getByText("Loading your session...", { exact: true }),
+    page.getByRole("progressbar", { name: "Loading session" }),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Foundation", exact: true }),

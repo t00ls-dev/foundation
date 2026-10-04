@@ -19,10 +19,14 @@ const unconfirmed =
 
 export function AccountSecurity({
   user,
+  sessionId,
   onSessionChanged,
+  onPasswordConfirmed,
 }: {
   user: { id: string; email: string };
+  sessionId: string;
   onSessionChanged: () => Promise<void>;
+  onPasswordConfirmed: (identity: string) => void;
 }) {
   const [state, setState] = useState<"loading" | "error" | "ready">("loading");
   const [passwordPresent, setPasswordPresent] = useState(false);
@@ -84,6 +88,13 @@ export function AccountSecurity({
       });
       if (resolved.error || resolved.data?.user.id !== user.id)
         return { kind: "error", message: unconfirmed, clearFields: true };
+      // The shell resets private forms on session rotation. Deliver only this
+      // fixed, authoritatively confirmed result to the replacement boundary.
+      if (resolved.data.session.id !== sessionId) {
+        onPasswordConfirmed(
+          `${resolved.data.user.id}:${resolved.data.session.id}`,
+        );
+      }
       return {
         kind: "success",
         message: "Password updated. Other sessions have been signed out.",

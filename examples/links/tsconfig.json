@@ -3,6 +3,7 @@
   "compilerOptions": {
     "declaration": false,
     "declarationMap": false,
+    "paths": { "@/*": ["./src/client/*"] },
     "types": ["@cloudflare/workers-types", "node", "vite/client"]
   },
   "include": [

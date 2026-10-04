@@ -156,8 +156,9 @@ try {
   assert(pnpm, "Run this test using pnpm test:distribution");
   run(process.execPath, [
     pnpm,
-    "--filter",
-    "./packages/*",
+    // Pack only the existing distribution inventory. Private workspaces such
+    // as UI consume sources and must not become release artifacts.
+    ...names.flatMap((name) => ["--filter", `@t00ls-dev/${name}`]),
     "-r",
     "pack",
     "--pack-destination",

@@ -1,0 +1,5 @@
+{
+  "extends": "@t00ls-dev/typescript-config/react.json",
+  "compilerOptions": { "declaration": false, "declarationMap": false },
+  "include": ["src", "test"]
+}

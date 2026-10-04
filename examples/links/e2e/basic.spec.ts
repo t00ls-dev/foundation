@@ -641,7 +641,9 @@ test("shows session loading and recoverable session errors", async ({
     });
   });
   await page.goto("/bookmarks");
-  await expect(page.getByRole("status")).toHaveText("Loading your session...");
+  await expect(
+    page.getByRole("progressbar", { name: "Loading session" }),
+  ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Unable to load your session" }),
   ).toBeVisible();

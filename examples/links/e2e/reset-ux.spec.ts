@@ -255,7 +255,7 @@ test("pending or failed central session resolution never supplies visitor reset 
   });
   await page.goto("/reset-password?token=unknown");
   await expect(
-    page.getByText("Loading your session...", { exact: true }),
+    page.getByRole("progressbar", { name: "Loading session" }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Back to sign in", exact: true }),

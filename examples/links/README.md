@@ -7,9 +7,10 @@ Worker. O exemplo está em `examples/links`, com package
 
 ## Shared visual foundation
 
-`src/client/styles.css` defines the Links visual tokens (colors, spacing,
-typography, borders, radii, container widths and touch targets). The existing
-pages share these defaults without a UI library or changes to their flows.
+`packages/ui/src/styles.css` defines semantic color, spacing, typography and
+focus tokens, with temporary aliases and legacy layout in
+`src/client/styles.css`. The shell uses the private UI workspace; existing pages
+retain their flows.
 
 - Layout: `.container`, `.container--narrow`, `.stack` and `.cluster`; flex/grid
   children can shrink and long content wraps instead of being clipped.
@@ -375,3 +376,11 @@ Após publicar, validar manualmente com duas contas:
 Esse smoke funcional remoto depende de publicação após merge; `/health` sozinho
 não comprova os fluxos de usuário. Google OAuth continua opcional mediante os
 dois secrets existentes.
+
+## Base UI e shell
+
+O Links consome `@t00ls-dev/ui` como workspace privado, com Tailwind v4 e scan
+explícito das fontes. A migração é incremental: esta etapa trata tokens,
+loading/feedback e shell; Bookmarks e Account/TOTP mantêm seus fluxos atuais.
+Veja os [padrões de UI](../../packages/ui/README.md) e o
+[ADR-008](../../docs/decisions/008-foundation-ui-v1.md).

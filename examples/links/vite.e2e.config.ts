@@ -1,4 +1,5 @@
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import { cloudflare } from "@cloudflare/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
@@ -9,6 +10,19 @@ export default defineConfig(() => {
   if (!path)
     throw new Error("Start this test configuration through e2e/start.ts");
   return {
+    optimizeDeps: {
+      extensions: [".tsx"],
+      include: [
+        "@t00ls-dev/ui/components/skeleton",
+        "@t00ls-dev/ui/patterns/page-progress",
+        "@t00ls-dev/ui/patterns/pending-button",
+        "@t00ls-dev/ui/patterns/inline-feedback",
+        "@t00ls-dev/ui/patterns/feedback",
+      ],
+    },
+    resolve: {
+      alias: { "@": fileURLToPath(new URL("./src/client", import.meta.url)) },
+    },
     plugins: [
       react(),
       tailwindcss(),

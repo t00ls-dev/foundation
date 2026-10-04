@@ -64,6 +64,11 @@ bloqueada.
 package é `@t00ls-dev/example-links`. Demonstra:
 
 - React, React Router, React Hook Form, Zod e Tailwind CSS;
+- base UI v1 privada em `packages/ui`: tokens semânticos, primitives shadcn
+  incrementais, PageProgress/feedback e Sonner único; shell preservado no
+  refetch da mesma identidade, com limites de sessão mantidos. Veja o
+  [ADR-008](decisions/008-foundation-ui-v1.md) e os
+  [padrões](../packages/ui/README.md);
 - Hono no mesmo Worker que serve os assets da SPA;
 - D1 e Drizzle;
 - Better Auth por meio dos pacotes do foundation;

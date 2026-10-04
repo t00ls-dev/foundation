@@ -1,4 +1,21 @@
-import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { Skeleton } from "@t00ls-dev/ui/components/skeleton";
+import { PendingButton } from "@t00ls-dev/ui/patterns/pending-button";
+import { InlineFeedback } from "@t00ls-dev/ui/patterns/inline-feedback";
+import {
+  FeedbackProvider,
+  useConfirmedFeedback,
+} from "@t00ls-dev/ui/patterns/feedback";
+import {
+  PageProgress,
+  useProgressOperation,
+} from "@t00ls-dev/ui/patterns/page-progress";
 import {
   Link,
   Navigate,
@@ -22,10 +39,25 @@ import {
   setSessionIdentity,
 } from "./session-generation.js";
 
+function PasswordConfirmation({ operation }: { operation: string }) {
+  const confirmed = useConfirmedFeedback();
+  useEffect(() => {
+    confirmed(
+      operation,
+      "Password updated. Other sessions have been signed out.",
+    );
+  }, [confirmed, operation]);
+  return null;
+}
+
 export function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const session = authClient.useSession();
+  const sessionResolved = useRef(false);
+  useLayoutEffect(() => {
+    if (!session.isPending && !session.error) sessionResolved.current = true;
+  }, [session.isPending, session.error]);
   const [challenge, setChallenge] = useState<PasswordChallenge | null>(null);
   useEffect(() => {
     if (location.pathname !== "/two-factor") setChallenge(null);
@@ -35,6 +67,10 @@ export function App() {
   const [signingOut, setSigningOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
   const [logoutSource, setLogoutSource] = useState<string | null>(null);
+  const [passwordConfirmation, setPasswordConfirmation] = useState<{
+    identity: string;
+    operation: string;
+  } | null>(null);
   useEffect(() => {
     if (logoutSource && location.pathname !== logoutSource)
       setLogoutSource(null);
@@ -96,8 +132,18 @@ export function App() {
   const destination = authDestination(
     new URLSearchParams(location.search).get("next"),
   );
+  // Better Auth retains data during a same-identity refetch. Never cache a
+  // private snapshot separately: null/401, expiry and logout remain boundaries.
+  const unknown =
+    !sessionResolved.current && session.isPending && !session.data && !expired;
   const blocked =
-    session.isPending || signingOut || (session.error && (!expired || isReset));
+    unknown ||
+    signingOut ||
+    Boolean(
+      session.error && ((!sessionResolved.current && !expired) || isReset),
+    );
+  useProgressOperation(session.isPending || session.isRefetching);
+  useProgressOperation(signingOut);
   function privatePage(page: ReactNode) {
     return user ? (
       page
@@ -117,154 +163,210 @@ export function App() {
   }
 
   return (
-    <main className="shell">
-      <header className="app-header">
-        <Link to="/" className="brand">
-          Foundation
-        </Link>
-        <nav className="cluster header-main" aria-label="Main navigation">
-          <NavLink to="/" end>
-            Home
-          </NavLink>
-          <NavLink to="/bookmarks">Bookmarks</NavLink>
-        </nav>
-        {user ? (
-          <div className="account">
-            <span title={user.name}>{user.name}</span>
-            <nav
-              className="cluster header-account"
-              aria-label="Account navigation"
-            >
-              <NavLink to="/account">Account</NavLink>
-              <button
-                className="button--quiet"
-                disabled={signingOut}
-                onClick={() => void signOut()}
-              >
-                {signingOut ? "Signing out..." : "Sign out"}
-              </button>
+    <>
+      <PageProgress label={signingOut ? "Signing out" : "Loading session"} />
+      <FeedbackProvider
+        key={signingOut ? "signing-out" : (identity ?? "anonymous")}
+      >
+        <main className="shell">
+          <header className="app-header">
+            <Link to="/" className="brand">
+              Foundation
+            </Link>
+            <nav className="cluster header-main" aria-label="Main navigation">
+              <NavLink to="/" end>
+                Home
+              </NavLink>
+              <NavLink to="/bookmarks">Bookmarks</NavLink>
             </nav>
-          </div>
-        ) : !blocked ? (
-          <nav
-            className="cluster header-account"
-            aria-label="Account navigation"
-          >
-            <Link to={authPath("/login", destination)}>Sign in</Link>
-            <Link to={authPath("/signup", destination)}>Create account</Link>
-          </nav>
-        ) : null}
-      </header>
-      {logoutError ? <p role="alert">{logoutError}</p> : null}
-      {sessionExpired ? (
-        <p role="status">Your session expired. Sign in again to continue.</p>
-      ) : null}
-      {session.isPending || signingOut ? (
-        <p role="status">
-          {signingOut ? "Signing out..." : "Loading your session..."}
-        </p>
-      ) : session.error && (!expired || isReset) ? (
-        <section>
-          <h1>Unable to load your session</h1>
-          <p role="alert">Please check your connection.</p>
-          <button onClick={() => void session.refetch()}>Try again</button>
-        </section>
-      ) : null}
-      {isHome ? (
-        <Home showSignIn={!user && !blocked} />
-      ) : !blocked ? (
-        <Routes key={user?.id ?? "anonymous"}>
-          <Route
-            path="/login"
-            element={
-              user ? (
-                <Navigate to={destination} replace />
-              ) : (
-                <AuthPage
-                  mode="login"
-                  onSignedIn={signedIn}
-                  onChallenge={setChallenge}
-                />
-              )
-            }
-          />
-          <Route
-            path="/signup"
-            element={
-              user ? (
-                <Navigate to={destination} replace />
-              ) : (
-                <AuthPage mode="signup" onSignedIn={signedIn} />
-              )
-            }
-          />
-          <Route
-            path="/magic-link"
-            element={<AuthPage mode="magic" onSignedIn={signedIn} />}
-          />
-          <Route
-            path="/forgot-password"
-            element={<AuthPage mode="recover" onSignedIn={signedIn} />}
-          />
-          <Route path="/verify-email" element={<Verification />} />
-          <Route
-            path="/two-factor"
-            element={
-              <TotpChallenge
-                challenge={challenge}
-                destination={destination}
-                onSignedIn={signedIn}
-                onReconciling={() =>
-                  setChallenge((value) =>
-                    value ? { ...value, uncertain: true } : null,
+            {user ? (
+              <div className="account">
+                <span title={user.name}>{user.name}</span>
+                <nav
+                  className="cluster header-account"
+                  aria-label="Account navigation"
+                >
+                  <NavLink to="/account">Account</NavLink>
+                  <PendingButton
+                    className="gap-0 px-1 py-1 text-inherit"
+                    variant="ghost"
+                    pending={signingOut}
+                    pendingLabel="Signing out..."
+                    onClick={() => void signOut()}
+                  >
+                    Sign out
+                  </PendingButton>
+                </nav>
+              </div>
+            ) : !blocked ? (
+              <nav
+                className="cluster header-account"
+                aria-label="Account navigation"
+              >
+                <Link to={authPath("/login", destination)}>Sign in</Link>
+                <Link to={authPath("/signup", destination)}>
+                  Create account
+                </Link>
+              </nav>
+            ) : (
+              <div
+                className="account"
+                role="group"
+                aria-busy={session.isPending || session.isRefetching}
+                aria-label={
+                  session.error ? "Account unavailable" : "Loading account"
+                }
+              >
+                <Skeleton className="ml-auto h-5 w-24" />
+                <Skeleton className="ml-auto h-11 w-full max-w-48" />
+              </div>
+            )}
+          </header>
+          {!signingOut &&
+          passwordConfirmation &&
+          passwordConfirmation.identity === identity ? (
+            <PasswordConfirmation operation={passwordConfirmation.operation} />
+          ) : null}
+          {logoutError ? (
+            <InlineFeedback tone="error" announce="assertive">
+              {logoutError}
+            </InlineFeedback>
+          ) : null}
+          {sessionExpired ? (
+            <InlineFeedback>
+              Your session expired. Sign in again to continue.
+            </InlineFeedback>
+          ) : null}
+          {unknown && !isHome ? (
+            <div
+              className="container--narrow stack"
+              role="region"
+              aria-busy="true"
+              aria-label="Loading page"
+            >
+              <Skeleton className="h-10 w-2/3" />
+              <Skeleton className="h-48 w-full" />
+            </div>
+          ) : null}
+          {session.error && (!expired || isReset) ? (
+            <section>
+              {!sessionResolved.current ? (
+                <h1>Unable to load your session</h1>
+              ) : null}
+              <InlineFeedback tone="error" announce="assertive">
+                {user
+                  ? "Could not refresh your session. Please check your connection."
+                  : "Please check your connection."}
+              </InlineFeedback>
+              <button onClick={() => void session.refetch()}>Try again</button>
+            </section>
+          ) : null}
+          {isHome ? (
+            <Home showSignIn={!user && !blocked} />
+          ) : !blocked ? (
+            <Routes key={identity ?? "anonymous"}>
+              <Route
+                path="/login"
+                element={
+                  user ? (
+                    <Navigate to={destination} replace />
+                  ) : (
+                    <AuthPage
+                      mode="login"
+                      onSignedIn={signedIn}
+                      onChallenge={setChallenge}
+                    />
                   )
                 }
               />
-            }
-          />
-          <Route
-            path="/reset-password"
-            element={<ResetPassword authenticated={Boolean(user)} />}
-          />
-          <Route
-            path="/account"
-            element={privatePage(
-              user ? (
-                <AccountSettings
-                  user={user}
-                  onSessionChanged={signedIn}
-                  sessionId={session.data?.session.id ?? ""}
-                  onNameChanged={async () => {
-                    await session.refetch();
-                  }}
-                />
-              ) : null,
-            )}
-          />
-          <Route
-            path="/account/security"
-            element={
-              <Navigate
-                to={`/account${location.search}${location.hash}`}
-                replace
+              <Route
+                path="/signup"
+                element={
+                  user ? (
+                    <Navigate to={destination} replace />
+                  ) : (
+                    <AuthPage mode="signup" onSignedIn={signedIn} />
+                  )
+                }
               />
-            }
-          />
-          <Route path="/bookmarks" element={privatePage(<BookmarkLibrary />)} />
-          <Route
-            path="/bookmarks/new"
-            element={privatePage(<BookmarkEditor key="new" />)}
-          />
-          <Route
-            path="/bookmarks/:id/edit"
-            element={privatePage(<BookmarkEditor />)}
-          />
-          <Route
-            path="*"
-            element={<Navigate to={user ? "/bookmarks" : "/"} replace />}
-          />
-        </Routes>
-      ) : null}
-    </main>
+              <Route
+                path="/magic-link"
+                element={<AuthPage mode="magic" onSignedIn={signedIn} />}
+              />
+              <Route
+                path="/forgot-password"
+                element={<AuthPage mode="recover" onSignedIn={signedIn} />}
+              />
+              <Route path="/verify-email" element={<Verification />} />
+              <Route
+                path="/two-factor"
+                element={
+                  <TotpChallenge
+                    challenge={challenge}
+                    destination={destination}
+                    onSignedIn={signedIn}
+                    onReconciling={() =>
+                      setChallenge((value) =>
+                        value ? { ...value, uncertain: true } : null,
+                      )
+                    }
+                  />
+                }
+              />
+              <Route
+                path="/reset-password"
+                element={<ResetPassword authenticated={Boolean(user)} />}
+              />
+              <Route
+                path="/account"
+                element={privatePage(
+                  user ? (
+                    <AccountSettings
+                      user={user}
+                      onSessionChanged={signedIn}
+                      sessionId={session.data?.session.id ?? ""}
+                      onPasswordConfirmed={(confirmedIdentity) => {
+                        setPasswordConfirmation({
+                          identity: confirmedIdentity,
+                          operation: crypto.randomUUID(),
+                        });
+                      }}
+                      onNameChanged={async () => {
+                        await session.refetch();
+                      }}
+                    />
+                  ) : null,
+                )}
+              />
+              <Route
+                path="/account/security"
+                element={
+                  <Navigate
+                    to={`/account${location.search}${location.hash}`}
+                    replace
+                  />
+                }
+              />
+              <Route
+                path="/bookmarks"
+                element={privatePage(<BookmarkLibrary />)}
+              />
+              <Route
+                path="/bookmarks/new"
+                element={privatePage(<BookmarkEditor key="new" />)}
+              />
+              <Route
+                path="/bookmarks/:id/edit"
+                element={privatePage(<BookmarkEditor />)}
+              />
+              <Route
+                path="*"
+                element={<Navigate to={user ? "/bookmarks" : "/"} replace />}
+              />
+            </Routes>
+          ) : null}
+        </main>
+      </FeedbackProvider>
+    </>
   );
 }

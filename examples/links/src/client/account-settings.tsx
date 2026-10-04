@@ -8,18 +8,25 @@ export function AccountSettings({
   onSessionChanged,
   onNameChanged,
   sessionId,
+  onPasswordConfirmed,
 }: {
   user: { id: string; name: string; email: string };
   onSessionChanged: () => Promise<void>;
   onNameChanged: () => Promise<void>;
   sessionId: string;
+  onPasswordConfirmed: (identity: string) => void;
 }) {
   const location = useLocation();
   return (
     <section className="container--narrow stack" aria-label="Account settings">
       <h1 className="cross-page-title">Account Settings</h1>
       <AccountName user={user} onNameChanged={onNameChanged} />
-      <AccountSecurity user={user} onSessionChanged={onSessionChanged} />
+      <AccountSecurity
+        user={user}
+        sessionId={sessionId}
+        onSessionChanged={onSessionChanged}
+        onPasswordConfirmed={onPasswordConfirmed}
+      />
       <AccountTotp
         key={`${sessionId}:${location.key}`}
         user={user}
