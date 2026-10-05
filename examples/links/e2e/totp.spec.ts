@@ -578,6 +578,126 @@ test("keeps verification closed if the final identity read fails across the auth
   expect(verifications).toBe(1);
 });
 
+for (const fails of [false, true]) {
+  test(`keeps post-TOTP reconciliation neutral across session remount until final ${fails ? "failure" : "success"}`, async ({
+    page,
+  }) => {
+    const email = await reader(page);
+    const uri = await begin(page);
+    await confirm(page, uri);
+    await signOut(page);
+    await login(page, email);
+    await expect(
+      page.getByRole("button", { name: "Verify code" }),
+    ).toBeVisible();
+    let reads = 0;
+    let verifications = 0;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route("**/api/auth/two-factor/verify-totp", async (route) => {
+      verifications++;
+      await route.continue();
+    });
+    await page.route("**/api/auth/get-session?**", async (route) => {
+      reads++;
+      if (reads === 2) {
+        await held;
+        if (fails)
+          return route.fulfill({ status: 503, json: { code: "AUTH_FAILURE" } });
+      }
+      await route.continue();
+    });
+    // Capture even a transient alert/recovery control, not just the final DOM.
+    await page.evaluate(() => {
+      const state = { errorSeen: false, recoverySeen: false };
+      Object.assign(window, { reconciliationObservation: state });
+      const inspect = () => {
+        state.errorSeen ||= Array.from(
+          document.querySelectorAll('[role="alert"]'),
+        ).some((element) => element.textContent?.includes("couldn't confirm"));
+        state.recoverySeen ||= Array.from(
+          document.querySelectorAll("button"),
+        ).some((element) =>
+          element.textContent?.includes("Check current session"),
+        );
+      };
+      new MutationObserver(inspect).observe(document.body, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+      });
+      inspect();
+    });
+    await page.getByLabel("Authenticator code").fill(totp(uri));
+    await page.getByRole("button", { name: "Verify code" }).click();
+    await expect.poll(() => reads).toBe(2);
+    await expect(
+      page
+        .getByRole("status")
+        .filter({ hasText: "Confirming your session..." }),
+    ).toBeVisible();
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Check current session" }),
+    ).toHaveCount(0);
+    await expect(page.getByLabel("Authenticator code")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Verify code" })).toHaveCount(
+      0,
+    );
+    expect(
+      await page.evaluate(
+        () =>
+          (
+            window as Window & {
+              reconciliationObservation?: {
+                errorSeen: boolean;
+                recoverySeen: boolean;
+              };
+            }
+          ).reconciliationObservation,
+      ),
+    ).toEqual({ errorSeen: false, recoverySeen: false });
+    expect(verifications).toBe(1);
+    release();
+    if (fails) {
+      await expect(page.getByRole("alert")).toContainText("couldn't confirm");
+      await expect(
+        page.getByRole("button", { name: "Check current session" }),
+      ).toBeVisible();
+      await expect(
+        page
+          .getByRole("status")
+          .filter({ hasText: "Confirming your session..." }),
+      ).toHaveCount(0);
+      await expect(
+        page.getByRole("button", { name: "Verify code" }),
+      ).toHaveCount(0);
+      await page.unroute("**/api/auth/get-session?**");
+      await page.getByRole("button", { name: "Check current session" }).click();
+    }
+    await expect(
+      page.getByRole("heading", { name: "Your bookmarks" }),
+    ).toBeVisible();
+    expect(verifications).toBe(1);
+    if (!fails)
+      expect(
+        await page.evaluate(
+          () =>
+            (
+              window as Window & {
+                reconciliationObservation?: {
+                  errorSeen: boolean;
+                  recoverySeen: boolean;
+                };
+              }
+            ).reconciliationObservation,
+        ),
+      ).toEqual({ errorSeen: false, recoverySeen: false });
+  });
+}
+
 test("normal Off and On never expose recovery and unknown never becomes Off", async ({
   page,
 }) => {

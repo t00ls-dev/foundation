@@ -29,18 +29,21 @@ export function TotpChallenge({
   challenge: PasswordChallenge | null;
   destination: string;
   onSignedIn: () => Promise<void>;
-  onReconciling: () => void;
+  onReconciling: () => () => void;
   onRecoveryObserved: () => void;
   onAbandon: () => void;
 }) {
   const navigate = useNavigate();
   const [blocked, setBlocked] = useState(
-    !challenge || !challenge.available || challenge.uncertain,
+    !challenge ||
+      !challenge.available ||
+      challenge.uncertain ||
+      Boolean(challenge.reconciling),
   );
   const [message, setMessage] = useState(
     !challenge
       ? "Start a new password sign-in to get a challenge. Reloading or leaving this page clears the sign-in context."
-      : challenge.uncertain
+      : challenge.uncertain || challenge.reconciling
         ? totpUnconfirmed
         : !challenge.available
           ? "Authenticator setup is incomplete. Use Magic Link or Google, then finish interrupted setup in Account."
@@ -80,26 +83,32 @@ export function TotpChallenge({
       (verifying && resolved.user.twoFactorEnabled !== true)
     )
       throw new Error("Could not confirm expected identity");
-    // Preserve the read-only recovery state across the legitimate auth-tree
-    // remount. A failed final identity read must not reopen code verification.
+    // Keep verification closed across the legitimate auth-tree remount, but
+    // pending reconciliation is not an indeterminate outcome yet.
     setBlocked(true);
     setMessage(totpUnconfirmed);
-    onReconciling();
+    const reconciliationFailed = onReconciling();
     releaseSessionRequest(controller);
-    await onSignedIn();
-    // The authenticated route tree legitimately remounts us. Reconfirm identity
-    // rather than confusing that remount with a late response for another account.
-    if (window.location.pathname !== "/two-factor") return;
-    const current = await readTotpSession(new AbortController().signal);
-    if (
-      current?.user.email.toLowerCase() === challenge.email &&
-      window.location.pathname === "/two-factor"
-    )
+    try {
+      await onSignedIn();
+      // The authenticated route tree legitimately remounts us. Reconfirm identity
+      // rather than confusing that remount with a late response for another account.
+      if (window.location.pathname !== "/two-factor") return;
+      const current = await readTotpSession(new AbortController().signal);
+      if (window.location.pathname !== "/two-factor") return;
+      if (current?.user.email.toLowerCase() !== challenge.email)
+        throw new Error("Could not confirm expected identity");
       await navigate(challenge.destination, { replace: true });
+    } catch (error) {
+      // The initiating instance may have unmounted during session rotation;
+      // report failure to this exact challenge at the surviving boundary.
+      reconciliationFailed();
+      throw error;
+    }
   }
 
   async function verify(values: FormValues): Promise<Feedback> {
-    if (!challenge || blocked)
+    if (!challenge || blocked || challenge.reconciling)
       return {
         kind: "error",
         message: "Start a new password sign-in.",
@@ -193,7 +202,9 @@ export function TotpChallenge({
     <section className="auth-page stack" aria-label="Authenticator sign-in">
       <h1>Enter your authenticator code</h1>
       <p>Use the six-digit code from your authenticator app.</p>
-      {blocked ? (
+      {challenge?.reconciling ? (
+        <InlineFeedback>Confirming your session...</InlineFeedback>
+      ) : blocked ? (
         <>
           <InlineFeedback tone="error" announce="assertive">
             {message}

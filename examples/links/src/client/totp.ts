@@ -70,6 +70,7 @@ export type PasswordChallenge = {
   destination: string;
   available: boolean;
   uncertain: boolean;
+  reconciling?: boolean;
 };
 
 export function passwordChallenge(data: unknown) {

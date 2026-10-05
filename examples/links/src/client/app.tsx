@@ -339,11 +339,24 @@ export function App() {
                     challenge={challenge}
                     destination={destination}
                     onSignedIn={signedIn}
-                    onReconciling={() =>
-                      setChallenge((value) =>
-                        value ? { ...value, uncertain: true } : null,
-                      )
-                    }
+                    onReconciling={() => {
+                      const pending = challenge
+                        ? { ...challenge, reconciling: true }
+                        : null;
+                      setChallenge(pending);
+                      // A completion from an abandoned/older challenge must not
+                      // turn a replacement challenge into recovery state.
+                      return () =>
+                        setChallenge((current) =>
+                          current && current === pending
+                            ? {
+                                ...current,
+                                reconciling: false,
+                                uncertain: true,
+                              }
+                            : current,
+                        );
+                    }}
                   />
                 }
               />
