@@ -20,7 +20,7 @@
     "drizzle-orm": "^0.45.2",
     "miniflare": "^4.20250906.0",
     "postgres": "^3.4.7",
-    "testcontainers": "^12.1.0",
+    "testcontainers": "^12.2.0",
     "vitest": "^5.0.1"
   },
   "devDependencies": {
