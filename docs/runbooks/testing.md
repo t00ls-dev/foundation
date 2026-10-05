@@ -46,6 +46,7 @@ depender de providers externos para permanecer deterministas.
 ```bash
 pnpm --filter @t00ls-dev/example-links test
 pnpm --filter @t00ls-dev/example-links test:integration
+pnpm --filter @t00ls-dev/example-links build
 pnpm --filter @t00ls-dev/example-links test:e2e
 ```
 
@@ -60,3 +61,9 @@ real. A caixa `/__test/mail` pertence apenas a `e2e/worker.ts`, fora do bundle
 DEV. O harness não reutiliza servidor ou estado de desenvolvimento e executa
 migration duas vezes para conferir reaplicação idempotente pelo journal
 Wrangler.
+
+O E2E de security headers usa também o Worker de produção compilado e Workers
+Assets reais em Wrangler local (porta 5175, D1 descartável e chaves Turnstile
+fictícias). Por isso requer o build antes de `test:e2e`, já ordenado pelo gate
+`pnpm check`. Verifica a resposta final de `/`, `/bookmarks`, um JavaScript
+estático e `/health`, incluindo CSP, proteção contra framing e Referrer-Policy.

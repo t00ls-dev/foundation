@@ -12,8 +12,12 @@ it("Turnstile CSP is opt-in and allows only the official script/frame origins", 
     expect(csp.includes("https://challenges.cloudflare.com")).toBe(turnstile);
     expect(csp).toContain("connect-src 'self'");
     expect(csp).toContain("object-src 'none'");
+    expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).not.toContain("https://*");
     expect(response.headers.get("x-frame-options")).toBe("DENY");
+    expect(response.headers.get("referrer-policy")).toBe(
+      "strict-origin-when-cross-origin",
+    );
     if (turnstile) {
       expect(csp).toContain(
         "script-src 'self' https://challenges.cloudflare.com",

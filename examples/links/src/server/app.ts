@@ -129,10 +129,13 @@ export function createApp(emailFactory: EmailFactory = resendEmail) {
   app.route("/api/bookmarks", privateRoutes);
   app.route("/api/account", accountSecurityRoutes(emailFactory));
 
-  app.notFound((c) => {
+  app.notFound(async (c) => {
     if (c.req.path === "/api" || c.req.path.startsWith("/api/"))
       return c.json({ error: "Not found" }, 404);
-    return c.env.ASSETS.fetch(c.req.raw);
+    const response = await c.env.ASSETS.fetch(c.req.raw);
+    // Workers Assets returns immutable headers. Keep the body/status/asset
+    // headers while allowing the global security middleware to apply policy.
+    return new Response(response.body, response);
   });
   return app;
 }

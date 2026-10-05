@@ -27,6 +27,7 @@ export function foundationSecurityHeaders(
     contentSecurityPolicy: {
       connectSrc: ["'self'"],
       defaultSrc: ["'self'"],
+      frameAncestors: ["'none'"],
       imgSrc: ["'self'", "data:"],
       objectSrc: ["'none'"],
       scriptSrc: [

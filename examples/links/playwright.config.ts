@@ -14,10 +14,18 @@ export default defineConfig({
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
     { name: "mobile", use: { ...devices["Pixel 7"] } },
   ],
-  webServer: {
-    command: "node --experimental-strip-types e2e/start.ts",
-    reuseExistingServer: false,
-    timeout: 120_000,
-    url: "http://127.0.0.1:5174/health",
-  },
+  webServer: [
+    {
+      command: "node --experimental-strip-types e2e/start.ts",
+      reuseExistingServer: false,
+      timeout: 120_000,
+      url: "http://127.0.0.1:5174/health",
+    },
+    {
+      command: "node --experimental-strip-types e2e/start-assets.ts",
+      reuseExistingServer: false,
+      timeout: 120_000,
+      url: "http://127.0.0.1:5175/health",
+    },
+  ],
 });
