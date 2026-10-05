@@ -950,7 +950,9 @@ test("normal challenge centers the code and another method abandons its context 
   await confirm(page, uri);
   await signOut(page);
   await page.route("**/api/config", (route) =>
-    route.fulfill({ json: { googleEnabled: true } }),
+    route.fulfill({
+      json: { googleEnabled: true, turnstile: { status: "disabled" } },
+    }),
   );
   await login(page, email, "/account");
   const region = page.getByRole("region", { name: "Authenticator sign-in" });

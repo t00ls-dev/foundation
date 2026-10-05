@@ -113,13 +113,19 @@ describe("Links API with Better Auth and real D1", () => {
     const prepare = vi.spyOn(env.DB, "prepare");
     const disabled = await request("/api/config");
     expect(disabled.status).toBe(200);
-    expect(await disabled.json()).toEqual({ googleEnabled: false });
+    expect(await disabled.json()).toEqual({
+      googleEnabled: false,
+      turnstile: { status: "disabled" },
+    });
     expect(disabled.headers.get("cache-control")).toBe("private, no-store");
     env.GOOGLE_CLIENT_ID = "capability-client-id";
     env.GOOGLE_CLIENT_SECRET = "capability-client-secret";
     const enabled = await request("/api/config");
     expect(enabled.status).toBe(200);
-    expect(await enabled.json()).toEqual({ googleEnabled: true });
+    expect(await enabled.json()).toEqual({
+      googleEnabled: true,
+      turnstile: { status: "disabled" },
+    });
     expect(enabled.headers.get("cache-control")).toBe("private, no-store");
     expect(prepare).not.toHaveBeenCalled();
     expect(sent).toHaveLength(0);

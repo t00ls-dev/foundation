@@ -23,7 +23,9 @@ test("shared layouts reflow on public pages from 320px to desktop and at 200% sc
   page,
 }) => {
   await page.route("**/api/config", (route) =>
-    route.fulfill({ json: { googleEnabled: true } }),
+    route.fulfill({
+      json: { googleEnabled: true, turnstile: { status: "disabled" } },
+    }),
   );
   const routes = [
     "/login",
@@ -249,7 +251,9 @@ test("shared controls provide touch targets, keyboard focus and readable feedbac
 }) => {
   await page.setViewportSize({ width: 320, height: 900 });
   await page.route("**/api/config", (route) =>
-    route.fulfill({ json: { googleEnabled: true } }),
+    route.fulfill({
+      json: { googleEnabled: true, turnstile: { status: "disabled" } },
+    }),
   );
   await page.route("**/api/auth/request-password-reset", (route) =>
     route.fulfill({ json: { status: true } }),

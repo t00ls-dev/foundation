@@ -121,9 +121,9 @@ semantics remain unchanged.
 ### Google opcional
 
 Sign in e Create account mostram **Continue with Google** somente quando
-`GET /api/config` retorna `{ "googleEnabled": true }`. O contrato público contém
-somente esse booleano, usa `private, no-store` e não consulta D1. Não existe
-flag Vite nem configuração Google no browser.
+`GET /api/config` retorna `googleEnabled: true`. O contrato público também
+contém o estado/site key públicos de Turnstile, usa `private, no-store` e não
+consulta D1. Não existe flag Vite nem configuração Google no browser.
 
 Um único resolver server-side decide a configuração do Better Auth e a
 capability:
@@ -220,8 +220,9 @@ existing URL/in-memory flow. Requests are aborted on unmount/token changes.
 Reset navigation uses the central App session: authenticated visitors get **Back
 to Account**, confirmed visitors **Back to sign in**; unresolved/error sessions
 remain in the existing session loading/retry UI. Reset retains the existing
-session policy. Account's accepted email-link request says **Password link
-requested. Check your account email.**; public Forgot stays anti-enumeration.
+session policy. Account routes first-password requests to the public Forgot
+form, with optional session-email prefill and explicit submission. Forgot stays
+anti-enumeration.
 
 ### Security — senha da conta
 
@@ -245,11 +246,12 @@ revogação. A UI não faz retry automático nem afirma que nada mudou: informa 
 a conclusão não pôde ser confirmada e orienta novo login/reset. Campos sensíveis
 são limpos nesse estado indeterminado.
 
-Sem senha (por exemplo, identidade Magic Link/Google), a tela solicita o reset
-oficial para o email da sessão; o link recebido estabelece a primeira senha. Não
-há `setPassword` ou endpoint customizado de escrita. A resposta de envio
-continua genérica. **Reset/primeira senha não revoga sessões existentes na
-política atual**; este incremento não altera essa configuração global.
+Sem senha (por exemplo, identidade Magic Link/Google), a tela encaminha ao
+formulário público de reset, protegido por Turnstile quando configurado; o link
+recebido estabelece a primeira senha. Não há `setPassword` ou endpoint
+customizado de escrita. A resposta de envio continua genérica. **Reset/primeira
+senha não revoga sessões existentes na política atual**; este incremento não
+altera essa configuração global.
 
 Signup, reset e troca exigem confirmação apenas no frontend: senha nova entre 8
 e 128 caracteres, confirmação exatamente igual, sem trim/normalização. Senha

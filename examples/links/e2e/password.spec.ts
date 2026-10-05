@@ -394,9 +394,13 @@ test("passwordless Security sends the official email reset and confirms the firs
     await route.continue();
   });
   await page.getByRole("button", { name: "Set password", exact: true }).click();
-  await page.getByRole("button", { name: "Send password link" }).click();
+  await page.getByRole("link", { name: "Set a password by email" }).click();
+  await expect(page.getByLabel("Email", { exact: true })).toHaveValue(email);
+  await page
+    .getByRole("button", { name: "Request reset", exact: true })
+    .click();
   await expect(
-    page.getByText("Password link requested. Check your account email.", {
+    page.getByText("If the account exists, a reset link was sent", {
       exact: true,
     }),
   ).toBeVisible();

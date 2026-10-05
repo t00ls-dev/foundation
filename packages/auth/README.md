@@ -1,5 +1,32 @@
 # `@t00ls-dev/auth`
 
+## Turnstile opt-in
+
+`createFoundationAuth` aceita
+`turnstile: { secretKey, allowedHostnames, actions? }`. `actions` tem as chaves
+`signIn`, `signUp`, `magicLink`, `passwordReset`; omitido usa os nomes
+`sign-in`, `sign-up`, `magic-link`, `password-reset`. Configuração ausente
+mantém consumidores anteriores. `{ unavailable: true }` representa um opt-in com
+configuração incompleta e bloqueia somente os quatro POSTs públicos com 503.
+
+São protegidos `/sign-in/email`, `/sign-up/email`, `/sign-in/magic-link` e
+`/request-password-reset`, sem exceção por sessão. Google/TOTP/ações
+autenticadas, callbacks e aplicação do reset não recebem CAPTCHA. Um hook
+público delega uma única vez ao plugin oficial Better Auth, mantendo rate
+limiting antes da validação. Token vai em `x-captcha-response`; não há novos
+endpoints/APIs de auth expostos.
+
+`MISSING_RESPONSE`/400 e `VERIFICATION_FAILED`/403 mantêm o contrato nativo.
+Somente falha conhecida do hook pré-auth vira `TURNSTILE_UNAVAILABLE`/503; falha
+posterior conserva o tratamento auth indeterminado existente. Sem retries
+próprios.
+
+Limitação aceita do Better Auth 1.7.7: `success` truthy não booleano pode ser
+aceito com hostname/action corretos. Não se promete fail-closed para todo
+payload upstream malformado. Sem patch/fork/upgrade ou outro verificador
+Siteverify. Veja o [runbook Links](../../docs/runbooks/links-turnstile.md) para
+configuração/lifecycle.
+
 Configuração opinativa do Better Auth para senha, verificação de e-mail,
 recuperação, magic link e Google OAuth opcional.
 

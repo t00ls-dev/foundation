@@ -106,6 +106,12 @@ package é `@t00ls-dev/example-links`. Demonstra:
   Auth/Password usam Input/PendingButton/feedback Foundation. TOTP usa Dialog
   responsivo, QR primário, key sob demanda e Copy local; recuperação aparece
   somente após exceção observada, preservando reconciliação e limites de sessão.
+- Turnstile V1 opt-in protege somente pedidos públicos de cadastro/login por
+  senha, Magic Link e reset, usando plugin oficial Better Auth, actions
+  distintas e CSP mínimo. Google/TOTP/ações autenticadas ficam excluídos;
+  Account encaminha a primeira senha ao formulário público. Limitação
+  truthy-success 1.7.7 aceita/documentada; DEV ainda depende de configuração de
+  chaves. Veja [Turnstile](runbooks/links-turnstile.md).
 
 O ambiente local usa `.dev.vars.example` como contrato de nomes de secrets, sem
 versionar valores reais.

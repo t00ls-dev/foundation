@@ -32,6 +32,9 @@ export function AsyncForm(props: {
   requiredFields: Array<keyof FormValues>;
   hideTitle?: boolean;
   className?: string;
+  beforeSubmit?: ReactNode;
+  submitDisabled?: boolean;
+  initialEmail?: string | undefined;
 }) {
   const feedbackId = useId();
   const [feedback, setFeedback] = useState<Feedback>();
@@ -44,7 +47,12 @@ export function AsyncForm(props: {
     };
   }, []);
   const schema = authFormSchema(props.requiredFields);
-  const form = useForm<FormValues>({ resolver: zodResolver(schema) });
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    ...(props.initialEmail
+      ? { defaultValues: { email: props.initialEmail } }
+      : {}),
+  });
   const pending = form.formState.isSubmitting;
 
   async function submit(data: FormValues) {
@@ -96,23 +104,25 @@ export function AsyncForm(props: {
           <h2 className="m-0 text-lg font-semibold">{props.title}</h2>
         )}
         {props.children}
+        {props.beforeSubmit}
         <PendingButton
+          disabled={props.submitDisabled}
           type="submit"
           pending={pending}
           pendingLabel={props.pendingLabel}
         >
           {props.submitLabel}
         </PendingButton>
-        <div id={feedbackId} className="min-h-6">
-          {feedback ? (
+        {feedback ? (
+          <div id={feedbackId}>
             <InlineFeedback
               tone={feedback.kind}
               announce={feedback.kind === "error" ? "assertive" : "polite"}
             >
               {feedback.message}
             </InlineFeedback>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
         {props.alternativeAction}
       </form>
     </FormProvider>

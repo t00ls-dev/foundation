@@ -221,7 +221,7 @@ test("passwordless Account keeps Security and reflows with an editable name and 
   await page.getByRole("link", { name: "Account", exact: true }).click();
   await page.getByRole("button", { name: "Set password", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Send password link" }),
+    page.getByRole("link", { name: "Set a password by email" }),
   ).toBeVisible();
   await expect(
     page.getByLabel("Current password", { exact: true }),

@@ -7,7 +7,7 @@ import googleLogo from "./google-g.svg";
 import { OAuthButton, type OAuthProviderPresentation } from "./oauth-button.js";
 import { authDestination, authPath } from "./auth-destination.js";
 
-type Capability =
+export type GoogleCapability =
   { status: "loading" | "error" } | { status: "ready"; googleEnabled: boolean };
 
 const signInError = "Could not sign in with Google. Please try again.";
@@ -17,10 +17,17 @@ const googlePresentation: OAuthProviderPresentation = {
   className: "google-button",
 };
 
-export function GoogleSignIn() {
-  const [capability, setCapability] = useState<Capability>({
+export function GoogleSignIn({
+  externalCapability,
+  onRetryCapability,
+}: {
+  externalCapability?: GoogleCapability;
+  onRetryCapability?: () => void;
+} = {}) {
+  const [localCapability, setCapability] = useState<GoogleCapability>({
     status: "loading",
   });
+  const capability = externalCapability ?? localCapability;
   const [attempt, setAttempt] = useState(0);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -37,6 +44,7 @@ export function GoogleSignIn() {
   const feedback = error || callbackError;
 
   useEffect(() => {
+    if (externalCapability) return;
     const controller = new AbortController();
     setCapability({ status: "loading" });
     void apiRequest("/api/config", publicAuthConfigSchema, {
@@ -50,7 +58,7 @@ export function GoogleSignIn() {
         if (!controller.signal.aborted) setCapability({ status: "error" });
       });
     return () => controller.abort();
-  }, [attempt]);
+  }, [attempt, externalCapability]);
 
   useEffect(() => {
     function restored(event: PageTransitionEvent) {
@@ -60,6 +68,7 @@ export function GoogleSignIn() {
       setPending(false);
       // Re-read server capability on Back; never persist the configuration.
       setAttempt((value) => value + 1);
+      onRetryCapability?.();
     }
     window.addEventListener("pageshow", restored);
     return () => {
@@ -105,7 +114,7 @@ export function GoogleSignIn() {
   }
 
   return (
-    <div className="google-sign-in">
+    <div className="google-sign-in grid justify-items-center gap-3">
       {capability.status === "loading" ? (
         <p role="status">Loading sign-in options...</p>
       ) : capability.status === "error" ? (
@@ -114,14 +123,21 @@ export function GoogleSignIn() {
           <button
             type="button"
             className="secondary"
-            onClick={() => setAttempt((value) => value + 1)}
+            onClick={() => {
+              setAttempt((value) => value + 1);
+              onRetryCapability?.();
+            }}
           >
             Retry sign-in options
           </button>
         </>
       ) : capability.status === "ready" && capability.googleEnabled ? (
         <>
-          <div className="auth-divider" role="separator" aria-label="or">
+          <div
+            className="auth-divider my-0 w-full"
+            role="separator"
+            aria-label="or"
+          >
             <span aria-hidden="true">or</span>
           </div>
           <OAuthButton

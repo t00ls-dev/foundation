@@ -78,7 +78,9 @@ test("shows Google only on anonymous login/signup when server capability is enab
     await expect(page.getByRole("separator", { name: "or" })).toHaveCount(0);
   }
   await page.route("**/api/config", (route) =>
-    route.fulfill({ json: { googleEnabled: true } }),
+    route.fulfill({
+      json: { googleEnabled: true, turnstile: { status: "disabled" } },
+    }),
   );
   for (const path of ["/login", "/signup"]) {
     await page.goto(path);
@@ -105,7 +107,9 @@ test("keeps exactly one Google button across repeated SPA auth mode switches", a
   page,
 }) => {
   await page.route("**/api/config", (route) =>
-    route.fulfill({ json: { googleEnabled: true } }),
+    route.fulfill({
+      json: { googleEnabled: true, turnstile: { status: "disabled" } },
+    }),
   );
   await page.goto("/login");
   const google = page.getByRole("button", { name: "Continue with Google" });
@@ -152,7 +156,7 @@ test("keeps exactly one Google button across repeated SPA auth mode switches", a
   }
 });
 
-test("loads Google capability with explicit error/retry without blocking existing auth", async ({
+test("loads auth capability with explicit error/retry and never treats unknown Turnstile as disabled", async ({
   page,
 }) => {
   let release!: () => void;
@@ -171,7 +175,10 @@ test("loads Google capability with explicit error/retry without blocking existin
           json: { error: { message: "sensitive configuration details" } },
         })
         .catch(() => undefined); // StrictMode may have canceled the first mount.
-    } else await route.fulfill({ json: { googleEnabled: true } });
+    } else
+      await route.fulfill({
+        json: { googleEnabled: true, turnstile: { status: "disabled" } },
+      });
   });
   await page.goto("/login");
   await expect(page.getByText("Loading sign-in options...")).toBeVisible();
@@ -180,7 +187,7 @@ test("loads Google capability with explicit error/retry without blocking existin
   ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Sign in", exact: true }),
-  ).toBeEnabled();
+  ).toBeDisabled();
   release();
   await expect(page.getByText("Could not load sign-in options.")).toBeVisible();
   await expect(page.getByText("sensitive configuration details")).toHaveCount(
@@ -202,7 +209,9 @@ test("guards double Google clicks, sanitizes initiation errors and retries using
   page,
 }) => {
   await page.route("**/api/config", (route) =>
-    route.fulfill({ json: { googleEnabled: true } }),
+    route.fulfill({
+      json: { googleEnabled: true, turnstile: { status: "disabled" } },
+    }),
   );
   let release!: () => void;
   const held = new Promise<void>((resolve) => {
@@ -300,7 +309,9 @@ test("handles sanitized Google cancellation and clears pending on a persisted Ba
   let capabilityRequests = 0;
   await page.route("**/api/config", (route) => {
     capabilityRequests++;
-    return route.fulfill({ json: { googleEnabled: true } });
+    return route.fulfill({
+      json: { googleEnabled: true, turnstile: { status: "disabled" } },
+    });
   });
   await page.goto(
     "/login?oauth=failed&error=access_denied&error_description=unsafe-reflected-text&state=secret-state",

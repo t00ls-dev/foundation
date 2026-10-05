@@ -125,37 +125,6 @@ export function AccountSecurity({
     }
   }
 
-  async function sendReset(): Promise<Feedback> {
-    setMutating(true);
-    const controller = registerSessionRequest();
-    authRequest.current = controller;
-    try {
-      const result = await authClient.requestPasswordReset({
-        email: user.email,
-        redirectTo: "/reset-password",
-        fetchOptions: { signal: controller.signal, retry: 0 },
-      });
-      return result.error
-        ? {
-            kind: "error",
-            message: "Could not request a password link. Please try again.",
-          }
-        : {
-            kind: "success",
-            message: "Password link requested. Check your account email.",
-          };
-    } catch {
-      return {
-        kind: "error",
-        message: "Could not request a password link. Please try again.",
-      };
-    } finally {
-      setMutating(false);
-      releaseSessionRequest(controller);
-      if (authRequest.current === controller) authRequest.current = null;
-    }
-  }
-
   return (
     <section aria-label="Account security">
       <SettingRow
@@ -242,21 +211,9 @@ export function AccountSecurity({
           </SettingFlow>
         ) : (
           <SettingFlow>
-            <p>You don't have a password yet.</p>
-            <p>
-              Use an email link to set one. Password reset does not sign out
-              existing sessions.
-            </p>
-            <AsyncForm
-              className="border-0 bg-transparent p-0"
-              title="Set a password by email"
-              action={sendReset}
-              submitLabel="Send password link"
-              pendingLabel="Sending password link..."
-              requiredFields={[]}
-            >
-              <p>The link will be sent to your account email.</p>
-            </AsyncForm>
+            <Button asChild>
+              <Link to="/forgot-password">Set a password by email</Link>
+            </Button>
           </SettingFlow>
         )}
       </SettingRow>

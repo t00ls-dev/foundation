@@ -23,6 +23,8 @@
       "vars": {
         "BASE_URL": "https://foundation.t00ls.dev",
         "EMAIL_FROM": "Foundation <foundation@t00ls.dev>",
+        // TURNSTILE_SITE_KEY is public: add the real DEV key here before opting in.
+        // Provision TURNSTILE_SECRET_KEY separately as a Worker secret.
       },
       "workers_dev": false,
       "preview_urls": false,

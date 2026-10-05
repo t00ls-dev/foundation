@@ -3,6 +3,29 @@
 @import "@t00ls-dev/ui/styles.css";
 @source "../../../../packages/ui/src";
 
+@layer components {
+  .turnstile-verification {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    min-width: 0;
+    container-type: inline-size;
+  }
+  .turnstile-container {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    min-height: 65px;
+  }
+  @container (max-width: 299px) {
+    .turnstile-container {
+      min-height: 140px;
+    }
+  }
+}
+
 @layer legacy {
   :root {
     --color-text: var(--foreground);

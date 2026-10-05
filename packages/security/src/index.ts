@@ -15,14 +15,27 @@ export type {
   VerifyTurnstileOptions,
 } from "./turnstile.js";
 
-export function foundationSecurityHeaders() {
+export interface FoundationSecurityHeadersOptions {
+  /** Allow only the official widget script/frame; default policy stays self-only. */
+  turnstile?: boolean;
+}
+
+export function foundationSecurityHeaders(
+  options: FoundationSecurityHeadersOptions = {},
+) {
   return secureHeaders({
     contentSecurityPolicy: {
       connectSrc: ["'self'"],
       defaultSrc: ["'self'"],
       imgSrc: ["'self'", "data:"],
       objectSrc: ["'none'"],
-      scriptSrc: ["'self'"],
+      scriptSrc: [
+        "'self'",
+        ...(options.turnstile ? ["https://challenges.cloudflare.com"] : []),
+      ],
+      ...(options.turnstile
+        ? { frameSrc: ["'self'", "https://challenges.cloudflare.com"] }
+        : {}),
       styleSrc: ["'self'", "'unsafe-inline'"],
     },
     crossOriginResourcePolicy: "same-origin",

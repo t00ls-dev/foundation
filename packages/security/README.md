@@ -17,8 +17,11 @@ pnpm --filter <app> add '@t00ls-dev/security@workspace:*'
 
 ## API
 
-- `foundationSecurityHeaders()`: middleware Hono com CSP, CORP, Referrer-Policy
-  e `X-Frame-Options`.
+- `foundationSecurityHeaders(options?)`: middleware Hono com CSP, CORP,
+  Referrer-Policy e `X-Frame-Options`. `options.turnstile: true` permite apenas
+  script/frame no domínio oficial `https://challenges.cloudflare.com`. Opt-in
+  ausente mantém a CSP self-only; não relaxa connect-src, framing da aplicação
+  ou CSRF.
 - `privateResponseHeaders(headers)`: muta e retorna `Headers` com
   `Cache-Control: private, no-store` e `Vary: Cookie, Authorization`.
 - `foundationCors(options)`: middleware CORS configurável compatível com Hono.

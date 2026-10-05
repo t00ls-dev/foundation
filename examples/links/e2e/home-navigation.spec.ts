@@ -197,7 +197,9 @@ test("Magic Link and Google preserve validated internal return destinations", as
   const email = await account(page);
   await page.context().clearCookies();
   await page.route("**/api/config", (route) =>
-    route.fulfill({ json: { googleEnabled: true } }),
+    route.fulfill({
+      json: { googleEnabled: true, turnstile: { status: "disabled" } },
+    }),
   );
   const payloads: unknown[] = [];
   await page.route("**/api/auth/sign-in/social", async (route) => {

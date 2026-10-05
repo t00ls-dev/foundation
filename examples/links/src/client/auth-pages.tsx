@@ -1,5 +1,5 @@
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { authClient } from "./auth-client.js";
 import {
   AsyncForm,
@@ -7,7 +7,7 @@ import {
   type Feedback,
   type FormValues,
 } from "./auth-form.js";
-import { GoogleSignIn } from "./google-sign-in.js";
+import { GoogleSignIn, type GoogleCapability } from "./google-sign-in.js";
 import { authDestination, authPath } from "./auth-destination.js";
 import { checkResetToken, type ResetTokenResult } from "./reset-token.js";
 import {
@@ -17,7 +17,6 @@ import {
 } from "./session-generation.js";
 import {
   passwordChallenge,
-  totpPolicy,
   totpUnconfirmed,
   type PasswordChallenge,
 } from "./totp.js";
@@ -26,15 +25,24 @@ import { Button } from "@t00ls-dev/ui/components/button";
 import { Skeleton } from "@t00ls-dev/ui/components/skeleton";
 import { InlineFeedback } from "@t00ls-dev/ui/patterns/inline-feedback";
 import { useProgressOperation } from "@t00ls-dev/ui/patterns/page-progress";
+import { apiRequest } from "./api.js";
+import {
+  publicAuthConfigSchema,
+  linksTurnstileActions,
+  type TurnstileCapability,
+} from "../shared/auth-config.js";
+import { TurnstileWidget } from "./turnstile-widget.js";
 
 export function AuthPage({
   mode,
   onSignedIn,
   onChallenge,
+  initialEmail,
 }: {
   mode: "login" | "signup" | "magic" | "recover";
   onSignedIn: () => Promise<void>;
   onChallenge?: (challenge: PasswordChallenge) => void;
+  initialEmail?: string | undefined;
 }) {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -47,19 +55,112 @@ export function AuthPage({
   }[mode];
   const hasPassword = mode === "login" || mode === "signup";
   const loginRequest = useRef<AbortController | null>(null);
+  const publicRequest = useRef<AbortController | null>(null);
+  const [capability, setCapability] = useState<TurnstileCapability | null>(
+    null,
+  );
+  const [googleCapability, setGoogleCapability] = useState<GoogleCapability>({
+    status: "loading",
+  });
+  const [configAttempt, setConfigAttempt] = useState(0);
+  const [widgetRevision, setWidgetRevision] = useState(0);
+  const [tokenReady, setTokenReady] = useState(false);
+  const token = useRef("");
+  const onToken = useCallback((value: string) => {
+    token.current = value;
+    setTokenReady(Boolean(value));
+  }, []);
+  const operation = {
+    login: "signIn",
+    signup: "signUp",
+    magic: "magicLink",
+    recover: "passwordReset",
+  }[mode] as keyof typeof linksTurnstileActions;
+  useEffect(() => {
+    const controller = new AbortController();
+    setCapability(null);
+    setGoogleCapability({ status: "loading" });
+    void apiRequest("/api/config", publicAuthConfigSchema, {
+      signal: controller.signal,
+    })
+      .then((config) => {
+        if (!controller.signal.aborted) {
+          setCapability(config.turnstile);
+          setGoogleCapability({
+            status: "ready",
+            googleEnabled: config.googleEnabled,
+          });
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setCapability({ status: "unavailable" });
+          setGoogleCapability({ status: "error" });
+        }
+      });
+    return () => controller.abort();
+  }, [configAttempt]);
+  useEffect(() => {
+    onToken("");
+    return () => {
+      token.current = "";
+      publicRequest.current?.abort();
+    };
+  }, [mode, onToken]);
   useEffect(() => () => loginRequest.current?.abort(), [mode]);
   async function submit(data: FormValues): Promise<Feedback> {
+    if (!capability || capability.status === "unavailable")
+      return {
+        kind: "error",
+        message: "Verification is temporarily unavailable. Please try again.",
+      };
+    const captchaToken = token.current;
+    if (capability.status === "enabled" && !captchaToken)
+      return {
+        kind: "error",
+        message: "Complete verification before trying again.",
+      };
+    const headers =
+      capability.status === "enabled"
+        ? { "x-captcha-response": captchaToken }
+        : {};
+    if (capability.status === "enabled") {
+      onToken("");
+      setWidgetRevision((value) => value + 1);
+    }
     const email = field(data, "email");
     if (mode === "signup") {
-      const result = await authClient.signUp.email({
-        email,
-        name: field(data, "name"),
-        password: field(data, "password"),
-        callbackURL: authPath("/verify-email", destination),
-      });
-      if (!result.error)
-        await navigate(authPath("/verify-email?pending=1", destination));
-      return feedback(result.error, "Check your email to verify your account");
+      const controller = registerSessionRequest();
+      publicRequest.current = controller;
+      const generation = currentSessionGeneration();
+      try {
+        const result = await authClient.signUp.email({
+          email,
+          name: field(data, "name"),
+          password: field(data, "password"),
+          callbackURL: authPath("/verify-email", destination),
+          fetchOptions: { headers, signal: controller.signal, retry: 0 },
+        });
+        if (
+          controller.signal.aborted ||
+          generation !== currentSessionGeneration()
+        )
+          return {
+            kind: "error",
+            message: "Request could not be confirmed.",
+            clearFields: true,
+          };
+        releaseSessionRequest(controller);
+        if (!result.error)
+          await navigate(authPath("/verify-email?pending=1", destination));
+        return feedback(
+          result.error,
+          "Check your email to verify your account",
+        );
+      } finally {
+        releaseSessionRequest(controller);
+        if (publicRequest.current === controller) publicRequest.current = null;
+      }
     }
     if (mode === "login") {
       const controller = registerSessionRequest();
@@ -83,6 +184,7 @@ export function AuthPage({
           email,
           password: field(data, "password"),
           fetchOptions: {
+            headers,
             signal: controller.signal,
             retry: 0,
             disableSignal: true,
@@ -91,6 +193,8 @@ export function AuthPage({
         if (!active())
           return { kind: "error", message: totpUnconfirmed, clearFields: true };
         if (result.error) {
+          if (isTurnstileError(result.error))
+            return feedback(result.error, "Signed in");
           if (
             result.error.status >= 500 ||
             result.error.code === "AUTH_STATE_INDETERMINATE"
@@ -133,32 +237,79 @@ export function AuthPage({
         if (loginRequest.current === controller) loginRequest.current = null;
       }
     }
-    if (mode === "magic") {
-      const result = await authClient.signIn.magicLink({
+    const controller = registerSessionRequest();
+    publicRequest.current = controller;
+    try {
+      if (mode === "magic") {
+        const result = await authClient.signIn.magicLink({
+          email,
+          callbackURL: destination,
+          fetchOptions: { headers, signal: controller.signal, retry: 0 },
+        });
+        return feedback(result.error, "Magic link sent");
+      }
+      const result = await authClient.requestPasswordReset({
         email,
-        callbackURL: destination,
+        redirectTo: "/reset-password",
+        fetchOptions: { headers, signal: controller.signal, retry: 0 },
       });
-      return feedback(result.error, "Magic link sent");
+      return feedback(
+        result.error,
+        "If the account exists, a reset link was sent",
+      );
+    } finally {
+      releaseSessionRequest(controller);
+      if (publicRequest.current === controller) publicRequest.current = null;
     }
-    const result = await authClient.requestPasswordReset({
-      email,
-      redirectTo: "/reset-password",
-    });
-    return feedback(
-      result.error,
-      "If the account exists, a reset link was sent",
-    );
   }
   return (
     <section className="auth-page" aria-label="Authentication">
       <div className="cross-page-intro">
-        <h1>{title === "Sign in" ? "Your links, in one place." : title}</h1>
-        <p>Save useful bookmarks in your own private library.</p>
-        {mode === "login" || mode === "magic" ? <p>{totpPolicy}</p> : null}
+        <h1>{title}</h1>
       </div>
       <AsyncForm
+        hideTitle
+        initialEmail={mode === "recover" ? initialEmail : undefined}
+        submitDisabled={
+          !capability ||
+          capability.status === "unavailable" ||
+          (capability.status === "enabled" && !tokenReady)
+        }
+        beforeSubmit={
+          capability?.status === "enabled" ? (
+            <TurnstileWidget
+              key={mode}
+              siteKey={capability.siteKey}
+              action={linksTurnstileActions[operation]}
+              revision={widgetRevision}
+              onToken={onToken}
+            />
+          ) : !capability ? (
+            <Skeleton className="mx-auto h-16 w-40 max-w-full" />
+          ) : capability.status === "unavailable" ? (
+            <>
+              <InlineFeedback tone="error" announce="assertive">
+                Verification is temporarily unavailable. Please try again.
+              </InlineFeedback>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setConfigAttempt((value) => value + 1)}
+              >
+                Retry verification settings
+              </Button>
+            </>
+          ) : null
+        }
         key={mode}
-        alternativeAction={hasPassword ? <GoogleSignIn /> : undefined}
+        alternativeAction={
+          hasPassword ? (
+            <GoogleSignIn
+              externalCapability={googleCapability}
+              onRetryCapability={() => setConfigAttempt((value) => value + 1)}
+            />
+          ) : undefined
+        }
         title={title}
         submitLabel={
           hasPassword ? title : mode === "magic" ? "Send link" : "Request reset"
@@ -215,6 +366,9 @@ export function AuthPage({
         <Link to={authPath("/forgot-password", destination)}>
           Forgot password?
         </Link>
+        {mode === "recover" && initialEmail ? (
+          <Link to="/account">Back to Account</Link>
+        ) : null}
       </nav>
     </section>
   );
@@ -395,12 +549,30 @@ export function ResetPassword({ authenticated }: { authenticated: boolean }) {
 }
 
 function feedback(
-  error: { message?: string | undefined } | null | undefined,
+  error:
+    | { message?: string | undefined; code?: string | undefined }
+    | null
+    | undefined,
   message: string,
 ): Feedback {
+  if (error && isTurnstileError(error))
+    return {
+      kind: "error",
+      message:
+        error.code === "TURNSTILE_UNAVAILABLE"
+          ? "Verification is temporarily unavailable. Please try again."
+          : "Verification failed or expired. Please try again.",
+    };
   return error
     ? { kind: "error", message: error.message ?? "The request failed" }
     : { kind: "success", message };
+}
+function isTurnstileError(error: { code?: string | undefined }) {
+  return [
+    "TURNSTILE_UNAVAILABLE",
+    "MISSING_RESPONSE",
+    "VERIFICATION_FAILED",
+  ].includes(error.code ?? "");
 }
 function field(data: FormValues, name: keyof FormValues) {
   const value = data[name];

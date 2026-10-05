@@ -1,6 +1,16 @@
 import { betterAuth, type Auth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { magicLink, twoFactor } from "better-auth/plugins";
+import {
+  turnstilePlugin,
+  turnstileUnavailableCode,
+  type FoundationTurnstileOptions,
+} from "./turnstile.js";
+export type {
+  FoundationTurnstileOptions,
+  TurnstileActions,
+  TurnstileOperation,
+} from "./turnstile.js";
 
 export interface FoundationEmail {
   send(input: { to: string; subject: string; text: string }): Promise<void>;
@@ -18,6 +28,8 @@ export interface FoundationAuthOptions {
   secret: string;
   /** TOTP for password login only; enrollment requires a separate explicit opt-in. */
   totp?: { issuer: string; enrollmentEnabled?: boolean };
+  /** Opt-in protection of the four public credential/email requests only. */
+  turnstile?: FoundationTurnstileOptions;
   /** Requires the consumer's rateLimit schema. Enabled follows Better Auth's production default. */
   rateLimit?: {
     storage: "database";
@@ -151,6 +163,7 @@ export function createFoundationAuth(
       },
     },
     plugins: [
+      ...(options.turnstile ? [turnstilePlugin(options.turnstile)] : []),
       magicLink({
         sendMagicLink: async ({ email, url }) => {
           await options.email.send({
@@ -197,6 +210,15 @@ export function createFoundationAuth(
         );
       }
       if (response.status >= 500) {
+        if (options.turnstile && response.status === 503) {
+          const failure = (await response
+            .clone()
+            .json()
+            .catch(() => null)) as { code?: string } | null;
+          // Reserved code produced only by the pre-auth hook above, not by an
+          // endpoint or a client-controlled marker. All other failures unchanged.
+          if (failure?.code === turnstileUnavailableCode) return response;
+        }
         logAuth("error", "AUTH_ENDPOINT_FAILED");
         if (indeterminate)
           return Response.json(

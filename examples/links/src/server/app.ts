@@ -9,6 +9,7 @@ import {
   AuthConfigurationError,
   createRequestAuth,
   resolveGoogleConfig,
+  resolveTurnstileCapability,
   resendEmail,
   type AppEnvironment,
   type EmailFactory,
@@ -20,7 +21,16 @@ import { accountUpdateSchema } from "../shared/account.js";
 
 export function createApp(emailFactory: EmailFactory = resendEmail) {
   const app = new Hono<AppEnvironment>();
-  app.use("*", foundationSecurityHeaders());
+  app.use(
+    "*",
+    createMiddleware<AppEnvironment>((c, next) => {
+      const headers: MiddlewareHandler<AppEnvironment> =
+        foundationSecurityHeaders({
+          turnstile: resolveTurnstileCapability(c.env).status !== "disabled",
+        });
+      return headers(c, next);
+    }),
+  );
   app.use("/api/*", async (c, next) => {
     await next();
     privateResponseHeaders(new Headers()).forEach((value, name) =>
@@ -52,7 +62,10 @@ export function createApp(emailFactory: EmailFactory = resendEmail) {
   });
 
   app.get("/api/config", (c) =>
-    c.json({ googleEnabled: Boolean(resolveGoogleConfig(c.env)) }),
+    c.json({
+      googleEnabled: Boolean(resolveGoogleConfig(c.env)),
+      turnstile: resolveTurnstileCapability(c.env),
+    }),
   );
 
   app.get("/health", async (c) => {

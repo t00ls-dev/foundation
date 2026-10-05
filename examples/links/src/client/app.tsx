@@ -318,7 +318,13 @@ export function App() {
               />
               <Route
                 path="/forgot-password"
-                element={<AuthPage mode="recover" onSignedIn={signedIn} />}
+                element={
+                  <AuthPage
+                    mode="recover"
+                    onSignedIn={signedIn}
+                    initialEmail={user?.email}
+                  />
+                }
               />
               <Route path="/verify-email" element={<Verification />} />
               <Route
