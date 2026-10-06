@@ -89,8 +89,10 @@ continua sem Turnstile adicional.
 
 O widget fica centralizado antes da ação principal. Títulos/labels/hierarquia
 substituem copy técnica/redundante; feedback inexistente não reserva espaço.
-Sign in → or → Google usa espaçamento compacto e Google centralizado, mantendo
-branding.
+Sign in → or → Google usa espaçamento compacto; Google ocupa a mesma largura e
+alinhamento da ação primária, mantendo branding. A densidade pública é opt-in,
+sem alterar os campos de Account/TOTP. Falha da capability compartilhada exibe
+uma mensagem/retry contextual, sem presumir que Turnstile está desativado.
 
 ## Validação
 

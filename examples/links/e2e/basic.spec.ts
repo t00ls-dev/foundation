@@ -5,6 +5,7 @@ import {
   type APIRequestContext,
 } from "@playwright/test";
 import { z } from "zod";
+import { extractEmailUrl } from "../test/email-link.js";
 
 const password = "correct-horse-battery-staple";
 function email() {
@@ -17,7 +18,11 @@ async function verify(request: APIRequestContext, address: string) {
   );
   expect(response.ok()).toBe(true);
   const message = z
-    .object({ text: z.string().url() })
+    .object({
+      text: z
+        .string()
+        .transform((text) => extractEmailUrl(text, "http://127.0.0.1:5174")),
+    })
     .parse(await response.json());
   return message.text;
 }
@@ -75,6 +80,7 @@ test("shows Google only on anonymous login/signup when server capability is enab
     await Promise.all([page.waitForResponse("**/api/config"), page.goto(path)]);
     await expect(page.getByText("Loading sign-in options...")).toHaveCount(0);
     await expect(google).toHaveCount(0);
+    await expect(page.locator(".google-sign-in")).toHaveCount(0);
     await expect(page.getByRole("separator", { name: "or" })).toHaveCount(0);
   }
   await page.route("**/api/config", (route) =>
@@ -181,7 +187,8 @@ test("loads auth capability with explicit error/retry and never treats unknown T
       });
   });
   await page.goto("/login");
-  await expect(page.getByText("Loading sign-in options...")).toBeVisible();
+  await expect(page.locator(".auth-page form")).toBeVisible();
+  await expect(page.locator(".google-sign-in")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Continue with Google" }),
   ).toHaveCount(0);
@@ -189,7 +196,10 @@ test("loads auth capability with explicit error/retry and never treats unknown T
     page.getByRole("button", { name: "Sign in", exact: true }),
   ).toBeDisabled();
   release();
-  await expect(page.getByText("Could not load sign-in options.")).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveText(
+    "Could not load authentication settings. Please try again.",
+  );
+  await expect(page.getByRole("button", { name: /^Retry/ })).toHaveCount(1);
   await expect(page.getByText("sensitive configuration details")).toHaveCount(
     0,
   );
@@ -198,7 +208,9 @@ test("loads auth capability with explicit error/retry and never treats unknown T
   ).toBeVisible();
   const beforeRetry = attempts;
   fail = false;
-  await page.getByRole("button", { name: "Retry sign-in options" }).click();
+  await page
+    .getByRole("button", { name: "Retry authentication settings" })
+    .click();
   await expect(
     page.getByRole("button", { name: "Continue with Google" }),
   ).toBeEnabled();
@@ -248,6 +260,7 @@ test("guards double Google clicks, sanitizes initiation errors and retries using
   await expect(google).toBeEnabled();
   await expect(google.locator("img")).toBeVisible();
   const idleIcon = await google.locator(".oauth-button-icon").boundingBox();
+  const idleButton = await google.boundingBox();
   await google.evaluate((element: HTMLButtonElement) => {
     element.click();
     element.click();
@@ -259,6 +272,7 @@ test("guards double Google clicks, sanitizes initiation errors and retries using
   await expect(google.locator("img")).toHaveCount(0);
   const spinner = google.locator(".oauth-spinner");
   await expect(spinner).toBeVisible();
+  expect(await google.boundingBox()).toEqual(idleButton);
   expect(await google.locator(".oauth-button-icon").boundingBox()).toEqual(
     idleIcon,
   );
@@ -505,7 +519,7 @@ test("announces auth pending, server errors and focused field validation", async
   await page.getByLabel("Email", { exact: true }).fill("person@example.com");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Signing in..." }),
+    page.getByRole("button", { name: "Signing in…" }),
   ).toBeDisabled();
   await expect(page.getByRole("alert")).toHaveText("Invalid credentials");
 });

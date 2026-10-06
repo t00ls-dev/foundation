@@ -31,6 +31,7 @@ export function AsyncForm(props: {
   title: string;
   requiredFields: Array<keyof FormValues>;
   hideTitle?: boolean;
+  compact?: boolean;
   className?: string;
   beforeSubmit?: ReactNode;
   submitDisabled?: boolean;
@@ -98,7 +99,11 @@ export function AsyncForm(props: {
         aria-busy={pending}
         aria-describedby={feedback ? feedbackId : undefined}
         onSubmit={validate}
-        className={cn("grid gap-4", props.className)}
+        className={cn(
+          "grid",
+          props.compact ? "auth-form-compact" : "gap-4",
+          props.className,
+        )}
       >
         {props.hideTitle ? null : (
           <h2 className="m-0 text-lg font-semibold">{props.title}</h2>
@@ -158,6 +163,9 @@ export function FormField(props: {
           minLength={props.minLength}
           type={props.type}
           autoComplete={props.autoComplete}
+          spellCheck={
+            props.type === "email" || props.name === "code" ? false : undefined
+          }
           inputMode={props.inputMode}
           maxLength={props.maxLength}
           autoFocus={props.autoFocus}

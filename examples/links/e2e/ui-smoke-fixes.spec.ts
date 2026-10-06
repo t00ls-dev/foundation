@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { z } from "zod";
+import { extractEmailUrl } from "../test/email-link.js";
 
 test.use({ trace: "off", video: "off", screenshot: "off" });
 const origin = "http://127.0.0.1:5174";
@@ -16,9 +17,12 @@ async function account(page: Page) {
     ).ok(),
   ).toBe(true);
   const mail = await page.request.get(
-    `/__test/mail?${new URLSearchParams({ email, subject: "Verify your email" })}`,
+    `/__test/mail?${new URLSearchParams({ email, subject: "Verify your email for Links" })}`,
   );
-  const url = z.object({ text: z.string() }).parse(await mail.json()).text;
+  const url = extractEmailUrl(
+    z.object({ text: z.string() }).parse(await mail.json()).text,
+    origin,
+  );
   expect((await page.request.get(url)).ok()).toBe(true);
   expect(
     (
@@ -69,8 +73,8 @@ test("filled buttons keep shared high-contrast foreground across Auth, Account a
   for (const [path, name] of [
     ["/login", "Sign in"],
     ["/signup", "Create account"],
-    ["/magic-link", "Send link"],
-    ["/forgot-password", "Request reset"],
+    ["/magic-link", "Send sign-in link"],
+    ["/forgot-password", "Send reset link"],
   ]) {
     await page.goto(path!);
     const button = page.getByRole("button", { name: name!, exact: true });

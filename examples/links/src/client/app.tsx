@@ -148,6 +148,16 @@ export function App() {
 
   const isHome = location.pathname === "/";
   const isReset = location.pathname === "/reset-password";
+  const compactPublicHeader =
+    !user &&
+    [
+      "/login",
+      "/signup",
+      "/magic-link",
+      "/forgot-password",
+      "/verify-email",
+      "/reset-password",
+    ].includes(location.pathname);
   const destination = authDestination(
     new URLSearchParams(location.search).get("next"),
   );
@@ -188,16 +198,20 @@ export function App() {
         key={signingOut ? "signing-out" : (identity ?? "anonymous")}
       >
         <main className="shell">
-          <header className="app-header">
+          <header
+            className={`app-header${compactPublicHeader ? " app-header--auth" : ""}`}
+          >
             <Link to="/" className="brand">
-              Foundation
+              Links
             </Link>
-            <nav className="cluster header-main" aria-label="Main navigation">
-              <NavLink to="/" end>
-                Home
-              </NavLink>
-              <NavLink to="/bookmarks">Bookmarks</NavLink>
-            </nav>
+            {!compactPublicHeader ? (
+              <nav className="cluster header-main" aria-label="Main navigation">
+                <NavLink to="/" end>
+                  Home
+                </NavLink>
+                <NavLink to="/bookmarks">Bookmarks</NavLink>
+              </nav>
+            ) : null}
             {user ? (
               <div className="account">
                 <span title={user.name}>{user.name}</span>
@@ -217,7 +231,7 @@ export function App() {
                   </PendingButton>
                 </nav>
               </div>
-            ) : !blocked ? (
+            ) : compactPublicHeader ? null : !blocked ? (
               <nav
                 className="cluster header-account"
                 aria-label="Account navigation"
@@ -281,7 +295,7 @@ export function App() {
             </section>
           ) : null}
           {isHome ? (
-            <Home showSignIn={!user && !blocked} />
+            <Home />
           ) : !blocked ? (
             <Routes key={identity ?? "anonymous"}>
               <Route

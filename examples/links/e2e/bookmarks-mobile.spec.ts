@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { z } from "zod";
+import { extractEmailUrl } from "../test/email-link.js";
 
 test("compact header and bookmark layouts preserve targets and long content at 320px, mobile and desktop", async ({
   page,
@@ -163,7 +164,9 @@ test("bookmark CRUD, search, tag and clear filters remain usable at 320px with r
     `/__test/mail?${new URLSearchParams({ email })}`,
   );
   const verification = z
-    .object({ text: z.string().url() })
+    .object({
+      text: z.string().transform((text) => extractEmailUrl(text, origin)),
+    })
     .parse(await message.json());
   expect((await page.request.get(verification.text)).ok()).toBe(true);
   await page.goto("/login");

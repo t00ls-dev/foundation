@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { z } from "zod";
+import { extractEmailUrl } from "../test/email-link.js";
 import { bookmarkResponseSchema } from "../src/shared/bookmarks.js";
 
 const origin = "http://127.0.0.1:5174";
@@ -22,10 +23,12 @@ async function reader(page: Page) {
     ).ok(),
   ).toBe(true);
   const mail = await page.request.get(
-    `/__test/mail?${new URLSearchParams({ email, subject: "Verify your email" })}`,
+    `/__test/mail?${new URLSearchParams({ email, subject: "Verify your email for Links" })}`,
   );
   const url = z
-    .object({ text: z.string().url() })
+    .object({
+      text: z.string().transform((text) => extractEmailUrl(text, origin)),
+    })
     .parse(await mail.json()).text;
   expect((await page.request.get(url)).ok()).toBe(true);
   expect(

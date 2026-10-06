@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { z } from "zod";
+import { extractEmailUrl } from "../test/email-link.js";
 import { totp } from "../test/totp-harness.js";
 
 test.use({ trace: "off", video: "off", screenshot: "off" });
@@ -43,7 +44,9 @@ async function complete(page: Page) {
 }
 async function emailLink(page: Page, email: string, subject: string) {
   return z
-    .object({ text: z.string() })
+    .object({
+      text: z.string().transform((text) => extractEmailUrl(text, origin)),
+    })
     .parse(
       await (
         await page.request.get(
@@ -62,7 +65,9 @@ async function user(page: Page) {
       })
     ).status(),
   ).toBe(200);
-  await page.request.get(await emailLink(page, email, "Verify your email"));
+  await page.request.get(
+    await emailLink(page, email, "Verify your email for Links"),
+  );
   return email;
 }
 
@@ -140,8 +145,8 @@ test("widget binds all four actions, is light/centered before the primary action
   for (const [path, action, button] of [
     ["/login", "links-sign-in", "Sign in"],
     ["/signup", "links-sign-up", "Create account"],
-    ["/magic-link", "links-magic-link", "Send link"],
-    ["/forgot-password", "links-password-reset", "Request reset"],
+    ["/magic-link", "links-magic-link", "Send sign-in link"],
+    ["/forgot-password", "links-password-reset", "Send reset link"],
   ]) {
     await page.goto(path!);
     const primary = page.getByRole("button", { name: button!, exact: true });
@@ -182,6 +187,22 @@ test("widget binds all four actions, is light/centered before the primary action
         );
       }),
     ).toBe(true);
+    const gaps = await primary.evaluate((element) => {
+      const widget = document.querySelector(".turnstile-verification")!;
+      const preceding = widget.previousElementSibling!;
+      return {
+        before:
+          widget.getBoundingClientRect().top -
+          preceding.getBoundingClientRect().bottom,
+        after:
+          element.getBoundingClientRect().top -
+          widget.getBoundingClientRect().bottom,
+        adjacent: widget.nextElementSibling === element,
+      };
+    });
+    expect(gaps.before).toBe(12);
+    expect(gaps.after).toBe(12);
+    expect(gaps.adjacent).toBe(true);
     await complete(page);
     await expect(primary).toBeEnabled();
     await page.getByLabel("Email", { exact: true }).fill("fixture@example.com");
@@ -250,7 +271,10 @@ test("expiry/error/late callback and navigation discard token; loading failure n
     .click();
   await complete(page);
   await page.getByRole("link", { name: "Use a magic link" }).click();
-  const send = page.getByRole("button", { name: "Send link", exact: true });
+  const send = page.getByRole("button", {
+    name: "Send sign-in link",
+    exact: true,
+  });
   await expect(send).toBeDisabled();
   await page.evaluate(() => {
     const records = (
@@ -336,8 +360,12 @@ test("valid native server verification signs in and sends magic/reset links; par
     page.getByRole("heading", { name: "Your bookmarks" }),
   ).toBeVisible();
   for (const [path, button, message] of [
-    ["/magic-link", "Send link", "Magic link sent"],
-    ["/forgot-password", "Request reset", "If the account exists"],
+    [
+      "/magic-link",
+      "Send sign-in link",
+      "Check your email for a sign-in link.",
+    ],
+    ["/forgot-password", "Send reset link", "If an account exists"],
   ]) {
     await page.goto(path!);
     await page.getByLabel("Email", { exact: true }).fill(email);
@@ -350,7 +378,7 @@ test("valid native server verification signs in and sends magic/reset links; par
   await enabled(page, "partial");
   await page.goto("/forgot-password");
   await expect(
-    page.getByRole("button", { name: "Request reset" }),
+    page.getByRole("button", { name: "Send reset link" }),
   ).toBeDisabled();
   await expect(page.getByRole("alert")).toContainText(
     "Verification is temporarily unavailable",
@@ -497,56 +525,69 @@ test("responsive re-render and bfcache discard verification without automatic su
   ).toBe(false);
 });
 
-test("normal public auth trusts its title and controls, with no empty feedback spacer and compact centered Google", async ({
+test("normal public auth trusts its title and controls, with full-width aligned Google", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 375, height: 812 });
   await page.route("**/api/config", (route) =>
     route.fulfill({
       json: { googleEnabled: true, turnstile: { status: "disabled" } },
     }),
   );
-  await page.goto("/login");
-  const form = page.getByRole("form", { name: "Sign in", exact: true });
-  await expect(
-    page.getByRole("heading", { name: "Sign in", exact: true }),
-  ).toHaveCount(1);
-  await expect(form.getByRole("heading")).toHaveCount(0);
-  await expect(
-    page.getByText("Save useful bookmarks in your own private library.", {
-      exact: true,
-    }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByText(/Authenticator codes protect password sign-in only/),
-  ).toHaveCount(0);
-  await expect(form.getByRole("alert")).toHaveCount(0);
-  await expect(form.getByRole("status")).toHaveCount(0);
-  const google = form.getByRole("button", { name: "Continue with Google" });
-  await expect(google).toBeVisible();
-  const geometry = await form.evaluate((element) => {
-    const primary = element
-      .querySelector('button[type="submit"]')!
-      .getBoundingClientRect();
-    const divider = element
-      .querySelector('[role="separator"]')!
-      .getBoundingClientRect();
-    const google = element
-      .querySelector(".google-button")!
-      .getBoundingClientRect();
-    const form = element.getBoundingClientRect();
-    return {
-      beforeDivider: divider.top - primary.bottom,
-      beforeGoogle: google.top - divider.bottom,
-      centered:
-        Math.abs(
-          (google.left + google.right) / 2 - (form.left + form.right) / 2,
-        ) < 2,
-    };
-  });
-  expect(geometry.beforeDivider).toBeLessThanOrEqual(16);
-  expect(geometry.beforeGoogle).toBeLessThanOrEqual(12);
-  expect(geometry.centered).toBe(true);
+  for (const width of [320, 375, 768, 1280]) {
+    await page.setViewportSize({ width, height: 812 });
+    for (const [path, title] of [
+      ["/login", "Sign in"],
+      ["/signup", "Create account"],
+    ]) {
+      await page.goto(path!);
+      const form = page.getByRole("form", { name: title!, exact: true });
+      await expect(
+        page.getByRole("heading", { name: title!, exact: true }),
+      ).toHaveCount(1);
+      await expect(form.getByRole("heading")).toHaveCount(0);
+      await expect(
+        page.getByText("Save useful bookmarks in your own private library.", {
+          exact: true,
+        }),
+      ).toHaveCount(0);
+      await expect(
+        page.getByText(/Authenticator codes protect password sign-in only/),
+      ).toHaveCount(0);
+      await expect(form.getByRole("alert")).toHaveCount(0);
+      await expect(form.getByRole("status")).toHaveCount(0);
+      const google = form.getByRole("button", { name: "Continue with Google" });
+      await expect(google).toBeVisible();
+      const geometry = await form.evaluate((element) => {
+        const primary = element
+          .querySelector('button[type="submit"]')!
+          .getBoundingClientRect();
+        const divider = element
+          .querySelector('[role="separator"]')!
+          .getBoundingClientRect();
+        const google = element
+          .querySelector(".google-button")!
+          .getBoundingClientRect();
+        const form = element.getBoundingClientRect();
+        return {
+          beforeDivider: divider.top - primary.bottom,
+          beforeGoogle: google.top - divider.bottom,
+          leftDifference: Math.abs(google.left - primary.left),
+          rightDifference: Math.abs(google.right - primary.right),
+          heightDifference: Math.abs(google.height - primary.height),
+          centered:
+            Math.abs(
+              (google.left + google.right) / 2 - (form.left + form.right) / 2,
+            ) < 2,
+        };
+      });
+      expect(geometry.beforeDivider).toBeLessThanOrEqual(16);
+      expect(geometry.beforeGoogle).toBeLessThanOrEqual(12);
+      expect(geometry.centered).toBe(true);
+      expect(geometry.leftDifference).toBeLessThanOrEqual(2);
+      expect(geometry.rightDifference).toBeLessThanOrEqual(2);
+      expect(geometry.heightDifference).toBeLessThanOrEqual(2);
+    }
+  }
 });
 
 test("verification loading fits 320px at 200% text without assuming a token or an off capability", async ({

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { z } from "zod";
+import { extractEmailUrl } from "../test/email-link.js";
 
 const origin = "http://127.0.0.1:5174";
 const password = "correct-horse-battery-staple";
@@ -14,7 +15,10 @@ async function mail(page: Page, email: string, subject: string) {
     `/__test/mail?${new URLSearchParams({ email, subject })}`,
   );
   expect(response.ok()).toBe(true);
-  return z.object({ text: z.string().url() }).parse(await response.json()).text;
+  return extractEmailUrl(
+    z.object({ text: z.string() }).parse(await response.json()).text,
+    origin,
+  );
 }
 async function account(page: Page, name = "Existing Reader") {
   const email = `account-${crypto.randomUUID()}@example.com`;
@@ -27,7 +31,11 @@ async function account(page: Page, name = "Existing Reader") {
     ).ok(),
   ).toBe(true);
   expect(
-    (await page.request.get(await mail(page, email, "Verify your email"))).ok(),
+    (
+      await page.request.get(
+        await mail(page, email, "Verify your email for Links"),
+      )
+    ).ok(),
   ).toBe(true);
   expect(
     (
@@ -213,11 +221,11 @@ test("passwordless Account keeps Security and reflows with an editable name and 
   const email = `passwordless-account-${crypto.randomUUID()}@example.com`;
   await page.goto("/magic-link");
   await page.getByLabel("Email", { exact: true }).fill(email);
-  await page.getByRole("button", { name: "Send link" }).click();
+  await page.getByRole("button", { name: "Send sign-in link" }).click();
   await expect(
-    page.getByText("Magic link sent", { exact: true }),
+    page.getByText("Check your email for a sign-in link.", { exact: true }),
   ).toBeVisible();
-  await page.goto(await mail(page, email, "Sign in"));
+  await page.goto(await mail(page, email, "Sign in to Links"));
   await page.getByRole("link", { name: "Account", exact: true }).click();
   await page.getByRole("button", { name: "Set password", exact: true }).click();
   await expect(

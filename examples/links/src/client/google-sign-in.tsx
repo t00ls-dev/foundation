@@ -6,6 +6,7 @@ import { authClient } from "./auth-client.js";
 import googleLogo from "./google-g.svg";
 import { OAuthButton, type OAuthProviderPresentation } from "./oauth-button.js";
 import { authDestination, authPath } from "./auth-destination.js";
+import { InlineFeedback } from "@t00ls-dev/ui/patterns/inline-feedback";
 
 export type GoogleCapability =
   { status: "loading" | "error" } | { status: "ready"; googleEnabled: boolean };
@@ -113,11 +114,16 @@ export function GoogleSignIn({
     }
   }
 
+  const showCapabilityFeedback = !externalCapability;
+  const enabled = capability.status === "ready" && capability.googleEnabled;
+  if (!enabled && !feedback && !showCapabilityFeedback) return null;
+  if (capability.status === "ready" && !enabled && !feedback) return null;
+
   return (
-    <div className="google-sign-in grid justify-items-center gap-3">
-      {capability.status === "loading" ? (
+    <div className="google-sign-in grid gap-3">
+      {showCapabilityFeedback && capability.status === "loading" ? (
         <p role="status">Loading sign-in options...</p>
-      ) : capability.status === "error" ? (
+      ) : showCapabilityFeedback && capability.status === "error" ? (
         <>
           <p role="status">Could not load sign-in options.</p>
           <button
@@ -131,7 +137,7 @@ export function GoogleSignIn({
             Retry sign-in options
           </button>
         </>
-      ) : capability.status === "ready" && capability.googleEnabled ? (
+      ) : enabled ? (
         <>
           <div
             className="auth-divider my-0 w-full"
@@ -149,9 +155,11 @@ export function GoogleSignIn({
         </>
       ) : null}
       {feedback ? (
-        <p id={feedbackId} role="alert">
-          {feedback}
-        </p>
+        <div id={feedbackId}>
+          <InlineFeedback tone="error" announce="assertive">
+            {feedback}
+          </InlineFeedback>
+        </div>
       ) : null}
     </div>
   );

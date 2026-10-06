@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { betterAuth } from "better-auth";
 import { memoryAdapter } from "better-auth/adapters/memory";
 import { z } from "zod";
+import { extractEmailUrl } from "../test/email-link.js";
 
 const origin = "http://127.0.0.1:5174";
 const password = "correct-horse-battery-staple";
@@ -14,7 +15,10 @@ async function mail(page: Page, email: string, subject: string) {
     `/__test/mail?${new URLSearchParams({ email, subject })}`,
   );
   expect(response.ok()).toBe(true);
-  return z.object({ text: z.string().url() }).parse(await response.json()).text;
+  return extractEmailUrl(
+    z.object({ text: z.string() }).parse(await response.json()).text,
+    origin,
+  );
 }
 async function issue(page: Page, authenticated = false) {
   const email = `reset-ux-${crypto.randomUUID()}@example.com`;
@@ -29,7 +33,9 @@ async function issue(page: Page, authenticated = false) {
   if (authenticated) {
     expect(
       (
-        await page.request.get(await mail(page, email, "Verify your email"))
+        await page.request.get(
+          await mail(page, email, "Verify your email for Links"),
+        )
       ).ok(),
     ).toBe(true);
     expect(
@@ -49,7 +55,9 @@ async function issue(page: Page, authenticated = false) {
       })
     ).status(),
   ).toBe(200);
-  const token = new URL(await mail(page, email, "Reset your password")).pathname
+  const token = new URL(
+    await mail(page, email, "Reset your Links password"),
+  ).pathname
     .split("/")
     .at(-1)!;
   return { token, url: `/reset-password?${new URLSearchParams({ token })}` };
@@ -73,7 +81,7 @@ test("valid reset checks before the form and keeps contextual navigation without
   });
   await page.goto(url);
   await expect(
-    page.getByText("Checking password link...", { exact: true }),
+    page.getByText("Checking password link…", { exact: true }),
   ).toBeVisible();
   await expect(page.getByLabel("New password", { exact: true })).toHaveCount(0);
   await expect(
@@ -194,20 +202,17 @@ test("leaving reset aborts the preflight and suppresses late feedback", async ({
   });
   await page.goto(url);
   await expect(
-    page.getByText("Checking password link...", { exact: true }),
+    page.getByText("Checking password link…", { exact: true }),
   ).toBeVisible();
   const aborted = page.waitForEvent("requestfailed", (request) =>
     new URL(request.url()).pathname.startsWith("/api/auth/reset-password/"),
   );
-  await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Home", exact: true })
-    .click();
+  await page.getByRole("link", { name: "Links", exact: true }).click();
   await aborted;
   release();
   await page.unrouteAll({ behavior: "wait" });
   await expect(
-    page.getByRole("heading", { name: "Foundation", exact: true }),
+    page.getByRole("heading", { name: "Links", exact: true }),
   ).toBeVisible();
   await expect(page.getByText(verificationError, { exact: true })).toHaveCount(
     0,

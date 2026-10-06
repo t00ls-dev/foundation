@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createApp } from "../../src/server/app.js";
 import type { Env } from "../../src/server/auth.js";
 import { applyMigrations, createTestDatabase, faultD1Queries } from "../d1.js";
+import { extractEmailUrl } from "../email-link.js";
 
 const sessionSchema = z.object({
   user: z.object({
@@ -91,7 +92,7 @@ describe("security characterization: Better Auth password and sessions on real D
       (value) => value.to === email && value.subject === subject,
     );
     if (!message) throw new Error("Expected a captured authentication email");
-    return message.text;
+    return extractEmailUrl(message.text, origin);
   }
   async function login(password: string) {
     return request("/api/auth/sign-in/email", "POST", "", { email, password });
@@ -119,7 +120,7 @@ describe("security characterization: Better Auth password and sessions on real D
     });
     expect(signup.status).toBe(200);
     const verified = await app.request(
-      delivered("Verify your email"),
+      delivered("Verify your email for Links"),
       undefined,
       env,
     );
@@ -149,7 +150,7 @@ describe("security characterization: Better Auth password and sessions on real D
     );
     expect(response.status).toBe(200);
     const redirect = await app.request(
-      delivered("Reset your password"),
+      delivered("Reset your Links password"),
       undefined,
       env,
     );
@@ -187,7 +188,11 @@ describe("security characterization: Better Auth password and sessions on real D
           })
         ).status,
       ).toBe(200);
-      const verified = await app.request(delivered("Sign in"), undefined, env);
+      const verified = await app.request(
+        delivered("Sign in to Links"),
+        undefined,
+        env,
+      );
       expect(verified.status).toBe(302);
       const cookie = sessionCookie(verified);
       const before = await identity(cookie);
@@ -351,8 +356,13 @@ describe("security characterization: Better Auth password and sessions on real D
         env.AUTH_SECRET,
         email,
         ...sent.map((message) => message.text),
+        ...sent.map((message) => extractEmailUrl(message.text, origin)),
         ...sent
-          .map((message) => new URL(message.text).searchParams.get("token"))
+          .map((message) =>
+            new URL(extractEmailUrl(message.text, origin)).searchParams.get(
+              "token",
+            ),
+          )
           .filter((value): value is string => Boolean(value)),
       ];
       for (const value of sensitive)

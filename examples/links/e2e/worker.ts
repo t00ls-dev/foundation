@@ -47,7 +47,7 @@ app.get("/__test/mail", async (c) => {
   )
     .bind(
       c.req.query("email") ?? "",
-      c.req.query("subject") ?? "Verify your email",
+      c.req.query("subject") ?? "Verify your email for Links",
     )
     .first<{ text: string }>();
   c.header("Cache-Control", "no-store");

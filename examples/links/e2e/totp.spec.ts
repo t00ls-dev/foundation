@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { z } from "zod";
+import { extractEmailUrl } from "../test/email-link.js";
 import { totp } from "../test/totp-harness.js";
 
 // Enrollment fixtures contain ephemeral secrets: no persisted browser traces/video.
@@ -25,7 +26,10 @@ async function mail(page: Page, email: string, subject: string) {
   const response = await page.request.get(
     `/__test/mail?email=${encodeURIComponent(email)}&subject=${encodeURIComponent(subject)}`,
   );
-  return z.object({ text: z.string() }).parse(await response.json()).text;
+  return extractEmailUrl(
+    z.object({ text: z.string() }).parse(await response.json()).text,
+    origin,
+  );
 }
 async function reader(page: Page) {
   const email = `totp-ui-${crypto.randomUUID()}@example.com`;
@@ -38,7 +42,11 @@ async function reader(page: Page) {
     ).status(),
   ).toBe(200);
   expect(
-    (await page.request.get(await mail(page, email, "Verify your email"))).ok(),
+    (
+      await page.request.get(
+        await mail(page, email, "Verify your email for Links"),
+      )
+    ).ok(),
   ).toBe(true);
   await login(page, email);
   await expect(
@@ -303,11 +311,15 @@ test("handles lost confirmation response as indeterminate, clears secrets and re
     .getByRole("form", { name: "Magic link", exact: true })
     .getByLabel("Email", { exact: true })
     .fill(email);
-  await page.getByRole("button", { name: "Send link", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Send sign-in link", exact: true })
+    .click();
   await expect(
-    page.getByRole("status").filter({ hasText: "Magic link sent" }),
+    page
+      .getByRole("status")
+      .filter({ hasText: "Check your email for a sign-in link." }),
   ).toBeVisible();
-  await page.goto(await mail(page, email, "Sign in"));
+  await page.goto(await mail(page, email, "Sign in to Links"));
   await expect(
     settings(page).getByText("Last reported: On", {
       exact: true,
@@ -1035,11 +1047,13 @@ test("an observed incomplete verification keeps Account recovery contextual afte
     .getByRole("form", { name: "Magic link", exact: true })
     .getByLabel("Email", { exact: true })
     .fill(email);
-  await page.getByRole("button", { name: "Send link", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Send sign-in link", exact: true })
+    .click();
   await expect(
-    page.getByText("Magic link sent", { exact: true }),
+    page.getByText("Check your email for a sign-in link.", { exact: true }),
   ).toBeVisible();
-  await page.goto(await mail(page, email, "Sign in"));
+  await page.goto(await mail(page, email, "Sign in to Links"));
   await expect(
     page.getByRole("button", { name: "Finish interrupted setup" }),
   ).toBeVisible();
@@ -1115,11 +1129,13 @@ test("normal challenge centers the code and another method abandons its context 
     .getByRole("form", { name: "Magic link", exact: true })
     .getByLabel("Email", { exact: true })
     .fill(email);
-  await page.getByRole("button", { name: "Send link", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Send sign-in link", exact: true })
+    .click();
   await expect(
-    page.getByText("Magic link sent", { exact: true }),
+    page.getByText("Check your email for a sign-in link.", { exact: true }),
   ).toBeVisible();
-  await page.goto(await mail(page, email, "Sign in"));
+  await page.goto(await mail(page, email, "Sign in to Links"));
   await expect(
     settings(page).getByRole("status", { name: "Authenticator status" }),
   ).toHaveText("On");

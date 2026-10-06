@@ -32,6 +32,37 @@ import {
   type TurnstileCapability,
 } from "../shared/auth-config.js";
 import { TurnstileWidget } from "./turnstile-widget.js";
+import { AuthLayout, AuthResult } from "./auth-layout.js";
+
+const authPresentation = {
+  login: {
+    title: "Sign in",
+    submitLabel: "Sign in",
+    pendingLabel: "Signing in…",
+    links: [
+      { path: "/signup", label: "Create account" },
+      { path: "/magic-link", label: "Use a magic link" },
+    ],
+  },
+  signup: {
+    title: "Create account",
+    submitLabel: "Create account",
+    pendingLabel: "Creating account…",
+    links: [{ path: "/login", label: "Sign in" }],
+  },
+  magic: {
+    title: "Magic link",
+    submitLabel: "Send sign-in link",
+    pendingLabel: "Sending link…",
+    links: [{ path: "/login", label: "Sign in" }],
+  },
+  recover: {
+    title: "Forgot password?",
+    submitLabel: "Send reset link",
+    pendingLabel: "Sending link…",
+    links: [{ path: "/login", label: "Sign in" }],
+  },
+};
 
 export function AuthPage({
   mode,
@@ -47,12 +78,8 @@ export function AuthPage({
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const destination = authDestination(params.get("next"));
-  const title = {
-    login: "Sign in",
-    signup: "Create account",
-    magic: "Magic link",
-    recover: "Reset password",
-  }[mode];
+  const presentation = authPresentation[mode];
+  const { title } = presentation;
   const hasPassword = mode === "login" || mode === "signup";
   const loginRequest = useRef<AbortController | null>(null);
   const publicRequest = useRef<AbortController | null>(null);
@@ -246,7 +273,7 @@ export function AuthPage({
           callbackURL: destination,
           fetchOptions: { headers, signal: controller.signal, retry: 0 },
         });
-        return feedback(result.error, "Magic link sent");
+        return feedback(result.error, "Check your email for a sign-in link.");
       }
       const result = await authClient.requestPasswordReset({
         email,
@@ -255,7 +282,7 @@ export function AuthPage({
       });
       return feedback(
         result.error,
-        "If the account exists, a reset link was sent",
+        "If an account exists for this email, check your inbox for a reset link.",
       );
     } finally {
       releaseSessionRequest(controller);
@@ -263,12 +290,24 @@ export function AuthPage({
     }
   }
   return (
-    <section className="auth-page" aria-label="Authentication">
-      <div className="cross-page-intro">
-        <h1>{title}</h1>
-      </div>
+    <AuthLayout
+      title={title}
+      footer={
+        <nav className="auth-links" aria-label="Authentication options">
+          {presentation.links.map(({ path, label }) => (
+            <Link key={path} to={authPath(path, destination)}>
+              {label}
+            </Link>
+          ))}
+          {mode === "recover" && initialEmail ? (
+            <Link to="/account">Back to Account</Link>
+          ) : null}
+        </nav>
+      }
+    >
       <AsyncForm
         hideTitle
+        compact
         initialEmail={mode === "recover" ? initialEmail : undefined}
         submitDisabled={
           !capability ||
@@ -289,14 +328,16 @@ export function AuthPage({
           ) : capability.status === "unavailable" ? (
             <>
               <InlineFeedback tone="error" announce="assertive">
-                Verification is temporarily unavailable. Please try again.
+                {googleCapability.status === "error"
+                  ? "Could not load authentication settings. Please try again."
+                  : "Verification is temporarily unavailable. Please try again."}
               </InlineFeedback>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setConfigAttempt((value) => value + 1)}
               >
-                Retry verification settings
+                Retry authentication settings
               </Button>
             </>
           ) : null
@@ -311,16 +352,8 @@ export function AuthPage({
           ) : undefined
         }
         title={title}
-        submitLabel={
-          hasPassword ? title : mode === "magic" ? "Send link" : "Request reset"
-        }
-        pendingLabel={
-          mode === "signup"
-            ? "Creating account..."
-            : mode === "login"
-              ? "Signing in..."
-              : "Sending link..."
-        }
+        submitLabel={presentation.submitLabel}
+        pendingLabel={presentation.pendingLabel}
         action={submit}
         requiredFields={
           mode === "signup"
@@ -358,19 +391,16 @@ export function AuthPage({
             autoComplete="new-password"
           />
         ) : null}
-      </AsyncForm>
-      <nav className="auth-links" aria-label="Authentication options">
-        <Link to={authPath("/login", destination)}>Sign in</Link>
-        <Link to={authPath("/signup", destination)}>Create account</Link>
-        <Link to={authPath("/magic-link", destination)}>Use a magic link</Link>
-        <Link to={authPath("/forgot-password", destination)}>
-          Forgot password?
-        </Link>
-        {mode === "recover" && initialEmail ? (
-          <Link to="/account">Back to Account</Link>
+        {mode === "login" ? (
+          <Link
+            className="auth-recovery-link"
+            to={authPath("/forgot-password", destination)}
+          >
+            Forgot password?
+          </Link>
         ) : null}
-      </nav>
-    </section>
+      </AsyncForm>
+    </AuthLayout>
   );
 }
 
@@ -379,30 +409,40 @@ export function Verification() {
   const pending = params.has("pending");
   const failed = params.has("error");
   return (
-    <section className="auth-page">
-      <h1>
-        {pending
+    <AuthResult
+      title={
+        pending
           ? "Check your email"
           : failed
             ? "Unable to verify your email"
-            : "Email verified"}
-      </h1>
-      <p
-        className={!pending && !failed ? "alert--success" : undefined}
-        role={failed ? "alert" : "status"}
-      >
-        {pending
-          ? "Open the verification link in your email, then sign in to Links."
-          : failed
-            ? "The link may be invalid or expired. Try signing in to request another verification email."
-            : "Your account is ready. Sign in to start saving links."}
-      </p>
-      <nav className="auth-links" aria-label="Verification options">
-        <Link to={authPath("/login", authDestination(params.get("next")))}>
-          Back to sign in
-        </Link>
-      </nav>
-    </section>
+            : "Email verified"
+      }
+      success={!pending && !failed}
+      action={
+        <nav aria-label="Verification options">
+          <Button
+            asChild
+            variant={pending || failed ? "outline" : "default"}
+            className="w-full"
+          >
+            <Link to={authPath("/login", authDestination(params.get("next")))}>
+              {failed ? "Back to sign in" : "Sign in"}
+            </Link>
+          </Button>
+        </nav>
+      }
+    >
+      {pending ? (
+        <p role={failed ? "alert" : "status"}>
+          Open the verification link in your email.
+        </p>
+      ) : failed ? (
+        <InlineFeedback tone="error" announce="assertive">
+          The link may be invalid or expired. Try signing in to request another
+          verification email.
+        </InlineFeedback>
+      ) : null}
+    </AuthResult>
   );
 }
 
@@ -485,15 +525,23 @@ export function ResetPassword({ authenticated }: { authenticated: boolean }) {
     }
   }
   return (
-    <section className="auth-page">
-      <h1>Choose a new password.</h1>
+    <AuthLayout
+      title="New password"
+      footer={
+        <nav className="auth-links" aria-label="Password reset options">
+          <Link to={authenticated ? "/account" : "/login"}>
+            {authenticated ? "Back to Account" : "Back to sign in"}
+          </Link>
+        </nav>
+      }
+    >
       {status === "checking" ? (
         <div
           aria-label="Checking password link"
           aria-busy="true"
           className="grid gap-4"
         >
-          <p role="status">Checking password link...</p>
+          <p role="status">Checking password link…</p>
           <Skeleton className="h-40 w-full" />
         </div>
       ) : status === "invalid" ? (
@@ -518,9 +566,11 @@ export function ResetPassword({ authenticated }: { authenticated: boolean }) {
         </>
       ) : (
         <AsyncForm
+          hideTitle
+          compact
           title="Reset password"
           submitLabel="Update password"
-          pendingLabel="Updating password..."
+          pendingLabel="Updating password…"
           action={reset}
           requiredFields={["password", "confirmPassword"]}
         >
@@ -539,12 +589,7 @@ export function ResetPassword({ authenticated }: { authenticated: boolean }) {
           />
         </AsyncForm>
       )}
-      <nav className="auth-links" aria-label="Password reset options">
-        <Link to={authenticated ? "/account" : "/login"}>
-          {authenticated ? "Back to Account" : "Back to sign in"}
-        </Link>
-      </nav>
-    </section>
+    </AuthLayout>
   );
 }
 

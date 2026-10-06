@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { z } from "zod";
+import { extractEmailUrl } from "../test/email-link.js";
 
 const origin = "http://127.0.0.1:5174";
 const password = "correct-horse-battery-staple";
@@ -15,10 +16,12 @@ async function account(page: Page) {
     ).ok(),
   ).toBe(true);
   const mail = await page.request.get(
-    `/__test/mail?${new URLSearchParams({ email, subject: "Verify your email" })}`,
+    `/__test/mail?${new URLSearchParams({ email, subject: "Verify your email for Links" })}`,
   );
   const url = z
-    .object({ text: z.string().url() })
+    .object({
+      text: z.string().transform((text) => extractEmailUrl(text, origin)),
+    })
     .parse(await mail.json()).text;
   expect((await page.request.get(url)).ok()).toBe(true);
   expect(
@@ -40,7 +43,7 @@ function gate() {
   return { promise, release };
 }
 
-test("initial unknown session reserves account space and uses accessible reduced-motion progress", async ({
+test("initial unknown session keeps public auth header minimal and uses accessible reduced-motion progress", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 720 });
@@ -57,8 +60,11 @@ test("initial unknown session reserves account space and uses accessible reduced
   await expect(progress.locator("div")).toHaveCSS("animation-name", "none");
   await expect(
     page.getByRole("navigation", { name: "Main navigation" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Links", exact: true }),
   ).toBeVisible();
-  await expect(page.getByLabel("Loading account")).toBeVisible();
+  await expect(page.getByLabel("Loading account")).toHaveCount(0);
   await expect(
     page.getByRole("navigation", { name: "Account navigation" }),
   ).toHaveCount(0);
@@ -171,7 +177,7 @@ test("an expired identity with failed reconciliation does not become visitor res
     window.dispatchEvent(new PopStateEvent("popstate"));
   });
   await expect(
-    page.getByRole("heading", { name: "Choose a new password." }),
+    page.getByRole("heading", { name: "New password", exact: true }),
   ).toBeVisible();
   await page.evaluate(() =>
     window.dispatchEvent(new Event("links:unauthorized")),

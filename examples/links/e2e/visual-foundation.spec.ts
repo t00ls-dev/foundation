@@ -19,6 +19,81 @@ async function verticalGap(before: Locator, after: Locator) {
   }, following);
 }
 
+test("public auth shares compact density and contextual navigation without changing return destinations", async ({
+  page,
+}) => {
+  await page.route("**/api/config", (route) =>
+    route.fulfill({
+      json: { googleEnabled: false, turnstile: { status: "disabled" } },
+    }),
+  );
+  const next = "/bookmarks/new?source=auth";
+  for (const width of [320, 375, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const [path, title, links] of [
+      ["/login", "Sign in", ["Create account", "Use a magic link"]],
+      ["/signup", "Create account", ["Sign in"]],
+      ["/magic-link", "Magic link", ["Sign in"]],
+      ["/forgot-password", "Forgot password?", ["Sign in"]],
+    ] as const) {
+      await page.goto(`${path}?${new URLSearchParams({ next })}`);
+      const form = page.getByRole("form", { name: title, exact: true });
+      await expect(form.locator('button[type="submit"]')).toBeEnabled();
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
+      await expect(form.getByRole("heading")).toHaveCount(0);
+      await expect(
+        page.getByRole("navigation", { name: "Main navigation" }),
+      ).toHaveCount(0);
+      await expect(
+        page.getByRole("navigation", { name: "Account navigation" }),
+      ).toHaveCount(0);
+      const alternatives = page
+        .getByRole("navigation", { name: "Authentication options" })
+        .getByRole("link");
+      await expect(alternatives).toHaveText([...links]);
+      for (const link of await page.locator(".auth-layout a").all()) {
+        const target = new URL((await link.getAttribute("href"))!, page.url());
+        expect(target.pathname).not.toBe(path);
+        expect(target.searchParams.get("next")).toBe(next);
+      }
+      await expect(form.locator(".google-sign-in")).toHaveCount(0);
+      await expect(form.getByRole("separator")).toHaveCount(0);
+      await expect(form.getByLabel("Email", { exact: true })).toHaveAttribute(
+        "spellcheck",
+        "false",
+      );
+      const geometry = await form.evaluate((element) => {
+        const fields = [...element.querySelectorAll(".cross-page-field")];
+        const gaps = fields
+          .slice(1)
+          .map(
+            (field, index) =>
+              field.getBoundingClientRect().top -
+              fields[index]!.getBoundingClientRect().bottom,
+          );
+        const last = fields.at(-1)!;
+        const following = last.nextElementSibling!;
+        return {
+          gaps,
+          finalGap:
+            following.getBoundingClientRect().top -
+            last.getBoundingClientRect().bottom,
+        };
+      });
+      for (const gap of geometry.gaps) expect(gap).toBe(12);
+      expect(geometry.finalGap).toBe(12);
+      await noHorizontalOverflow(page);
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = "200%";
+      });
+      await noHorizontalOverflow(page);
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = "";
+      });
+    }
+  }
+});
+
 test("shared layouts reflow on public pages from 320px to desktop and at 200% scale", async ({
   page,
 }) => {
@@ -61,12 +136,15 @@ test("cross-page intros and secondary actions use shared spacing, targets and st
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/");
-    const homeCard = page.locator(".card").nth(1);
+    const homeCard = page.locator(".home-intro");
     await expect(
       homeCard.getByRole("link", { name: "Open Links" }),
     ).toBeVisible();
     expect(
-      await verticalGap(homeCard.locator("p"), homeCard.locator(".actions")),
+      await verticalGap(
+        homeCard.locator("p").first(),
+        homeCard.locator(".actions"),
+      ),
     ).toBe(16);
     await page.goto("/login");
     const intro = page.locator(".cross-page-intro");
@@ -76,19 +154,29 @@ test("cross-page intros and secondary actions use shared spacing, targets and st
     for (const state of ["pending=1", "error=expired", ""]) {
       await page.goto(`/verify-email${state ? `?${state}` : ""}`);
       const back = page.getByRole("link", {
-        name: "Back to sign in",
+        name: state.startsWith("error") ? "Back to sign in" : "Sign in",
         exact: true,
       });
       await expect(back).toBeVisible();
       expect((await back.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       await back.focus();
       await expect(back).toHaveCSS("outline-width", "3px");
-      const message = page.locator(".auth-page > p");
+      const message = page
+        .locator(".auth-page")
+        .getByRole(state.startsWith("error") ? "alert" : "status");
       await expect(message).toHaveAttribute(
         "role",
         state.startsWith("error") ? "alert" : "status",
       );
-      if (!state) await expect(message).toHaveCSS("color", "rgb(36, 91, 60)");
+      if (!state) {
+        await expect(message).toHaveText("Email verified");
+        await expect(page.getByRole("heading", { level: 1 })).toHaveCSS(
+          "color",
+          "rgb(36, 75, 53)",
+        );
+        await expect(page.locator(".auth-page > p")).toHaveCount(0);
+        await expect(back).toHaveCSS("background-color", "rgb(36, 75, 53)");
+      }
       await noHorizontalOverflow(page);
     }
     await page.goto("/reset-password?error=INVALID_TOKEN");
@@ -263,31 +351,24 @@ test("shared controls provide touch targets, keyboard focus and readable feedbac
     page.getByRole("button", { name: "Continue with Google" }),
   ).toBeVisible();
   for (const control of await page
-    .locator("button, input, nav a, .brand")
+    .locator("button, input, nav a, .brand, .auth-recovery-link")
     .all()) {
     const box = await control.boundingBox();
     expect(box?.height).toBeGreaterThanOrEqual(44);
     expect(box?.width).toBeGreaterThanOrEqual(44);
   }
   await page.keyboard.press("Tab");
-  const brand = page.getByRole("link", { name: "Foundation", exact: true });
+  const brand = page.getByRole("link", { name: "Links", exact: true });
   await expect(brand).toBeFocused();
   await expect(brand).toHaveCSS("outline-style", "solid");
   await expect(brand).toHaveCSS("outline-width", "3px");
   const email = page.getByLabel("Email", { exact: true });
-  for (const [navigation, name] of [
-    ["Main navigation", "Home"],
-    ["Main navigation", "Bookmarks"],
-    ["Account navigation", "Sign in"],
-    ["Account navigation", "Create account"],
-  ] as const) {
-    await page.keyboard.press("Tab");
-    await expect(
-      page
-        .getByRole("navigation", { name: navigation })
-        .getByRole("link", { name, exact: true }),
-    ).toBeFocused();
-  }
+  await expect(
+    page.getByRole("navigation", { name: "Main navigation" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("navigation", { name: "Account navigation" }),
+  ).toHaveCount(0);
   await page.keyboard.press("Tab");
   await expect(email).toBeFocused();
   await expect(email).toHaveCSS("font-size", "16px");
@@ -299,11 +380,11 @@ test("shared controls provide touch targets, keyboard focus and readable feedbac
 
   await page.goto("/forgot-password");
   await page.getByLabel("Email", { exact: true }).fill("reader@example.com");
-  await page.getByRole("button", { name: "Request reset" }).click();
+  await page.getByRole("button", { name: "Send reset link" }).click();
   const success = page
     .getByRole("status")
-    .filter({ hasText: "If the account exists" });
-  await expect(success).toContainText("If the account exists");
+    .filter({ hasText: "If an account exists" });
+  await expect(success).toContainText("If an account exists");
   await expect(success).toHaveAttribute("role", "status");
   await expect(success).toHaveCSS("color", "rgb(36, 75, 53)");
   await noHorizontalOverflow(page);

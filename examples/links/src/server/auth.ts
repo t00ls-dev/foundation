@@ -3,6 +3,7 @@ import { createD1Database } from "@t00ls-dev/db/d1";
 import { createResendEmail, type EmailProvider } from "@t00ls-dev/email";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { schema } from "../schema.js";
+import { withLinksAuthEmail } from "./auth-email.js";
 import {
   linksTurnstileActions,
   type TurnstileCapability,
@@ -52,7 +53,7 @@ export function createRequestAuth(env: Env, emailFactory: EmailFactory) {
   const auth = createFoundationAuth({
     baseURL: env.BASE_URL,
     database: drizzleAdapter(database, { provider: "sqlite", schema }),
-    email: emailFactory(env),
+    email: withLinksAuthEmail(emailFactory(env)),
     ...(google ? { google } : {}),
     secret: env.AUTH_SECRET,
     ...(turnstile.status !== "disabled"

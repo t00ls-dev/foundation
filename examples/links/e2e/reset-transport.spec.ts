@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { z } from "zod";
+import { extractEmailUrl } from "../test/email-link.js";
 
 test("official reset GET exposes a stable final URL through real Worker/Assets without SPA navigation or consumption", async ({
   page,
@@ -23,15 +24,18 @@ test("official reset GET exposes a stable final URL through real Worker/Assets w
     ).status(),
   ).toBe(200);
   const message = await page.request.get(
-    `/__test/mail?${new URLSearchParams({ email, subject: "Reset your password" })}`,
+    `/__test/mail?${new URLSearchParams({ email, subject: "Reset your Links password" })}`,
   );
   const link = new URL(
-    z.object({ text: z.string().url() }).parse(await message.json()).text,
+    extractEmailUrl(
+      z.object({ text: z.string() }).parse(await message.json()).text,
+      origin,
+    ),
   );
   const token = link.pathname.split("/").at(-1)!;
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Foundation", exact: true }),
+    page.getByRole("heading", { name: "Links", exact: true }),
   ).toBeVisible();
   const original = page.url();
   let navigations = 0;

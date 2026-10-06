@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createApp } from "../../src/server/app.js";
 import type { Env } from "../../src/server/auth.js";
 import { applyMigrations, createTestDatabase, faultD1Queries } from "../d1.js";
+import { extractEmailUrl } from "../email-link.js";
 
 let database: Awaited<ReturnType<typeof createTestDatabase>>;
 let env: Env;
@@ -89,7 +90,7 @@ it("valid Siteverify precedes real D1 auth and later execution failures remain A
   expect((await post("/sign-up/email", false)).status).toBe(400);
   expect(sent).toHaveLength(0);
   expect((await post("/sign-up/email")).status).toBe(200);
-  await app.request(sent[0]!.text, undefined, env);
+  await app.request(extractEmailUrl(sent[0]!.text, origin), undefined, env);
   action = "links-sign-in";
   const login = await post("/sign-in/email");
   expect(login.status).toBe(200);

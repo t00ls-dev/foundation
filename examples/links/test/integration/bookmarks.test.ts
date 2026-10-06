@@ -7,6 +7,7 @@ import {
   bookmarkResponseSchema,
 } from "../../src/shared/bookmarks.js";
 import { applyMigrations, createTestDatabase, faultD1Queries } from "../d1.js";
+import { extractEmailUrl } from "../email-link.js";
 
 describe("Links API with Better Auth and real D1", () => {
   let database: Awaited<ReturnType<typeof createTestDatabase>>;
@@ -82,10 +83,16 @@ describe("Links API with Better Auth and real D1", () => {
     ).toBe(403);
     const verification = sent.find(
       (message) =>
-        message.to === email && message.subject === "Verify your email",
+        message.to === email &&
+        message.subject === "Verify your email for Links",
     );
     expect(verification).toBeDefined();
-    const verified = await app.request(verification!.text, undefined, env);
+    expect(verification!.text).toContain("finish creating your Links account");
+    const verified = await app.request(
+      extractEmailUrl(verification!.text, origin),
+      undefined,
+      env,
+    );
     expect([200, 302]).toContain(verified.status);
     const login = await request(
       "/api/auth/sign-in/email",
@@ -170,9 +177,14 @@ describe("Links API with Better Auth and real D1", () => {
     ).toBe(200);
     const link = sent.find(
       (value) =>
-        value.to === "magic@example.com" && value.subject === "Sign in",
+        value.to === "magic@example.com" &&
+        value.subject === "Sign in to Links",
     )!;
-    const verified = await app.request(link.text, undefined, env);
+    const verified = await app.request(
+      extractEmailUrl(link.text, origin),
+      undefined,
+      env,
+    );
     const magicCookie = verified.headers
       .getSetCookie()
       .map((value) => value.split(";")[0])
@@ -192,9 +204,14 @@ describe("Links API with Better Auth and real D1", () => {
     ).toBe(200);
     const passwordLink = sent.find(
       (value) =>
-        value.to === "password@example.com" && value.subject === "Sign in",
+        value.to === "password@example.com" &&
+        value.subject === "Sign in to Links",
     )!;
-    const login = await app.request(passwordLink.text, undefined, env);
+    const login = await app.request(
+      extractEmailUrl(passwordLink.text, origin),
+      undefined,
+      env,
+    );
     const cookie = login.headers
       .getSetCookie()
       .map((value) => value.split(";")[0])
@@ -370,8 +387,15 @@ describe("Links API with Better Auth and real D1", () => {
         })
       ).status,
     ).toBe(200);
-    const link = sent.find((message) => message.subject === "Sign in")!;
-    const verified = await app.request(link.text, undefined, env);
+    const link = sent.find(
+      (message) => message.subject === "Sign in to Links",
+    )!;
+    expect(link.text).toContain("Don't share the link.");
+    const verified = await app.request(
+      extractEmailUrl(link.text, origin),
+      undefined,
+      env,
+    );
     expect(verified.status).toBe(302);
     const cookie = verified.headers
       .getSetCookie()
@@ -393,9 +417,16 @@ describe("Links API with Better Auth and real D1", () => {
       ).status,
     ).toBe(200);
     const reset = sent.find(
-      (message) => message.subject === "Reset your password",
+      (message) => message.subject === "Reset your Links password",
     )!;
-    const redirect = await app.request(reset.text, undefined, env);
+    expect(reset.text).toContain(
+      "Your password won't change unless you complete the reset.",
+    );
+    const redirect = await app.request(
+      extractEmailUrl(reset.text, origin),
+      undefined,
+      env,
+    );
     expect(redirect.status).toBe(302);
     const token = new URL(redirect.headers.get("location")!).searchParams.get(
       "token",
@@ -685,8 +716,13 @@ describe("Links API with Better Auth and real D1", () => {
       "select ",
       "simulated D1 execution failure",
       ...sent.map((message) => message.text),
+      ...sent.map((message) => extractEmailUrl(message.text, origin)),
       ...sent
-        .map((message) => new URL(message.text).searchParams.get("token")!)
+        .map((message) =>
+          new URL(extractEmailUrl(message.text, origin)).searchParams.get(
+            "token",
+          )!,
+        )
         .filter(Boolean),
     ]) {
       expect(serialized).not.toContain(sensitive);

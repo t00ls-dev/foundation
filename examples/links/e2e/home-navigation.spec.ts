@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { z } from "zod";
+import { extractEmailUrl } from "../test/email-link.js";
 
 const password = "correct-horse-battery-staple";
 const origin = "http://127.0.0.1:5174";
@@ -9,7 +10,10 @@ async function mail(page: Page, email: string, subject: string) {
     `/__test/mail?${new URLSearchParams({ email, subject })}`,
   );
   expect(response.ok()).toBe(true);
-  return z.object({ text: z.string().url() }).parse(await response.json()).text;
+  return extractEmailUrl(
+    z.object({ text: z.string() }).parse(await response.json()).text,
+    origin,
+  );
 }
 
 async function account(page: Page) {
@@ -23,7 +27,11 @@ async function account(page: Page) {
     ).ok(),
   ).toBe(true);
   expect(
-    (await page.request.get(await mail(page, email, "Verify your email"))).ok(),
+    (
+      await page.request.get(
+        await mail(page, email, "Verify your email for Links"),
+      )
+    ).ok(),
   ).toBe(true);
   expect(
     (
@@ -57,19 +65,13 @@ test("Home is public, concise and reflows without loading private data", async (
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/");
     await expect(
-      page.getByRole("heading", { name: "Foundation", exact: true }),
+      page.getByRole("heading", { name: "Links", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByText(
-        "A reusable foundation for building full-stack applications.",
-        { exact: true },
-      ),
+      page.getByText("Your private bookmark library.", { exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByText(
-        "A small bookmark manager built with Foundation to exercise the stack end to end.",
-        { exact: true },
-      ),
+      page.getByText("Built with Foundation", { exact: true }),
     ).toBeVisible();
     await expect(
       page
@@ -106,7 +108,7 @@ test("authenticated Home and navigation lead to Bookmarks, editor and unchanged 
   const id = await bookmark(page);
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Foundation", exact: true }),
+    page.getByRole("heading", { name: "Links", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Sign out", exact: true }),
@@ -158,7 +160,7 @@ test("authenticated Home and navigation lead to Bookmarks, editor and unchanged 
       .getByRole("link", { name: "Sign in", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Foundation", exact: true }),
+    page.getByRole("heading", { name: "Links", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByText("Your session expired. Sign in again to continue."),
@@ -235,11 +237,11 @@ test("Magic Link and Google preserve validated internal return destinations", as
   ).toBeVisible();
   await page.getByLabel("Email", { exact: true }).fill(email);
   await expect(page.getByLabel("Email", { exact: true })).toHaveValue(email);
-  await page.getByRole("button", { name: "Send link" }).click();
+  await page.getByRole("button", { name: "Send sign-in link" }).click();
   await expect(
-    page.getByText("Magic link sent", { exact: true }),
+    page.getByText("Check your email for a sign-in link.", { exact: true }),
   ).toBeVisible();
-  await page.goto(await mail(page, email, "Sign in"));
+  await page.goto(await mail(page, email, "Sign in to Links"));
   await expect(page).toHaveURL(/\/bookmarks\/new$/);
   await expect(
     page.getByRole("heading", { name: "Add bookmark", exact: true }),
@@ -277,12 +279,9 @@ test("expired private sessions reach sign-in without retaining private content",
   await expect(
     page.getByText("Navigation private link", { exact: true }),
   ).toHaveCount(0);
-  await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Home", exact: true })
-    .click();
+  await page.getByRole("link", { name: "Links", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Foundation", exact: true }),
+    page.getByRole("heading", { name: "Links", exact: true }),
   ).toBeVisible();
 });
 
@@ -304,14 +303,14 @@ test("Home remains available during session loading and recoverable errors", asy
     page.getByRole("progressbar", { name: "Loading session" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Foundation", exact: true }),
+    page.getByRole("heading", { name: "Links", exact: true }),
   ).toBeVisible();
   release();
   await expect(
     page.getByRole("heading", { name: "Unable to load your session" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Foundation", exact: true }),
+    page.getByRole("heading", { name: "Links", exact: true }),
   ).toBeVisible();
   await page.unroute("**/api/auth/get-session*");
   await page.getByRole("button", { name: "Try again" }).click();
@@ -346,11 +345,11 @@ test("signup and email verification preserve the requested private destination",
     page.getByRole("heading", { name: "Check your email" }),
   ).toBeVisible();
   expect(new URL(page.url()).searchParams.get("next")).toBe("/bookmarks/new");
-  await page.goto(await mail(page, email, "Verify your email"));
+  await page.goto(await mail(page, email, "Verify your email for Links"));
   await expect(
     page.getByRole("heading", { name: "Email verified" }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Back to sign in" }).click();
+  await page.getByRole("link", { name: "Sign in", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Sign in", exact: true }),
   ).toBeVisible();
@@ -376,15 +375,23 @@ test("logout on the public reset page preserves the existing password reset flow
       })
     ).ok(),
   ).toBe(true);
-  await page.goto(await mail(page, email, "Reset your password"));
+  await page.goto(await mail(page, email, "Reset your Links password"));
   await expect(
-    page.getByRole("heading", { name: "Choose a new password." }),
+    page.getByRole("heading", { name: "New password", exact: true }),
   ).toBeVisible();
   const resetURL = page.url();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(
+    page
+      .getByRole("navigation", { name: "Password reset options" })
+      .getByRole("link", { name: "Back to sign in", exact: true }),
+  ).toHaveAttribute("href", "/login");
+  await expect(
     page.getByRole("navigation", { name: "Account navigation" }),
-  ).toContainText("Sign in");
+  ).toHaveCount(0);
+  expect(
+    await (await page.request.get("/api/auth/get-session")).json(),
+  ).toBeNull();
   await expect(page).toHaveURL(resetURL);
   await page.getByLabel("New password", { exact: true }).fill(password);
   await page.getByLabel("Confirm new password", { exact: true }).fill(password);

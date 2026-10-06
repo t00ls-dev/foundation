@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { z } from "zod";
+import { extractEmailUrl } from "../test/email-link.js";
 
 const password = "correct-horse-battery-staple";
 const newPassword = "  replacement-horse-battery-staple  ";
@@ -22,7 +23,10 @@ async function mail(page: Page, email: string, subject: string) {
     `/__test/mail?email=${encodeURIComponent(email)}&subject=${encodeURIComponent(subject)}`,
   );
   expect(response.ok()).toBe(true);
-  return z.object({ text: z.string().url() }).parse(await response.json()).text;
+  return extractEmailUrl(
+    z.object({ text: z.string() }).parse(await response.json()).text,
+    origin,
+  );
 }
 async function passwordUser(page: Page, email: string) {
   expect(
@@ -34,7 +38,11 @@ async function passwordUser(page: Page, email: string) {
     ).status(),
   ).toBe(200);
   expect(
-    (await page.request.get(await mail(page, email, "Verify your email"))).ok(),
+    (
+      await page.request.get(
+        await mail(page, email, "Verify your email for Links"),
+      )
+    ).ok(),
   ).toBe(true);
   await page.goto("/login");
   await page.getByLabel("Email", { exact: true }).fill(email);
@@ -364,11 +372,11 @@ test("passwordless Security sends the official email reset and confirms the firs
   await page.goto("/magic-link");
   await expect(page.getByLabel("Confirm password")).toHaveCount(0);
   await page.getByLabel("Email", { exact: true }).fill(email);
-  await page.getByRole("button", { name: "Send link" }).click();
+  await page.getByRole("button", { name: "Send sign-in link" }).click();
   await expect(
-    page.getByText("Magic link sent", { exact: true }),
+    page.getByText("Check your email for a sign-in link.", { exact: true }),
   ).toBeVisible();
-  await page.goto(await mail(page, email, "Sign in"));
+  await page.goto(await mail(page, email, "Sign in to Links"));
   await expect(
     page.getByRole("heading", { name: "Your bookmarks" }),
   ).toBeVisible();
@@ -397,18 +405,21 @@ test("passwordless Security sends the official email reset and confirms the firs
   await page.getByRole("link", { name: "Set a password by email" }).click();
   await expect(page.getByLabel("Email", { exact: true })).toHaveValue(email);
   await page
-    .getByRole("button", { name: "Request reset", exact: true })
+    .getByRole("button", { name: "Send reset link", exact: true })
     .click();
   await expect(
-    page.getByText("If the account exists, a reset link was sent", {
-      exact: true,
-    }),
+    page.getByText(
+      "If an account exists for this email, check your inbox for a reset link.",
+      {
+        exact: true,
+      },
+    ),
   ).toBeVisible();
   expect(emailFromSession).toBe(true);
   expect(resetRequestKeys).toEqual(["email", "redirectTo"]);
-  await page.goto(await mail(page, email, "Reset your password"));
+  await page.goto(await mail(page, email, "Reset your Links password"));
   await expect(
-    page.getByRole("heading", { name: "Choose a new password." }),
+    page.getByRole("heading", { name: "New password", exact: true }),
   ).toBeVisible();
   let resets = 0;
   let resetKeys: string[] = [];
