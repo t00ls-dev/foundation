@@ -8,13 +8,8 @@ export function SettingSection({
   children: ReactNode;
 }) {
   return (
-    <section
-      aria-label={title}
-      className="grid min-w-0 gap-0 rounded-lg border border-border bg-card text-card-foreground"
-    >
-      <h2 className="m-0 border-b border-border px-5 py-4 text-lg font-semibold">
-        {title}
-      </h2>
+    <section aria-label={title} className="grid min-w-0 gap-4 text-foreground">
+      <h2 className="m-0 text-lg font-semibold">{title}</h2>
       {children}
     </section>
   );
@@ -25,19 +20,21 @@ export function SettingRow({
   action,
   children,
 }: {
-  title: string;
-  description: ReactNode;
+  title: ReactNode;
+  description?: ReactNode;
   action?: ReactNode;
   children?: ReactNode;
 }) {
   return (
-    <div className="grid min-w-0 gap-4 border-b border-border p-5 last:border-b-0">
-      <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+    <div className="grid min-w-0 gap-3 border-b border-border py-4 last:border-b-0">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h3 className="m-0 text-base font-semibold">{title}</h3>
-          <div className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">
-            {description}
-          </div>
+          {description ? (
+            <div className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">
+              {description}
+            </div>
+          ) : null}
         </div>
         {action}
       </div>

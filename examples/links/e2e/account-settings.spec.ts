@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { z } from "zod";
+import { openNavigation } from "./navigation.js";
 import { extractEmailUrl } from "../test/email-link.js";
 
 const origin = "http://127.0.0.1:5174";
@@ -61,14 +62,14 @@ test("Account protects its canonical route and redirects legacy deep links witho
     await page.goto(path);
     await expect(page).toHaveURL(/\/login\?next=%2Faccount$/);
     await expect(
-      page.getByRole("heading", { name: "Account Settings" }),
+      page.getByRole("heading", { name: "Account", exact: true }),
     ).toHaveCount(0);
   }
   await account(page);
   await page.goto("/account/security?source=old#security");
   await expect(page).toHaveURL(`${origin}/account?source=old#security`);
   await expect(
-    page.getByRole("heading", { name: "Account Settings" }),
+    page.getByRole("heading", { name: "Account", exact: true }),
   ).toHaveCount(1);
   await expect(
     page.getByRole("heading", { name: "Security", exact: true }),
@@ -76,6 +77,7 @@ test("Account protects its canonical route and redirects legacy deep links witho
   await expect(
     page.getByRole("link", { name: "Security", exact: true }),
   ).toHaveCount(0);
+  await openNavigation(page);
   await expect(
     page.getByRole("link", { name: "Account", exact: true }),
   ).toHaveAttribute("aria-current", "page");
@@ -102,25 +104,29 @@ test("an empty name can be set and changed again through the official API while 
     await route.continue();
   });
   await page.goto("/account");
-  await page.getByRole("button", { name: "Edit name" }).click();
   const form = page.getByRole("form", { name: "Account name" });
   const name = form.getByLabel("Name", { exact: true });
   await expect(name).toHaveValue("");
-  await expect(page.getByRole("region", { name: "Profile" })).toContainText(
-    email,
-  );
+  const emailInput = form.getByLabel("Email", { exact: true });
+  await expect(emailInput).toHaveValue(email);
+  await expect(emailInput).toHaveAttribute("readonly", "");
+  await emailInput.focus();
+  await expect(emailInput).toBeFocused();
   await expect(
-    page.locator('input[type="email"], input[name="email"], input:disabled'),
-  ).toHaveCount(0);
+    form.getByRole("button", { name: "Save changes" }),
+  ).toBeDisabled();
   for (const next of ["  Zoë 李 Reader  ", "Second Reader"]) {
     await name.fill(next);
     const calls = payloads.length;
-    await expect(form.getByRole("button", { name: "Save name" })).toBeEnabled();
+    await expect(
+      form.getByRole("button", { name: "Save changes" }),
+    ).toBeEnabled();
     expect(payloads.length).toBe(calls);
-    await form.getByRole("button", { name: "Save name" }).click();
+    await form.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByText("Name saved.", { exact: true })).toBeVisible();
-    await expect(page.locator(".account > span")).toHaveText(next.trim());
-    await page.getByRole("button", { name: "Edit name" }).click();
+    await expect(
+      form.getByRole("button", { name: "Save changes" }),
+    ).toBeDisabled();
     await expect(name).toHaveValue(next.trim());
     expect(payloads[calls]).toEqual({ name: next.trim() });
     const after = await session(page);
@@ -131,8 +137,6 @@ test("an empty name can be set and changed again through the official API while 
   }
   expect((await request.get("/api/bookmarks")).status()).toBe(200);
   await page.reload();
-  await page.getByRole("button", { name: "Edit name" }).click();
-  await expect(page.locator(".account > span")).toHaveText("Second Reader");
   await expect(page.getByLabel("Name", { exact: true })).toHaveValue(
     "Second Reader",
   );
@@ -155,11 +159,10 @@ test("name validation and failures are recoverable, single-submit and never leak
   ).toBe(401);
   await account(page);
   await page.goto("/account");
-  await page.getByRole("button", { name: "Edit name" }).click();
   const form = page.getByRole("form", { name: "Account name" });
   const name = form.getByLabel("Name", { exact: true });
   await name.fill("   ");
-  await form.getByRole("button", { name: "Save name" }).click();
+  await form.getByRole("button", { name: "Save changes" }).click();
   await expect(form.getByRole("alert")).toHaveText("Enter your name");
   await expect(name).toBeFocused();
   for (const invalid of ["", "a".repeat(201), "First\u0000Last"]) {
@@ -208,10 +211,12 @@ test("name validation and failures are recoverable, single-submit and never leak
   release();
   await expect(form.getByRole("alert")).toHaveText(unconfirmed);
   await expect(page.getByText("unsafe-sql/token")).toHaveCount(0);
-  await expect(form.getByRole("button", { name: "Save name" })).toBeEnabled();
+  await expect(
+    form.getByRole("button", { name: "Save changes" }),
+  ).toBeEnabled();
   await expect(name).toHaveValue("Updated Reader");
   await page.unroute("**/api/auth/update-user");
-  await form.getByRole("button", { name: "Save name" }).click();
+  await form.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Name saved.", { exact: true })).toBeVisible();
 });
 
@@ -226,19 +231,17 @@ test("passwordless Account keeps Security and reflows with an editable name and 
     page.getByText("Check your email for a sign-in link.", { exact: true }),
   ).toBeVisible();
   await page.goto(await mail(page, email, "Sign in to Links"));
+  await openNavigation(page);
   await page.getByRole("link", { name: "Account", exact: true }).click();
-  await page.getByRole("button", { name: "Set password", exact: true }).click();
   await expect(
-    page.getByRole("link", { name: "Set a password by email" }),
+    page.getByRole("link", { name: "Set password by email" }),
   ).toBeVisible();
   await expect(
     page.getByLabel("Current password", { exact: true }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "Cancel password edit" }).click();
-  await page.getByRole("button", { name: "Edit name" }).click();
   await page.getByLabel("Name", { exact: true }).fill("Passwordless Reader");
-  await page.getByRole("button", { name: "Save name" }).click();
-  await expect(page.locator(".account > span")).toHaveText(
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue(
     "Passwordless Reader",
   );
   for (const width of [320, 375, 640, 1280]) {
@@ -262,7 +265,6 @@ test("a late name response cannot overwrite the next account after logout", asyn
   const b = await account(page, "Reader B");
   await account(page, "Reader A");
   await page.goto("/account");
-  await page.getByRole("button", { name: "Edit name" }).click();
   let release!: () => void;
   const held = new Promise<void>((resolve) => {
     release = resolve;
@@ -274,7 +276,7 @@ test("a late name response cannot overwrite the next account after logout", asyn
       .catch(() => undefined);
   });
   await page.getByLabel("Name", { exact: true }).fill("Old account edit");
-  await page.getByRole("button", { name: "Save name" }).click();
+  await page.getByRole("button", { name: "Save changes" }).click();
   await expect(
     page.getByRole("button", { name: "Saving name..." }),
   ).toBeDisabled();
@@ -282,6 +284,7 @@ test("a late name response cannot overwrite the next account after logout", asyn
     "requestfailed",
     (request) => new URL(request.url()).pathname === "/api/auth/update-user",
   );
+  await openNavigation(page);
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await aborted;
   await expect(
@@ -291,16 +294,16 @@ test("a late name response cannot overwrite the next account after logout", asyn
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Your bookmarks" }),
+    page.getByRole("heading", { name: "Bookmarks", exact: true }),
   ).toBeVisible();
+  await openNavigation(page);
   await page.getByRole("link", { name: "Account", exact: true }).click();
-  await page.getByRole("button", { name: "Edit name" }).click();
   await expect(page.getByLabel("Name", { exact: true })).toHaveValue(
     "Reader B",
   );
   release();
   await page.unrouteAll({ behavior: "wait" });
-  await expect(page.locator(".account > span")).toHaveText("Reader B");
+  expect((await session(page)).user.name).toBe("Reader B");
   await expect(page.getByText(unconfirmed, { exact: true })).toHaveCount(0);
   await expect(page.getByLabel("Name", { exact: true })).toHaveValue(
     "Reader B",

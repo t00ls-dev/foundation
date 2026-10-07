@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { openNavigation } from "./navigation.js";
 
 async function noHorizontalOverflow(page: Page) {
   const dimensions = await page.evaluate(() => ({
@@ -19,16 +20,16 @@ async function verticalGap(before: Locator, after: Locator) {
   }, following);
 }
 
-test("public auth shares compact density and contextual navigation without changing return destinations", async ({
-  page,
-}) => {
-  await page.route("**/api/config", (route) =>
-    route.fulfill({
-      json: { googleEnabled: false, turnstile: { status: "disabled" } },
-    }),
-  );
-  const next = "/bookmarks/new?source=auth";
-  for (const width of [320, 375, 768, 1280]) {
+for (const width of [320, 375, 768, 1280]) {
+  test(`public auth shares compact density and contextual navigation at ${width}px without changing return destinations`, async ({
+    page,
+  }) => {
+    await page.route("**/api/config", (route) =>
+      route.fulfill({
+        json: { googleEnabled: false, turnstile: { status: "disabled" } },
+      }),
+    );
+    const next = "/bookmarks/new?source=auth";
     await page.setViewportSize({ width, height: 900 });
     for (const [path, title, links] of [
       ["/login", "Sign in", ["Create account", "Use a magic link"]],
@@ -80,8 +81,8 @@ test("public auth shares compact density and contextual navigation without chang
             last.getBoundingClientRect().bottom,
         };
       });
-      for (const gap of geometry.gaps) expect(gap).toBe(12);
-      expect(geometry.finalGap).toBe(12);
+      for (const gap of geometry.gaps) expect(gap).toBe(20);
+      expect(geometry.finalGap).toBe(20);
       await noHorizontalOverflow(page);
       await page.evaluate(() => {
         document.documentElement.style.fontSize = "200%";
@@ -91,27 +92,27 @@ test("public auth shares compact density and contextual navigation without chang
         document.documentElement.style.fontSize = "";
       });
     }
-  }
-});
+  });
+}
 
-test("shared layouts reflow on public pages from 320px to desktop and at 200% scale", async ({
-  page,
-}) => {
-  await page.route("**/api/config", (route) =>
-    route.fulfill({
-      json: { googleEnabled: true, turnstile: { status: "disabled" } },
-    }),
-  );
-  const routes = [
-    "/login",
-    "/signup",
-    "/magic-link",
-    "/forgot-password",
-    "/reset-password",
-    "/verify-email?pending=1",
-  ];
-  // 640 CSS px also checks the reflow available at 200% browser zoom on 1280px.
-  for (const width of [320, 375, 640, 768, 1280]) {
+for (const width of [320, 375, 640, 768, 1280]) {
+  test(`shared layouts reflow on public pages at ${width}px and at 200% scale`, async ({
+    page,
+  }) => {
+    await page.route("**/api/config", (route) =>
+      route.fulfill({
+        json: { googleEnabled: true, turnstile: { status: "disabled" } },
+      }),
+    );
+    const routes = [
+      "/login",
+      "/signup",
+      "/magic-link",
+      "/forgot-password",
+      "/reset-password",
+      "/verify-email?pending=1",
+    ];
+    // 640 CSS px also checks the reflow available at 200% browser zoom on 1280px.
     await page.setViewportSize({ width, height: 900 });
     for (const route of routes) {
       await page.goto(route);
@@ -127,13 +128,13 @@ test("shared layouts reflow on public pages from 320px to desktop and at 200% sc
       });
       await noHorizontalOverflow(page);
     }
-  }
-});
+  });
+}
 
-test("cross-page intros and secondary actions use shared spacing, targets and state variants", async ({
-  page,
-}) => {
-  for (const width of [320, 390, 1280]) {
+for (const width of [320, 390, 1280]) {
+  test(`cross-page intros and secondary actions use shared spacing, targets and state variants at ${width}px`, async ({
+    page,
+  }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/");
     const homeCard = page.locator(".home-intro");
@@ -200,8 +201,8 @@ test("cross-page intros and secondary actions use shared spacing, targets and st
       document.documentElement.style.fontSize = "200%";
     });
     await noHorizontalOverflow(page);
-  }
-});
+  });
+}
 
 test("Account title and grouped Name errors stay separate from submit on narrow and wide screens", async ({
   page,
@@ -234,18 +235,17 @@ test("Account title and grouped Name errors stay separate from submit on narrow 
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/account");
-    await page.getByRole("button", { name: "Edit name" }).click();
     const form = page.getByRole("form", { name: "Account name" });
     const name = form.getByLabel("Name", { exact: true });
     await expect(name).toHaveValue("N".repeat(200));
     expect(
       await verticalGap(
-        page.getByRole("heading", { name: "Account Settings" }),
+        page.getByRole("heading", { name: "Account", exact: true }),
         page.getByRole("region", { name: "Profile", exact: true }),
       ),
-    ).toBe(16);
+    ).toBe(24);
     await name.fill(" ");
-    const save = form.getByRole("button", { name: "Save name" });
+    const save = form.getByRole("button", { name: "Save changes" });
     await save.click();
     const error = form.getByRole("alert");
     await expect(error).toHaveText("Enter your name");
@@ -260,51 +260,54 @@ test("Account title and grouped Name errors stay separate from submit on narrow 
   }
 });
 
-test("shared layouts keep long private content in bounds at narrow widths and enlarged text", async ({
-  page,
-}) => {
-  const userId = "f6b267ef-d429-47d5-8a47-e18b49621881";
-  const bookmark = {
-    id: "873e3c4d-51a1-416d-bd86-4b1f2ac2d5ec",
-    title: "W".repeat(200),
-    url: `https://example.com/${"w".repeat(1000)}`,
-    description: "W".repeat(2000),
-    tags: Array.from({ length: 10 }, (_, index) => `${index}${"w".repeat(39)}`),
-    createdAt: "2026-10-01T00:00:00.000Z",
-    updatedAt: "2026-10-01T00:00:00.000Z",
-  };
-  await page.route("**/api/auth/get-session*", (route) =>
-    route.fulfill({
-      json: {
-        user: {
-          id: userId,
-          name: "W".repeat(200),
-          email: "reader@example.com",
-          emailVerified: true,
-          createdAt: bookmark.createdAt,
-          updatedAt: bookmark.updatedAt,
+for (const width of [320, 375, 640, 1280]) {
+  test(`shared layouts keep long private content in bounds at ${width}px and enlarged text`, async ({
+    page,
+  }) => {
+    const userId = "f6b267ef-d429-47d5-8a47-e18b49621881";
+    const bookmark = {
+      id: "873e3c4d-51a1-416d-bd86-4b1f2ac2d5ec",
+      title: "W".repeat(200),
+      url: `https://example.com/${"w".repeat(1000)}`,
+      description: "W".repeat(2000),
+      tags: Array.from(
+        { length: 10 },
+        (_, index) => `${index}${"w".repeat(39)}`,
+      ),
+      createdAt: "2026-10-01T00:00:00.000Z",
+      updatedAt: "2026-10-01T00:00:00.000Z",
+    };
+    await page.route("**/api/auth/get-session*", (route) =>
+      route.fulfill({
+        json: {
+          user: {
+            id: userId,
+            name: "W".repeat(200),
+            email: "reader@example.com",
+            emailVerified: true,
+            createdAt: bookmark.createdAt,
+            updatedAt: bookmark.updatedAt,
+          },
+          session: {
+            id: "visual-session",
+            userId,
+            token: "visual-fixture",
+            expiresAt: "2099-01-01T00:00:00.000Z",
+            createdAt: bookmark.createdAt,
+            updatedAt: bookmark.updatedAt,
+          },
         },
-        session: {
-          id: "visual-session",
-          userId,
-          token: "visual-fixture",
-          expiresAt: "2099-01-01T00:00:00.000Z",
-          createdAt: bookmark.createdAt,
-          updatedAt: bookmark.updatedAt,
-        },
-      },
-    }),
-  );
-  await page.route("**/api/bookmarks?*", (route) =>
-    route.fulfill({ json: { items: [bookmark], hasMore: true } }),
-  );
-  await page.route(`**/api/bookmarks/${bookmark.id}`, (route) =>
-    route.fulfill({ json: bookmark }),
-  );
-  await page.route("**/api/account/security", (route) =>
-    route.fulfill({ json: { hasPassword: true } }),
-  );
-  for (const width of [320, 375, 640, 1280]) {
+      }),
+    );
+    await page.route("**/api/bookmarks?*", (route) =>
+      route.fulfill({ json: { items: [bookmark], hasMore: true } }),
+    );
+    await page.route(`**/api/bookmarks/${bookmark.id}`, (route) =>
+      route.fulfill({ json: bookmark }),
+    );
+    await page.route("**/api/account/security", (route) =>
+      route.fulfill({ json: { hasPassword: true } }),
+    );
     await page.setViewportSize({ width, height: 900 });
     for (const path of [
       "/bookmarks",
@@ -313,6 +316,7 @@ test("shared layouts keep long private content in bounds at narrow widths and en
       "/account",
     ]) {
       await page.goto(path);
+      await openNavigation(page);
       await expect(
         page.getByRole("button", { name: "Sign out" }),
       ).toBeVisible();
@@ -331,8 +335,8 @@ test("shared layouts keep long private content in bounds at narrow widths and en
       });
       await noHorizontalOverflow(page);
     }
-  }
-});
+  });
+}
 
 test("shared controls provide touch targets, keyboard focus and readable feedback", async ({
   page,
@@ -357,6 +361,10 @@ test("shared controls provide touch targets, keyboard focus and readable feedbac
     expect(box?.height).toBeGreaterThanOrEqual(44);
     expect(box?.width).toBeGreaterThanOrEqual(44);
   }
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("link", { name: "Skip to content" }),
+  ).toBeFocused();
   await page.keyboard.press("Tab");
   const brand = page.getByRole("link", { name: "Links", exact: true });
   await expect(brand).toBeFocused();
@@ -386,9 +394,10 @@ test("shared controls provide touch targets, keyboard focus and readable feedbac
     .filter({ hasText: "If an account exists" });
   await expect(success).toContainText("If an account exists");
   await expect(success).toHaveAttribute("role", "status");
-  await expect(success).toHaveCSS("color", "rgb(36, 75, 53)");
+  await expect(success).toHaveCSS("color", "rgb(23, 35, 29)");
   await noHorizontalOverflow(page);
   await page.emulateMedia({ forcedColors: "active" });
+  await page.getByRole("button", { name: "Use another email" }).click();
   await page.getByLabel("Email", { exact: true }).focus();
   await expect(page.getByLabel("Email", { exact: true })).toHaveCSS(
     "outline-style",

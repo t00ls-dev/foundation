@@ -16,9 +16,10 @@ Em Account → Authenticator:
 2. Escaneie o QR gerado localmente por `qrcode` ou informe o setup key
    manualmente no app autenticador. Issuer é `Links`, seis dígitos e período de
    30 segundos.
-3. Confirme um código atual. A conclusão aparece somente após reconciliação
-   autoritativa; Done fecha o Dialog. Setup pendente não protege login antes de
-   confirmar.
+3. Confirme um código atual. Após reconciliação autoritativa na sessão exata, o
+   Dialog fecha automaticamente e um único Sonner confirma a conclusão. Falha da
+   leitura final mantém recuperação contextual, sem sucesso presumido. Setup
+   pendente não protege login antes de confirmar.
 4. Para desativar, use **Turn off** com a senha atual no mesmo padrão de Dialog.
    A operação nativa rotaciona esta sessão, sem revogação global das outras
    sessões.
@@ -62,7 +63,7 @@ validado, onde Magic Link/Google permanecem alternativas. Requests em andamento
 são abortados pelo cleanup existente; não há novo endpoint nem alteração da
 validade nativa do cookie de challenge. Reabrir a rota sem contexto não permite
 verification, mesmo que esse cookie ainda exista. Account mostra status compacto
-On/Off/Unknown e uma explicação curta da proteção do login por senha.
+On/Off/Status unavailable e uma explicação curta da proteção do login por senha.
 
 ## Sessão autoritativa e estados indeterminados
 

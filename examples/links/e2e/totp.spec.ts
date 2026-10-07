@@ -2,18 +2,21 @@ import { expect, test, type Page } from "@playwright/test";
 import { z } from "zod";
 import { extractEmailUrl } from "../test/email-link.js";
 import { totp } from "../test/totp-harness.js";
+import { openNavigation } from "./navigation.js";
 
 // Enrollment fixtures contain ephemeral secrets: no persisted browser traces/video.
 test.use({ trace: "off", video: "off", screenshot: "off" });
 const origin = "http://127.0.0.1:5174";
 const password = "correct-horse-battery-staple";
 const identity = z.object({
-  user: z.object({
-    id: z.string(),
-    email: z.string(),
-    twoFactorEnabled: z.boolean(),
-  }),
-  session: z.object({ id: z.string() }),
+  user: z
+    .object({
+      id: z.string(),
+      email: z.string(),
+      twoFactorEnabled: z.boolean(),
+    })
+    .passthrough(),
+  session: z.object({ id: z.string() }).passthrough(),
 });
 const settings = (page: Page) =>
   page
@@ -50,7 +53,7 @@ async function reader(page: Page) {
   ).toBe(true);
   await login(page, email);
   await expect(
-    page.getByRole("heading", { name: "Your bookmarks" }),
+    page.getByRole("heading", { name: "Bookmarks", exact: true }),
   ).toBeVisible();
   await page.goto("/account");
   await expect(
@@ -73,7 +76,7 @@ async function begin(page: Page) {
     .getByRole("button", { name: "Set up", exact: true })
     .click();
   await settings(page)
-    .getByLabel("Authenticator account password")
+    .getByLabel("Current password", { exact: true })
     .fill(password);
   await settings(page)
     .getByRole("button", { name: "Continue with password" })
@@ -89,7 +92,10 @@ async function begin(page: Page) {
 async function confirm(page: Page, uri: string) {
   await settings(page).getByLabel("Authenticator code").fill(totp(uri));
   await settings(page).getByRole("button", { name: "Confirm code" }).click();
-  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page.getByText("Authenticator enabled.", { exact: true }),
+  ).toHaveCount(1);
   await expect(
     settings(page).getByText("On", {
       exact: true,
@@ -98,6 +104,7 @@ async function confirm(page: Page, uri: string) {
   await expect(page.getByLabel("Setup key", { exact: true })).toHaveCount(0);
 }
 async function signOut(page: Page) {
+  await openNavigation(page);
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(signIn(page)).toBeVisible();
 }
@@ -128,7 +135,7 @@ test("enrolls with a local QR, confirms authoritative rotation, challenges passw
       name: "Authenticator settings",
       includeHidden: true,
     }),
-  ).toContainText("Adds an authenticator code to password sign-in.");
+  ).toContainText("For password sign-in.");
   const secret = new URL(uri).searchParams.get("secret")!;
   const persisted = await page.evaluate(() =>
     JSON.stringify([
@@ -178,12 +185,15 @@ test("enrolls with a local QR, confirms authoritative rotation, challenges passw
     .getByRole("button", { name: "Turn off", exact: true })
     .click();
   await settings(page)
-    .getByLabel("Authenticator account password")
+    .getByLabel("Current password", { exact: true })
     .fill(password);
   await settings(page)
     .getByRole("button", { name: "Turn off with password" })
     .click();
-  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page.getByText("Authenticator turned off.", { exact: true }),
+  ).toHaveCount(1);
   await expect(
     settings(page).getByText("Off", {
       exact: true,
@@ -192,7 +202,7 @@ test("enrolls with a local QR, confirms authoritative rotation, challenges passw
   await signOut(page);
   await login(page, email);
   await expect(
-    page.getByRole("heading", { name: "Your bookmarks" }),
+    page.getByRole("heading", { name: "Bookmarks", exact: true }),
   ).toBeVisible();
   await expect(page.getByLabel("Authenticator code")).toHaveCount(0);
 });
@@ -216,12 +226,13 @@ test("clears setup on cancel/navigation and reflows at 320px without secret stor
     ),
   ).toBe(true);
   await settings(page)
-    .getByRole("button", { name: "Cancel authenticator setup" })
+    .getByRole("button", { name: "Cancel", exact: true })
     .click();
   await expect(page.getByLabel("Setup key")).toHaveCount(0);
   const second = await begin(page);
   expect(first === second).toBe(false);
   await page.keyboard.press("Escape");
+  await openNavigation(page);
   await page.getByRole("link", { name: "Bookmarks", exact: true }).click();
   await page.goto("/account");
   await expect(
@@ -352,12 +363,12 @@ test("does not finish a verification against another identity and allows explici
   await page.getByRole("button", { name: "Verify code" }).click();
   await expect(page.getByRole("alert")).toContainText("couldn't confirm");
   await expect(
-    page.getByRole("heading", { name: "Your bookmarks" }),
+    page.getByRole("heading", { name: "Bookmarks", exact: true }),
   ).toHaveCount(0);
   await page.unroute("**/api/auth/get-session?**");
   await page.getByRole("button", { name: "Check current session" }).click();
   await expect(
-    page.getByRole("heading", { name: "Your bookmarks" }),
+    page.getByRole("heading", { name: "Bookmarks", exact: true }),
   ).toBeVisible();
 });
 
@@ -402,7 +413,7 @@ test("recovers interrupted setup through password-protected URI retrieval withou
     .getByRole("button", { name: "Finish interrupted setup", exact: true })
     .click();
   await settings(page)
-    .getByLabel("Authenticator account password")
+    .getByLabel("Current password", { exact: true })
     .fill(password);
   await settings(page)
     .getByRole("button", { name: "Continue with password" })
@@ -525,7 +536,7 @@ test("requires the account password and guards duplicate enrollment submits with
   const button = settings(page).getByRole("button", {
     name: "Continue with password",
   });
-  const field = settings(page).getByLabel("Authenticator account password");
+  const field = settings(page).getByLabel("Current password", { exact: true });
   await button.click();
   await expect(field).toBeFocused();
   expect(calls).toBe(0);
@@ -545,9 +556,9 @@ test("requires the account password and guards duplicate enrollment submits with
   await page.getByRole("button", { name: "Can't scan? Use setup key" }).click();
   await expect(page.getByLabel("Setup key")).toBeVisible();
   expect(calls).toBe(2);
-  await expect(page.getByLabel("Authenticator account password")).toHaveCount(
-    0,
-  );
+  await expect(
+    page.getByLabel("Current password", { exact: true }),
+  ).toHaveCount(0);
   await settings(page).getByLabel("Authenticator code").fill("123");
   await settings(page).getByRole("button", { name: "Confirm code" }).click();
   await expect(settings(page).getByLabel("Authenticator code")).toBeFocused();
@@ -585,7 +596,7 @@ test("keeps verification closed if the final identity read fails across the auth
   expect(verifications).toBe(1);
   await page.getByRole("button", { name: "Check current session" }).click();
   await expect(
-    page.getByRole("heading", { name: "Your bookmarks" }),
+    page.getByRole("heading", { name: "Bookmarks", exact: true }),
   ).toBeVisible();
   expect(verifications).toBe(1);
 });
@@ -646,10 +657,11 @@ for (const fails of [false, true]) {
     await page.getByRole("button", { name: "Verify code" }).click();
     await expect.poll(() => reads).toBe(2);
     await expect(
-      page
-        .getByRole("status")
-        .filter({ hasText: "Confirming your session..." }),
+      page.getByRole("status", { name: "Confirming session" }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("status", { name: "Confirming session" }),
+    ).toHaveAttribute("aria-busy", "true");
     await expect(page.getByRole("alert")).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: "Check current session" }),
@@ -679,9 +691,7 @@ for (const fails of [false, true]) {
         page.getByRole("button", { name: "Check current session" }),
       ).toBeVisible();
       await expect(
-        page
-          .getByRole("status")
-          .filter({ hasText: "Confirming your session..." }),
+        page.getByRole("status", { name: "Confirming session" }),
       ).toHaveCount(0);
       await expect(
         page.getByRole("button", { name: "Verify code" }),
@@ -690,7 +700,7 @@ for (const fails of [false, true]) {
       await page.getByRole("button", { name: "Check current session" }).click();
     }
     await expect(
-      page.getByRole("heading", { name: "Your bookmarks" }),
+      page.getByRole("heading", { name: "Bookmarks", exact: true }),
     ).toBeVisible();
     expect(verifications).toBe(1);
     if (!fails)
@@ -725,15 +735,14 @@ test("normal Off and On never expose recovery and unknown never becomes Off", as
   await expect(
     page.getByRole("button", { name: "Finish interrupted setup" }),
   ).toHaveCount(0);
-  await expect(page.getByRole("form", { name: "Account name" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Edit name" }).click();
+  await expect(page.getByRole("form", { name: "Account name" })).toHaveCount(1);
+  await page.getByLabel("Name", { exact: true }).fill("Dirty draft");
   await expect(
     page.getByRole("button", { name: "Change password", exact: true }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   await expect(
     page.getByRole("button", { name: "Set up", exact: true }),
-  ).toBeDisabled();
-  await page.getByRole("button", { name: "Cancel name edit" }).click();
+  ).toBeEnabled();
   const uri = await begin(page);
   await confirm(page, uri);
   await expect(status).toHaveText("On");
@@ -754,7 +763,7 @@ test("normal Off and On never expose recovery and unknown never becomes Off", as
   await page.reload();
   await expect(
     page.getByRole("status", { name: "Authenticator status" }),
-  ).toHaveText("Unknown");
+  ).toHaveText("Status unavailable");
   await expect(page.getByText("Off", { exact: true })).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Set up", exact: true }),
@@ -797,7 +806,7 @@ test("setup key is absent while collapsed and Copy confirms only an exact succes
   }, secret);
   await page.getByRole("button", { name: "Copy", exact: true }).click();
   await expect(
-    page.getByRole("status").filter({ hasText: /^Copied$/ }),
+    page.getByRole("button", { name: "Copied", exact: true }),
   ).toBeVisible();
   await reveal.click();
   await reveal.click();
@@ -835,20 +844,24 @@ test("Dialog traps focus, handles Escape and returns focus; QR flow scrolls at 3
   const trigger = page.getByRole("button", { name: "Set up", exact: true });
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Set up authenticator" });
-  await expect(page.getByLabel("Authenticator account password")).toBeFocused();
-  await page.getByLabel("Authenticator account password").fill("discard-this");
+  await expect(
+    dialog.getByRole("button", { name: "Close", exact: true }),
+  ).toBeFocused();
   await page
-    .getByRole("button", { name: "Cancel authenticator setup" })
-    .focus();
+    .getByLabel("Current password", { exact: true })
+    .fill("discard-this");
+  await page.getByRole("button", { name: "Cancel", exact: true }).focus();
   await page.keyboard.press("Tab");
-  await expect(page.getByLabel("Authenticator account password")).toBeFocused();
+  await expect(
+    dialog.getByRole("button", { name: "Close", exact: true }),
+  ).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   await expect(trigger).toBeFocused();
   await trigger.click();
-  await expect(page.getByLabel("Authenticator account password")).toHaveValue(
-    "",
-  );
+  await expect(
+    page.getByLabel("Current password", { exact: true }),
+  ).toHaveValue("");
   await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 320, height: 568 });
   await begin(page);
@@ -870,9 +883,7 @@ test("Dialog traps focus, handles Escape and returns focus; QR flow scrolls at 3
         document.documentElement.clientWidth,
     ),
   ).toBe(true);
-  await page
-    .getByRole("button", { name: "Cancel authenticator setup" })
-    .click();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page.getByLabel("Setup key")).toHaveCount(0);
   await expect(
     page.getByRole("img", { name: "Authenticator setup QR code" }),
@@ -897,7 +908,7 @@ test("closing a pending enrollment clears local fields and keeps its outcome ind
       .catch(() => undefined);
   });
   await page.getByRole("button", { name: "Set up", exact: true }).click();
-  await page.getByLabel("Authenticator account password").fill(password);
+  await page.getByLabel("Current password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Continue with password" }).click();
   await expect.poll(() => started).toBe(true);
   await page.keyboard.press("Escape");
@@ -905,9 +916,9 @@ test("closing a pending enrollment clears local fields and keeps its outcome ind
   await expect(settings(page).getByRole("alert")).toContainText(
     "couldn't confirm",
   );
-  await expect(page.getByLabel("Authenticator account password")).toHaveCount(
-    0,
-  );
+  await expect(
+    page.getByLabel("Current password", { exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Finish interrupted setup" }),
   ).toBeVisible();
@@ -933,7 +944,7 @@ test("unexpected turn-off stays indeterminate even after a reported Off status",
     });
   });
   await page.getByRole("button", { name: "Turn off", exact: true }).click();
-  await page.getByLabel("Authenticator account password").fill(password);
+  await page.getByLabel("Current password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Turn off with password" }).click();
   await expect(settings(page).getByRole("alert")).toContainText(
     "couldn't confirm",
@@ -1006,7 +1017,7 @@ test("setup completion waits for authoritative reconciliation and cleans fields 
   await page.getByRole("button", { name: "Confirm code" }).click();
   await expect.poll(() => started).toBe(true);
   await expect(
-    page.getByRole("button", { name: "Done", exact: true }),
+    page.getByText("Authenticator enabled.", { exact: true }),
   ).toHaveCount(0);
   await expect(
     page.getByText("Authenticator confirmed for password sign-in.", {
@@ -1014,7 +1025,10 @@ test("setup completion waits for authoritative reconciliation and cleans fields 
     }),
   ).toHaveCount(0);
   release();
-  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page.getByText("Authenticator enabled.", { exact: true }),
+  ).toHaveCount(1);
   await expect(page.getByLabel("Setup key")).toHaveCount(0);
   await expect(page.getByLabel("Authenticator code")).toHaveCount(0);
   await expect(
@@ -1022,6 +1036,40 @@ test("setup completion waits for authoritative reconciliation and cleans fields 
       exact: true,
     }),
   ).toBeVisible();
+});
+
+test("a failed final enrollment read stays persistent without a success toast or automatic verification retry", async ({
+  page,
+}) => {
+  await reader(page);
+  const uri = await begin(page);
+  let reads = 0;
+  let verifications = 0;
+  await page.route("**/api/auth/two-factor/verify-totp", async (route) => {
+    verifications++;
+    await route.continue();
+  });
+  await page.route("**/api/auth/get-session?**", async (route) => {
+    reads++;
+    if (reads > 1)
+      await route.fulfill({ status: 503, json: { code: "AUTH_FAILURE" } });
+    else await route.continue();
+  });
+  await page.getByLabel("Authenticator code").fill(totp(uri));
+  await page.getByRole("button", { name: "Confirm code" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(settings(page).getByRole("alert")).toContainText(
+    "couldn't confirm",
+  );
+  await expect(
+    page.getByRole("button", { name: "Finish interrupted setup" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Setup key")).toHaveCount(0);
+  await expect(page.getByLabel("Authenticator code")).toHaveCount(0);
+  await expect(
+    page.getByText("Authenticator enabled.", { exact: true }),
+  ).toHaveCount(0);
+  expect(verifications).toBe(1);
 });
 
 test("an observed incomplete verification keeps Account recovery contextual after Magic Link sign-in", async ({
@@ -1060,10 +1108,10 @@ test("an observed incomplete verification keeps Account recovery contextual afte
   await expect(
     page.getByRole("button", { name: "Set up", exact: true }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "Edit name" }).click();
+  await page.getByLabel("Name", { exact: true }).fill("Unsaved name");
   await expect(
     page.getByRole("button", { name: "Finish interrupted setup" }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   await signOut(page);
   expect(
     await page.evaluate(() =>
@@ -1089,11 +1137,17 @@ test("normal challenge centers the code and another method abandons its context 
     }),
   );
   await login(page, email, "/account");
-  const region = page.getByRole("region", { name: "Authenticator sign-in" });
+  const region = page.getByRole("region", {
+    name: "Authentication",
+    exact: true,
+  });
   await expect(
-    region.getByRole("heading", { name: "Enter your authenticator code" }),
+    region.getByRole("heading", { name: "Authenticator code", exact: true }),
   ).toBeVisible();
-  await expect(page.getByLabel("Authenticator code")).toBeFocused();
+  await expect(page.getByLabel("Authenticator code")).toHaveAttribute(
+    "inputmode",
+    "numeric",
+  );
   await expect(
     region.getByRole("button", { name: "Continue with Google" }),
   ).toHaveCount(0);
@@ -1188,6 +1242,6 @@ test("another sign-in method aborts an in-flight verification without accepting 
   await page.getByLabel("Authenticator code").fill(totp(uri));
   await page.getByRole("button", { name: "Verify code" }).click();
   await expect(
-    page.getByRole("heading", { name: "Your bookmarks" }),
+    page.getByRole("heading", { name: "Bookmarks", exact: true }),
   ).toBeVisible();
 });

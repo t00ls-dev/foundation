@@ -4,11 +4,10 @@ import { useForm } from "react-hook-form";
 import { accountUpdateSchema } from "../shared/account.js";
 import { authClient } from "./auth-client.js";
 import type { Feedback } from "./auth-form.js";
-import { Button } from "@t00ls-dev/ui/components/button";
 import { Input } from "@t00ls-dev/ui/components/input";
+import { Button } from "@t00ls-dev/ui/components/button";
 import { PendingButton } from "@t00ls-dev/ui/patterns/pending-button";
 import { InlineFeedback } from "@t00ls-dev/ui/patterns/inline-feedback";
-import { SettingRow, SettingFlow } from "@t00ls-dev/ui/patterns/settings";
 import { useConfirmedFeedback } from "@t00ls-dev/ui/patterns/feedback";
 import {
   currentSessionGeneration,
@@ -22,20 +21,12 @@ const unconfirmed =
 export function AccountName({
   user,
   onNameChanged,
-  open,
-  onOpenChange,
-  disabled,
 }: {
   user: { id: string; name: string; email: string };
   onNameChanged: () => Promise<void>;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  disabled: boolean;
 }) {
   const inputId = useId();
   const confirmed = useConfirmedFeedback();
-  const trigger = useRef<HTMLButtonElement>(null);
-  const hintId = `${inputId}-hint`;
   const errorId = `${inputId}-error`;
   const feedbackId = `${inputId}-feedback`;
   const [feedback, setFeedback] = useState<Feedback>();
@@ -57,12 +48,6 @@ export function AccountName({
   useEffect(() => {
     if (!formState.isDirty && !busy.current) reset({ name: user.name });
   }, [user.name, formState.isDirty, reset]);
-  useEffect(() => {
-    if (!open) {
-      reset({ name: user.name });
-      setFeedback(undefined);
-    }
-  }, [open, reset, user.name]);
 
   async function save({ name }: { name: string }) {
     const generation = currentSessionGeneration();
@@ -119,8 +104,6 @@ export function AccountName({
       await onNameChanged();
       if (!active()) return;
       reset({ name });
-      onOpenChange(false);
-      trigger.current?.focus();
       confirmed(crypto.randomUUID(), "Name saved.");
     } catch {
       if (active()) setFeedback({ kind: "error", message: unconfirmed });
@@ -144,70 +127,70 @@ export function AccountName({
 
   const error = formState.errors.name;
   return (
-    <SettingRow
-      title="Name"
-      description={user.name}
-      action={
-        <Button
-          disabled={disabled || formState.isSubmitting}
-          ref={trigger}
-          variant="outline"
-          onClick={() => onOpenChange(!open)}
-        >
-          {open ? "Cancel name edit" : "Edit name"}
-        </Button>
-      }
+    <form
+      aria-label="Account name"
+      noValidate
+      aria-busy={formState.isSubmitting}
+      aria-describedby={feedback ? feedbackId : undefined}
+      onSubmit={submit}
     >
-      {open ? (
-        <SettingFlow>
-          <form
-            aria-label="Account name"
-            noValidate
-            aria-busy={formState.isSubmitting}
-            aria-describedby={feedback ? feedbackId : undefined}
-            onSubmit={submit}
-          >
-            <div className="cross-page-field">
-              <label htmlFor={inputId}>
-                Name
-                <Input
-                  {...form.register("name")}
-                  id={inputId}
-                  autoComplete="name"
-                  required
-                  maxLength={200}
-                  readOnly={formState.isSubmitting}
-                  autoFocus
-                  aria-invalid={error ? true : undefined}
-                  aria-describedby={`${hintId}${error ? ` ${errorId}` : ""}`}
-                />
-              </label>
-              <p id={hintId}>
-                Use 1–200 characters. Surrounding spaces are removed.
-              </p>
-              {error ? (
-                <span className="field-error" id={errorId} role="alert">
-                  {error.message}
-                </span>
-              ) : null}
-            </div>
-            <PendingButton
-              type="submit"
-              pending={formState.isSubmitting}
-              pendingLabel="Saving name..."
+      <div className="cross-page-field">
+        <label htmlFor={inputId}>
+          Name
+          <Input
+            {...form.register("name")}
+            id={inputId}
+            autoComplete="name"
+            required
+            maxLength={200}
+            readOnly={formState.isSubmitting}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? errorId : undefined}
+          />
+        </label>
+        {error ? (
+          <span className="field-error" id={errorId} role="alert">
+            {error.message}
+          </span>
+        ) : null}
+      </div>
+      <div className="cross-page-field">
+        <label htmlFor={`${inputId}-email`}>Email</label>
+        <Input
+          className="bg-accent"
+          id={`${inputId}-email`}
+          type="email"
+          readOnly
+          value={user.email}
+          autoComplete="email"
+        />
+      </div>
+      <PendingButton
+        className="justify-self-start"
+        disabled={form.watch("name").trim() === user.name}
+        type="submit"
+        pending={formState.isSubmitting}
+        pendingLabel="Saving name..."
+      >
+        Save changes
+      </PendingButton>
+      <div id={feedbackId}>
+        {feedback ? (
+          <>
+            <InlineFeedback tone={feedback.kind} announce="assertive">
+              {feedback.message}
+            </InlineFeedback>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={formState.isSubmitting}
+              onClick={() => void onNameChanged()}
             >
-              Save name
-            </PendingButton>
-            <div id={feedbackId}>
-              {feedback ? (
-                <InlineFeedback tone={feedback.kind} announce="assertive">
-                  {feedback.message}
-                </InlineFeedback>
-              ) : null}
-            </div>
-          </form>
-        </SettingFlow>
-      ) : null}
-    </SettingRow>
+              Reload Account
+            </Button>
+          </>
+        ) : null}
+      </div>
+    </form>
   );
 }

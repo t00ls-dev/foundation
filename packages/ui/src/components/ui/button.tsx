@@ -14,7 +14,7 @@ export const buttonVariants = cva(
         outline: "border-border bg-background text-primary hover:bg-accent",
         ghost: "border-transparent bg-transparent text-primary hover:bg-accent",
         destructive:
-          "border-destructive bg-destructive text-primary-foreground",
+          "border-destructive bg-destructive text-primary-foreground hover:bg-destructive/90 active:bg-destructive/80",
       },
     },
     defaultVariants: { variant: "default" },

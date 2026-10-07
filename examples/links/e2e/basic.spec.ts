@@ -5,6 +5,7 @@ import {
   type APIRequestContext,
 } from "@playwright/test";
 import { z } from "zod";
+import { openNavigation } from "./navigation.js";
 import { extractEmailUrl } from "../test/email-link.js";
 
 const password = "correct-horse-battery-staple";
@@ -51,7 +52,7 @@ async function signIn(page: Page, address: string) {
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Your bookmarks" }),
+    page.getByRole("heading", { name: "Bookmarks", exact: true }),
   ).toBeVisible();
 }
 async function addBookmark(page: Page, title: string) {
@@ -60,12 +61,11 @@ async function addBookmark(page: Page, title: string) {
   await page
     .getByLabel("URL", { exact: true })
     .fill("https://example.com/reference");
+  await page.getByRole("button", { name: "Add details" }).click();
   await page
     .getByLabel("Description (optional)", { exact: true })
     .fill("Private reference");
-  await page
-    .getByLabel("Tags (comma-separated)", { exact: true })
-    .fill("Docs, Work");
+  await page.getByLabel("Tags (optional)", { exact: true }).fill("Docs, Work");
   await page.getByRole("button", { name: "Save bookmark" }).click();
   await expect(
     page.getByRole("article", { name: title, exact: true }),
@@ -105,8 +105,20 @@ test("shows Google only on anonymous login/signup when server capability is enab
     await expect(page.locator(".auth-page")).toBeVisible();
     await expect(google).toHaveCount(0);
   }
+});
+
+test("authenticated users do not receive Google sign-in controls", async ({
+  page,
+}) => {
+  await page.route("**/api/config", (route) =>
+    route.fulfill({
+      json: { googleEnabled: true, turnstile: { status: "disabled" } },
+    }),
+  );
   await signUp(page, email());
-  await expect(google).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Continue with Google" }),
+  ).toHaveCount(0);
 });
 
 test("keeps exactly one Google button across repeated SPA auth mode switches", async ({
@@ -129,9 +141,7 @@ test("keeps exactly one Google button across repeated SPA auth mode switches", a
     await expect(form.getByRole("separator", { name: "or" })).toHaveCount(1);
     // Prove containment and DOM order, not just matching colors or screen coordinates.
     await expect(
-      form.locator(
-        'button[type="submit"], [role="separator"], button[type="button"]',
-      ),
+      form.locator('button[type="submit"], [role="separator"], .google-button'),
     ).toHaveText([submitLabel, "or", "Continue with Google"]);
   }
   await expectSingleGoogle("Sign in");
@@ -407,19 +417,20 @@ test("verifies email, persists session and performs CRUD with filters", async ({
   );
   await titleOnly.getByRole("link", { name: "Edit", exact: true }).click();
   await page.getByLabel("Description (optional)").fill("Updated description");
-  await page.getByLabel("Tags (comma-separated)").fill("Personal");
+  await page.getByLabel("Tags (optional)").fill("Personal");
   await page.getByRole("button", { name: "Save bookmark" }).click();
   await expect(
     page.getByRole("article", { name: "Updated reference", exact: true }),
   ).toContainText("Updated description");
-  await page.getByLabel("Filter by tag", { exact: true }).fill("docs");
+  await page.getByRole("button", { name: "Tag", exact: true }).click();
+  await page.getByLabel("Tag", { exact: true }).fill("docs");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "No matching bookmarks" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).click();
   await page.getByLabel("Search", { exact: true }).fill("Updated");
-  await page.getByLabel("Filter by tag", { exact: true }).fill("PERSONAL");
+  await page.getByLabel("Tag", { exact: true }).fill("PERSONAL");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   const updated = page.getByRole("article", {
     name: "Updated reference",
@@ -434,6 +445,7 @@ test("verifies email, persists session and performs CRUD with filters", async ({
   await expect(
     page.getByRole("heading", { name: "No matching bookmarks" }),
   ).toBeVisible();
+  await openNavigation(page);
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Sign in", exact: true }),
@@ -542,7 +554,10 @@ test("handles library loading, errors, retries, mutation failures and session ex
     } else await route.continue();
   });
   await page.reload();
-  await expect(page.getByRole("status")).toHaveText("Loading bookmarks...");
+  await expect(
+    page.getByRole("region", { name: "Bookmark results" }),
+  ).toHaveAttribute("aria-busy", "true");
+  await expect(page.getByLabel("Loading bookmark rows")).toBeVisible();
   await expect(page.getByRole("alert")).toContainText(
     "Could not load your bookmarks",
   );
@@ -565,7 +580,9 @@ test("handles library loading, errors, retries, mutation failures and session ex
   await expect(page.getByRole("button", { name: "Saving..." })).toBeDisabled();
   await expect(page.getByRole("alert")).toHaveText("Could not save");
   await page.unroute("**/api/bookmarks/*");
-  await page.getByRole("link", { name: "Cancel", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Back to bookmarks", exact: true })
+    .click();
   await expect(item).toBeVisible();
   const cookie = (await page.context().cookies())
     .map((value) => `${value.name}=${value.value}`)
@@ -639,6 +656,7 @@ test("discards delayed private responses after logout and account switching", as
   });
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await ready;
+  await openNavigation(page);
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Sign in", exact: true }),
@@ -759,6 +777,7 @@ test("keeps B authenticated when A's pending mutation returns 401", async ({
     "requestfailed",
     (request) => request.method() === "PATCH",
   );
+  await openNavigation(page);
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await abortedA;
   await expect(
@@ -769,9 +788,14 @@ test("keeps B authenticated when A's pending mutation returns 401", async ({
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Your bookmarks" }),
+    page.getByRole("heading", { name: "Bookmarks", exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("User B", { exact: true })).toBeVisible();
+  expect(
+    z
+      .object({ user: z.object({ name: z.string() }) })
+      .parse(await (await page.request.get("/api/auth/get-session")).json())
+      .user.name,
+  ).toBe("User B");
   release();
   await page.unrouteAll({ behavior: "wait" });
   // A fresh B request confirms the session and screen remain usable after the old response.
@@ -779,7 +803,12 @@ test("keeps B authenticated when A's pending mutation returns 401", async ({
   await expect(
     page.getByRole("heading", { name: "No bookmarks yet" }),
   ).toBeVisible();
-  await expect(page.getByText("User B", { exact: true })).toBeVisible();
+  expect(
+    z
+      .object({ user: z.object({ name: z.string() }) })
+      .parse(await (await page.request.get("/api/auth/get-session")).json())
+      .user.name,
+  ).toBe("User B");
   await expect(
     page.getByRole("button", { name: "Sign in", exact: true }),
   ).toHaveCount(0);

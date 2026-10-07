@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openNavigation } from "./navigation.js";
 import { z } from "zod";
 import { extractEmailUrl } from "../test/email-link.js";
 
@@ -147,6 +148,7 @@ test("logout discards private drafts immediately even while the request is held"
     await held.promise;
     await route.continue();
   });
+  await openNavigation(page);
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Signing out..." }),
@@ -167,7 +169,7 @@ test("an expired identity with failed reconciliation does not become visitor res
   await account(page);
   await page.goto("/account");
   await expect(
-    page.getByRole("heading", { name: "Account Settings" }),
+    page.getByRole("heading", { name: "Account", exact: true }),
   ).toBeVisible();
   await page.route("**/api/auth/get-session**", (route) =>
     route.fulfill({ status: 503, json: { code: "SESSION_UNAVAILABLE" } }),

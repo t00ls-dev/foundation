@@ -1,14 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@t00ls-dev/ui/components/button";
 import { Input } from "@t00ls-dev/ui/components/input";
+import { Copy, Check } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@t00ls-dev/ui/components/collapsible";
 
-export function AuthenticatorKey({ secret }: { secret: string }) {
-  const [open, setOpen] = useState(false);
+export function AuthenticatorKey({
+  secret,
+  initiallyOpen = false,
+}: {
+  secret: string;
+  initiallyOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(initiallyOpen);
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger asChild>
@@ -71,10 +78,18 @@ function RevealedKey({ secret }: { secret: string }) {
         disabled={pending}
         onClick={() => void copy()}
       >
-        Copy
+        {feedback === "Copied" ? (
+          <Check size={18} aria-hidden="true" />
+        ) : (
+          <Copy size={18} aria-hidden="true" />
+        )}
+        {feedback === "Copied" ? "Copied" : "Copy"}
       </Button>
-      <p role="status" className="m-0 min-h-6 text-sm">
-        {feedback}
+      <p
+        role="status"
+        className={`m-0 text-sm${!feedback || feedback === "Copied" ? " sr-only" : ""}`}
+      >
+        {feedback === "Copied" ? "Setup key copied." : feedback}
       </p>
     </div>
   );

@@ -10,6 +10,7 @@ import {
 import { FormProvider, useForm, useFormContext } from "react-hook-form";
 import { authFormSchema, type FormValues } from "./auth-validation.js";
 import { Input } from "@t00ls-dev/ui/components/input";
+import { PasswordInput } from "./password-input.js";
 import { PendingButton } from "@t00ls-dev/ui/patterns/pending-button";
 import { InlineFeedback } from "@t00ls-dev/ui/patterns/inline-feedback";
 import { cn } from "@t00ls-dev/ui/lib/utils";
@@ -36,9 +37,14 @@ export function AsyncForm(props: {
   beforeSubmit?: ReactNode;
   submitDisabled?: boolean;
   initialEmail?: string | undefined;
+  hideSuccess?: boolean;
+  onSuccess?: ((result: Feedback) => void) | undefined;
+  initialFeedback?: Feedback | undefined;
 }) {
   const feedbackId = useId();
-  const [feedback, setFeedback] = useState<Feedback>();
+  const [feedback, setFeedback] = useState<Feedback | undefined>(
+    props.initialFeedback,
+  );
   const busy = useRef(false);
   const mounted = useRef(true);
   useEffect(() => {
@@ -61,6 +67,7 @@ export function AsyncForm(props: {
       const result = await props.action(data);
       if (!mounted.current) return;
       if (result.clearFields) form.reset();
+      if (result.kind === "success") props.onSuccess?.(result);
       if (result.field) {
         form.setError(
           result.field,
@@ -69,7 +76,9 @@ export function AsyncForm(props: {
         );
         return;
       }
-      setFeedback(result);
+      setFeedback(
+        result.kind === "success" && props.hideSuccess ? undefined : result,
+      );
     } catch {
       if (mounted.current)
         setFeedback({
@@ -151,28 +160,28 @@ export function FormField(props: {
     formState: { errors },
   } = useFormContext<FormValues>();
   const error = errors[props.name];
+  const FieldInput = props.type === "password" ? PasswordInput : Input;
 
   return (
     <div className="cross-page-field">
-      <label htmlFor={inputId}>
-        {props.label}
-        <Input
-          {...register(props.name)}
-          id={inputId}
-          required
-          minLength={props.minLength}
-          type={props.type}
-          autoComplete={props.autoComplete}
-          spellCheck={
-            props.type === "email" || props.name === "code" ? false : undefined
-          }
-          inputMode={props.inputMode}
-          maxLength={props.maxLength}
-          autoFocus={props.autoFocus}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? errorId : undefined}
-        />
-      </label>
+      <label htmlFor={inputId}>{props.label}</label>
+      <FieldInput
+        label={props.label}
+        {...register(props.name)}
+        id={inputId}
+        required
+        minLength={props.minLength}
+        type={props.type}
+        autoComplete={props.autoComplete}
+        spellCheck={
+          props.type === "email" || props.name === "code" ? false : undefined
+        }
+        inputMode={props.inputMode}
+        maxLength={props.maxLength}
+        autoFocus={props.autoFocus}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+      />
       {error ? (
         <span className="field-error" id={errorId} role="alert">
           {error.message}

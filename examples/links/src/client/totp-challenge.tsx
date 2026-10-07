@@ -17,6 +17,8 @@ import { totpError, totpUnconfirmed, type PasswordChallenge } from "./totp.js";
 import { readTotpSession } from "./totp-session.js";
 import { InlineFeedback } from "@t00ls-dev/ui/patterns/inline-feedback";
 import { PendingButton } from "@t00ls-dev/ui/patterns/pending-button";
+import { Spinner } from "@t00ls-dev/ui/components/spinner";
+import { AuthLayout } from "./auth-layout.js";
 
 export function TotpChallenge({
   challenge,
@@ -46,7 +48,7 @@ export function TotpChallenge({
       : challenge.uncertain || challenge.reconciling
         ? totpUnconfirmed
         : !challenge.available
-          ? "Authenticator setup is incomplete. Use Magic Link or Google, then finish interrupted setup in Account."
+          ? "Authenticator setup is incomplete. Use another sign-in method, then finish interrupted setup in Account."
           : "",
   );
   const [checking, setChecking] = useState(false);
@@ -189,7 +191,7 @@ export function TotpChallenge({
     } catch {
       if (active())
         setMessage(
-          "No matching session could be confirmed. Start a new password sign-in or use Magic Link or Google.",
+          "No matching session could be confirmed. Start a new password sign-in or use another sign-in method.",
         );
     } finally {
       releaseSessionRequest(controller);
@@ -199,11 +201,13 @@ export function TotpChallenge({
   }
 
   return (
-    <section className="auth-page stack" aria-label="Authenticator sign-in">
-      <h1>Enter your authenticator code</h1>
-      <p>Use the six-digit code from your authenticator app.</p>
+    <AuthLayout title="Authenticator code">
+      <p>Enter the code from your authenticator app.</p>
       {challenge?.reconciling ? (
-        <InlineFeedback>Confirming your session...</InlineFeedback>
+        <div role="status" aria-busy="true" aria-label="Confirming session">
+          <Spinner />
+          <span className="sr-only">Confirming your session…</span>
+        </div>
       ) : blocked ? (
         <>
           <InlineFeedback tone="error" announce="assertive">
@@ -222,6 +226,8 @@ export function TotpChallenge({
       ) : (
         <AsyncForm
           hideTitle
+          hideSuccess
+          compact
           title="Authenticator sign-in code"
           submitLabel="Verify code"
           pendingLabel="Verifying code..."
@@ -229,7 +235,6 @@ export function TotpChallenge({
           requiredFields={["code"]}
         >
           <FormField
-            autoFocus
             label="Authenticator code"
             name="code"
             autoComplete="one-time-code"
@@ -246,6 +251,6 @@ export function TotpChallenge({
           Use another sign-in method
         </Link>
       </nav>
-    </section>
+    </AuthLayout>
   );
 }

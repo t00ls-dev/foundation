@@ -9,6 +9,9 @@ import {
   DialogDescription,
 } from "@t00ls-dev/ui/components/dialog";
 import { Skeleton } from "@t00ls-dev/ui/components/skeleton";
+import { Spinner } from "@t00ls-dev/ui/components/spinner";
+import { useConfirmedFeedback } from "@t00ls-dev/ui/patterns/feedback";
+import { X } from "lucide-react";
 import { InlineFeedback } from "@t00ls-dev/ui/patterns/inline-feedback";
 import { SettingRow } from "@t00ls-dev/ui/patterns/settings";
 import { AuthenticatorKey } from "./authenticator-key.js";
@@ -64,6 +67,8 @@ export function AccountTotp({
     "loading",
   );
   const [enabled, setEnabled] = useState(false);
+  const confirmed = useConfirmedFeedback();
+  const completionAnnounced = useRef(false);
   const [stage, setStage] = useState<Stage>(
     completion !== null ? "complete" : recoveryObserved ? "uncertain" : "idle",
   );
@@ -131,6 +136,45 @@ export function AccountTotp({
       releaseSessionRequest(controller);
     };
   }, [user.id, user.email, sessionId, revision]);
+
+  useEffect(() => {
+    // A handoff is only presented after this exact replacement session has
+    // independently confirmed its state. Unknown/error never completes setup.
+    if (
+      stage !== "complete" ||
+      status === "loading" ||
+      completionAnnounced.current
+    )
+      return;
+    if (status === "error" || (completion !== null && enabled !== completion)) {
+      setStage("uncertain");
+      setMessage(totpUnconfirmed);
+      observeException();
+      onOpenChange(false);
+      onConfirmed(`${user.id}:${sessionId}`, null);
+      return;
+    }
+    completionAnnounced.current = true;
+    setStage("idle");
+    onOpenChange(false);
+    onConfirmed(`${user.id}:${sessionId}`, null);
+    confirmed(
+      `authenticator:${user.id}:${sessionId}:${enabled}`,
+      enabled ? "Authenticator enabled." : "Authenticator turned off.",
+    );
+    const target = focusTarget.current;
+    (target?.querySelector("button") ?? target)?.focus();
+  }, [
+    stage,
+    status,
+    completion,
+    enabled,
+    confirmed,
+    onConfirmed,
+    onOpenChange,
+    user.id,
+    sessionId,
+  ]);
 
   function cancel() {
     const pending = Boolean(request.current);
@@ -263,7 +307,11 @@ export function AccountTotp({
       // invalidates generations/remounts this section. The body is not trusted.
       releaseSessionRequest(controller);
       await onSessionChanged();
-      if (mounted.current) setStage("complete");
+      if (mounted.current) {
+        setStatus("loading");
+        setRevision((value) => value + 1);
+        setStage("complete");
+      }
       return {
         kind: "success",
         message: expected
@@ -303,36 +351,44 @@ export function AccountTotp({
           ? "Finish interrupted setup"
           : "Set up authenticator";
   function start(next: Stage) {
+    completionAnnounced.current = false;
     setStage(next);
     setMessage("");
     onOpenChange(true);
   }
   return (
-    <section aria-label="Authenticator settings">
+    <section
+      aria-label="Authenticator settings"
+      aria-busy={status === "loading"}
+    >
       <div ref={focusTarget} tabIndex={-1}>
         <SettingRow
-          title="Authenticator"
-          description={
-            <>
-              <p className="m-0">
-                Adds an authenticator code to password sign-in.
-              </p>
+          title={
+            <span className="flex flex-wrap items-center gap-3">
+              Authenticator
               <span
                 role="status"
                 aria-label="Authenticator status"
-                className="mt-2 inline-flex min-h-6 items-center rounded-md border border-border bg-accent px-2 py-1 text-sm font-medium text-primary"
+                className="inline-flex items-center text-sm font-medium text-primary"
               >
-                {status !== "ready"
-                  ? "Unknown"
-                  : `${stage === "uncertain" ? "Last reported: " : ""}${enabled ? "On" : "Off"}`}
+                {status !== "ready" ? (
+                  status === "loading" ? (
+                    <Skeleton className="h-5 w-10" />
+                  ) : (
+                    "Status unavailable"
+                  )
+                ) : (
+                  `${stage === "uncertain" ? "Last reported: " : ""}${enabled ? "On" : "Off"}`
+                )}
               </span>
-            </>
+            </span>
           }
+          description="For password sign-in."
           action={
             status === "ready" && stage !== "uncertain" ? (
               <Button
                 disabled={disabled}
-                variant="outline"
+                variant="ghost"
                 aria-label={enabled ? "Turn off" : "Set up"}
                 onClick={() => start(enabled ? "disable" : "enable")}
               >
@@ -396,7 +452,7 @@ export function AccountTotp({
                   Use Magic Link instead
                 </Link>
                 <Link to={authPath("/login", "/account")}>
-                  Sign in again or use Google
+                  Use another sign-in method
                 </Link>
               </nav>
             </div>
@@ -410,38 +466,55 @@ export function AccountTotp({
         }}
       >
         <DialogContent
+          aria-busy={stage === "reconciling" || stage === "complete"}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
             const target = focusTarget.current;
             (target?.querySelector("button") ?? target)?.focus();
           }}
         >
-          <DialogTitle>{title}</DialogTitle>
+          <div className="flex items-center justify-between gap-3">
+            <DialogTitle>
+              {stage === "complete" ? "Authenticator" : title}
+            </DialogTitle>
+            <Button
+              variant="ghost"
+              className="px-2"
+              aria-label="Close"
+              onClick={cancel}
+            >
+              <X size={20} aria-hidden="true" />
+            </Button>
+          </div>
           <DialogDescription>
-            {stage === "complete"
-              ? "Confirmed with your current session."
-              : stage === "confirm"
-                ? "Scan the QR code with your authenticator app, then confirm a six-digit code."
-                : "Confirm your current password to continue."}
+            {stage === "complete" ? (
+              <span className="sr-only">Checking authenticator status.</span>
+            ) : stage === "confirm" ? (
+              "Scan the QR code with your authenticator app, then confirm a six-digit code."
+            ) : (
+              "Confirm your current password to continue."
+            )}
           </DialogDescription>
           {stage === "complete" ? (
-            <>
-              <p role="status">
-                {(completion ?? enabled)
-                  ? "Authenticator confirmed for password sign-in."
-                  : "Authenticator turned off."}
-              </p>
-              <Button autoFocus onClick={cancel}>
-                Done
-              </Button>
-            </>
+            <div role="status">
+              <Spinner />
+              <span className="sr-only">Checking authenticator status.</span>
+              {status === "error" ? (
+                <>
+                  <InlineFeedback tone="error">
+                    Could not verify authenticator status.
+                  </InlineFeedback>
+                  <Button onClick={() => setRevision((value) => value + 1)}>
+                    Check authenticator status
+                  </Button>
+                </>
+              ) : null}
+            </div>
           ) : stage === "reconciling" ? (
-            <>
-              <InlineFeedback>Updating your current session…</InlineFeedback>
-              <Button variant="outline" onClick={cancel}>
-                Cancel authenticator setup
-              </Button>
-            </>
+            <div role="status">
+              <Spinner />
+              <span className="sr-only">Updating your current session…</span>
+            </div>
           ) : (
             <>
               {stage === "confirm" && setup ? (
@@ -461,12 +534,16 @@ export function AccountTotp({
                       </InlineFeedback>
                     )}
                   </div>
-                  <AuthenticatorKey secret={setup.secret} />
+                  <AuthenticatorKey
+                    secret={setup.secret}
+                    initiallyOpen={!setup.qr}
+                  />
                 </div>
               ) : null}
               <AsyncForm
                 key={stage}
                 hideTitle
+                hideSuccess
                 title={stage === "confirm" ? "Confirm authenticator" : title}
                 action={mutate}
                 submitLabel={
@@ -492,13 +569,14 @@ export function AccountTotp({
                   />
                 ) : (
                   <>
-                    <p className="m-0 text-sm">
-                      {stage === "disable"
-                        ? "This turns off authenticator codes for password sign-in. Other sessions remain signed in."
-                        : "If you don't have a password, use the password email link in Password settings first."}
-                    </p>
+                    {stage === "disable" ? (
+                      <p className="m-0 text-sm">
+                        Authenticator codes will no longer be required for
+                        password sign-in. Other sessions stay signed in.
+                      </p>
+                    ) : null}
                     <FormField
-                      label="Authenticator account password"
+                      label="Current password"
                       name="currentPassword"
                       type="password"
                       autoComplete="current-password"
@@ -507,7 +585,7 @@ export function AccountTotp({
                 )}
               </AsyncForm>
               <Button variant="outline" onClick={cancel}>
-                Cancel authenticator setup
+                Cancel
               </Button>
             </>
           )}

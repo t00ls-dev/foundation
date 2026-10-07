@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openNavigation } from "./navigation.js";
 import { z } from "zod";
 import { extractEmailUrl } from "../test/email-link.js";
 
@@ -107,6 +108,7 @@ test("authenticated Home and navigation lead to Bookmarks, editor and unchanged 
   await account(page);
   const id = await bookmark(page);
   await page.goto("/");
+  await openNavigation(page);
   await expect(
     page.getByRole("heading", { name: "Links", exact: true }),
   ).toBeVisible();
@@ -125,17 +127,21 @@ test("authenticated Home and navigation lead to Bookmarks, editor and unchanged 
   await expect(
     page.getByRole("article", { name: "Navigation private link" }),
   ).toBeVisible();
+  await openNavigation(page);
   await expect(
     page
-      .getByRole("navigation", { name: "Main navigation" })
+      .getByRole("navigation", { name: "Account navigation" })
       .getByRole("link", { name: "Bookmarks", exact: true }),
   ).toHaveAttribute("aria-current", "page");
   await page.goto(`/bookmarks/${id}/edit`);
   await expect(page.getByLabel("Title", { exact: true })).toHaveValue(
     "Navigation private link",
   );
-  await page.getByRole("link", { name: "Cancel", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Back to bookmarks", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/bookmarks$/);
+  await openNavigation(page);
   await page.getByRole("link", { name: "Account", exact: true }).click();
   await page
     .getByRole("button", { name: "Change password", exact: true })
@@ -144,15 +150,18 @@ test("authenticated Home and navigation lead to Bookmarks, editor and unchanged 
     page.getByLabel("Current password", { exact: true }),
   ).toBeVisible();
   await page
-    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("dialog")
+    .getByRole("button", { name: "Cancel", exact: true })
+    .click();
+  await openNavigation(page);
+  await page
+    .getByRole("navigation", { name: "Account navigation" })
     .getByRole("link", { name: "Bookmarks", exact: true })
     .click();
   await expect(page).toHaveURL(/\/bookmarks$/);
-  await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Home", exact: true })
-    .click();
+  await page.getByRole("link", { name: "Links", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
+  await openNavigation(page);
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(
     page
@@ -380,6 +389,7 @@ test("logout on the public reset page preserves the existing password reset flow
     page.getByRole("heading", { name: "New password", exact: true }),
   ).toBeVisible();
   const resetURL = page.url();
+  await openNavigation(page);
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(
     page
@@ -397,6 +407,6 @@ test("logout on the public reset page preserves the existing password reset flow
   await page.getByLabel("Confirm new password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Update password" }).click();
   await expect(
-    page.getByText("Password updated. You can sign in now.", { exact: true }),
+    page.getByRole("heading", { name: "Password updated", exact: true }),
   ).toBeVisible();
 });

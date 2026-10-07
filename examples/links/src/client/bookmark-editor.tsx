@@ -3,6 +3,12 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { Button } from "@t00ls-dev/ui/components/button";
+import { Input } from "@t00ls-dev/ui/components/input";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@t00ls-dev/ui/components/collapsible";
 import { Skeleton } from "@t00ls-dev/ui/components/skeleton";
 import { PendingButton } from "@t00ls-dev/ui/patterns/pending-button";
 import { InlineFeedback } from "@t00ls-dev/ui/patterns/inline-feedback";
@@ -60,6 +66,7 @@ function BookmarkEditorTask({ id }: { id: string | undefined }) {
   const [loading, setLoading] = useState(!!id);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const form = useForm<EditorValues>({
     resolver: zodResolver(editorSchema),
     defaultValues: { title: "", url: "", description: "", tagsText: "" },
@@ -77,6 +84,7 @@ function BookmarkEditorTask({ id }: { id: string | undefined }) {
       .then((bookmark) => {
         if (!controller.signal.aborted) {
           setItem(bookmark);
+          setDetailsOpen(Boolean(bookmark.description || bookmark.tags.length));
           reset({
             title: bookmark.title,
             url: bookmark.url,
@@ -149,7 +157,14 @@ function BookmarkEditorTask({ id }: { id: string | undefined }) {
     if (busy.current) return;
     busy.current = true;
     void form
-      .handleSubmit(save)(event)
+      .handleSubmit(save, (errors) => {
+        if (errors.description || errors.tagsText) {
+          setDetailsOpen(true);
+          requestAnimationFrame(() =>
+            form.setFocus(errors.description ? "description" : "tagsText"),
+          );
+        }
+      })(event)
       .finally(() => {
         busy.current = false;
       });
@@ -157,6 +172,9 @@ function BookmarkEditorTask({ id }: { id: string | undefined }) {
   const pending = form.formState.isSubmitting;
   return (
     <section className="editor bookmark-editor">
+      <Button asChild variant="ghost" className="mb-4">
+        <Link to={destination}>Back to bookmarks</Link>
+      </Button>
       <h1>{id ? "Edit bookmark" : "Add bookmark"}</h1>
       {loading ? (
         <>
@@ -189,22 +207,24 @@ function BookmarkEditorTask({ id }: { id: string | undefined }) {
           <InlineFeedback tone="error" announce="assertive">
             {error}
           </InlineFeedback>
-          <Button onClick={() => setRevision((value) => value + 1)}>
-            Try again
-          </Button>
+          {error !== "Bookmark not found" ? (
+            <Button onClick={() => setRevision((value) => value + 1)}>
+              Try again
+            </Button>
+          ) : null}
         </div>
       ) : (
         <form noValidate aria-busy={pending} onSubmit={submit}>
-          {(["title", "url", "description", "tagsText"] as const).map(
+          {(["url", "title", "description", "tagsText"] as const).map(
             (name) => {
               const labels = {
                 title: "Title",
                 url: "URL",
                 description: "Description (optional)",
-                tagsText: "Tags (comma-separated)",
+                tagsText: "Tags (optional)",
               };
               const fieldError = form.formState.errors[name];
-              return (
+              const field = (
                 <div
                   className={`bookmark-field bookmark-field-${name}`}
                   key={name}
@@ -223,10 +243,14 @@ function BookmarkEditorTask({ id }: { id: string | undefined }) {
                         }
                       />
                     ) : (
-                      <input
+                      <Input
                         {...form.register(name)}
                         id={`bookmark-${name}`}
                         type={name === "url" ? "url" : "text"}
+                        inputMode={name === "url" ? "url" : undefined}
+                        autoCapitalize={name === "url" ? "none" : undefined}
+                        spellCheck={name === "url" ? false : undefined}
+                        autoComplete="off"
                         readOnly={pending}
                         required={name === "title" || name === "url"}
                         aria-invalid={!!fieldError}
@@ -236,6 +260,11 @@ function BookmarkEditorTask({ id }: { id: string | undefined }) {
                       />
                     )}
                   </label>
+                  {name === "tagsText" ? (
+                    <p className="m-0 text-sm text-muted-foreground">
+                      Separate tags with commas, e.g. design, reading.
+                    </p>
+                  ) : null}
                   {fieldError ? (
                     <span
                       className="field-error"
@@ -247,6 +276,28 @@ function BookmarkEditorTask({ id }: { id: string | undefined }) {
                   ) : null}
                 </div>
               );
+              if (name === "description")
+                return (
+                  <Collapsible
+                    key={name}
+                    open={detailsOpen}
+                    onOpenChange={setDetailsOpen}
+                  >
+                    <CollapsibleTrigger asChild>
+                      <Button type="button" variant="ghost">
+                        {detailsOpen ? "Hide details" : "Add details"}
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>{field}</CollapsibleContent>
+                  </Collapsible>
+                );
+              if (name === "tagsText")
+                return (
+                  <Collapsible key={name} open={detailsOpen}>
+                    <CollapsibleContent>{field}</CollapsibleContent>
+                  </Collapsible>
+                );
+              return field;
             },
           )}
           <div className="actions">
@@ -258,9 +309,6 @@ function BookmarkEditorTask({ id }: { id: string | undefined }) {
             >
               Save bookmark
             </PendingButton>
-            <Link className="button button--secondary" to={destination}>
-              Cancel
-            </Link>
           </div>
           {error ? (
             <InlineFeedback
@@ -273,7 +321,6 @@ function BookmarkEditorTask({ id }: { id: string | undefined }) {
           ) : null}
         </form>
       )}
-      {id && !item ? <Link to={destination}>Back to bookmarks</Link> : null}
     </section>
   );
 }

@@ -8,6 +8,20 @@ import {
 import { Link, useSearchParams } from "react-router";
 import { z } from "zod";
 import { Button } from "@t00ls-dev/ui/components/button";
+import { Input } from "@t00ls-dev/ui/components/input";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@t00ls-dev/ui/components/collapsible";
+import {
+  Plus,
+  Search,
+  Pencil,
+  Trash2,
+  ExternalLink,
+  ChevronDown,
+} from "lucide-react";
 import { Skeleton } from "@t00ls-dev/ui/components/skeleton";
 import { Spinner } from "@t00ls-dev/ui/components/spinner";
 import {
@@ -42,9 +56,11 @@ export function BookmarkLibrary() {
   const { q: query, tag: filterTag, offset } = filters;
   const [q, setQ] = useState(query);
   const [tag, setTag] = useState(filterTag);
+  const [filterOpen, setFilterOpen] = useState(Boolean(filterTag));
   useLayoutEffect(() => {
     setQ(query);
     setTag(filterTag);
+    if (filterTag) setFilterOpen(true);
   }, [query, filterTag]);
   const [revision, setRevision] = useState(0);
   const [result, setResult] = useState<{
@@ -199,27 +215,29 @@ export function BookmarkLibrary() {
       <div className="page-heading">
         <div>
           <h1 ref={heading} tabIndex={-1}>
-            Your bookmarks
+            Bookmarks
           </h1>
-          <p>Your private bookmark library.</p>
         </div>
-        <Link
-          className="button"
-          to={bookmarkTaskPath("/bookmarks/new", displayedFilters)}
-        >
-          Add bookmark
-        </Link>
+        <Button asChild className="add-bookmark">
+          <Link
+            aria-label="Add bookmark"
+            to={bookmarkTaskPath("/bookmarks/new", displayedFilters)}
+          >
+            <Plus size={20} aria-hidden="true" />
+            <span className="add-bookmark-label">Add bookmark</span>
+          </Link>
+        </Button>
       </div>
       <form className="search" onSubmit={search} aria-label="Search bookmarks">
         <div className="bookmark-filter-row">
           <label className="bookmark-search">
-            Search
-            <input
+            <span className="sr-only">Search</span>
+            <Input
               name="q"
               value={q}
               maxLength={200}
               onChange={(event) => setQ(event.target.value)}
-              placeholder="Title, URL or description"
+              placeholder="Search bookmarks…"
             />
           </label>
           <Button
@@ -227,60 +245,78 @@ export function BookmarkLibrary() {
             disabled={!!deleting}
             type="submit"
           >
-            Search
+            <Search size={18} aria-hidden="true" />
+            <span className="sr-only">Search</span>
           </Button>
         </div>
-        <div className="bookmark-filter-row">
-          <label className="bookmark-tag">
-            Filter by tag
-            <input
-              name="tag"
-              value={tag}
-              maxLength={40}
-              onChange={(event) => setTag(event.target.value)}
-              placeholder="Exact tag"
-            />
-          </label>
-          <Button
-            variant="outline"
-            className="bookmark-clear text-inherit"
-            type="button"
-            disabled={!!deleting}
-            onClick={() => {
-              setQ("");
-              setTag("");
-              changeFilters({ q: "", tag: "", offset: 0 });
-              setRevision((value) => value + 1);
-            }}
-          >
-            Clear filters
-          </Button>
-        </div>
+        <Collapsible open={filterOpen} onOpenChange={setFilterOpen}>
+          <div className="flex items-center gap-2">
+            <CollapsibleTrigger asChild>
+              <Button type="button" variant="ghost">
+                Tag{filterTag ? `: ${filterTag}` : ""}
+                <ChevronDown size={16} aria-hidden="true" />
+              </Button>
+            </CollapsibleTrigger>
+            {q || tag || query || filterTag ? (
+              <Button
+                variant="ghost"
+                type="button"
+                disabled={!!deleting}
+                onClick={() => {
+                  setQ("");
+                  setTag("");
+                  changeFilters({ q: "", tag: "", offset: 0 });
+                  setRevision((value) => value + 1);
+                }}
+              >
+                Clear filters
+              </Button>
+            ) : null}
+          </div>
+          <CollapsibleContent>
+            <div className="bookmark-filter-row">
+              <label className="bookmark-tag">
+                Tag
+                <Input
+                  name="tag"
+                  value={tag}
+                  maxLength={40}
+                  onChange={(event) => setTag(event.target.value)}
+                  placeholder="e.g. design (exact match)"
+                />
+              </label>
+              <Button type="submit" variant="outline" disabled={!!deleting}>
+                Apply tag
+              </Button>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </form>
-      <div className="bookmark-update">
-        <p role="status" className="bookmark-update-label">
-          {loading ? (
-            <>
-              <Spinner />
-              {result ? "Updating bookmarks..." : "Loading bookmarks..."}
-            </>
-          ) : deleting ? (
-            <>
-              <Spinner />
-              Deleting bookmark...
-            </>
+      {(loading && result) || mutationError ? (
+        <div className="bookmark-update">
+          <p role="status" className="bookmark-update-label">
+            {loading ? (
+              <>
+                <Spinner />
+                <span className={matchesQuery ? "sr-only" : undefined}>
+                  {matchesQuery
+                    ? "Updating bookmarks…"
+                    : "Updating results — showing previous results."}
+                </span>
+              </>
+            ) : null}
+          </p>
+          {mutationError ? (
+            <Button
+              variant="ghost"
+              disabled={loading || !!deleting}
+              onClick={refresh}
+            >
+              Refresh list
+            </Button>
           ) : null}
-        </p>
-        {result ? (
-          <Button
-            variant="ghost"
-            disabled={loading || !!deleting}
-            onClick={refresh}
-          >
-            Refresh list
-          </Button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
       {mutationError && !target ? (
         <InlineFeedback tone="error" announce="assertive">
           {mutationError}
@@ -299,13 +335,12 @@ export function BookmarkLibrary() {
       ) : null}
       <div role="region" aria-label="Bookmark results" aria-busy={loading}>
         {loading && (!data || !data.items.length) ? (
-          <div className="bookmarks" aria-label="Loading bookmark cards">
+          <div className="bookmarks" aria-label="Loading bookmark rows">
             {[0, 1, 2].map((index) => (
               <div className="card bookmark-card bookmark-skeleton" key={index}>
                 <Skeleton className="h-7 w-3/4" />
                 <Skeleton className="h-5 w-full" />
                 <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-11 w-full" />
               </div>
             ))}
           </div>
@@ -324,30 +359,36 @@ export function BookmarkLibrary() {
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      {item.title}
+                      <span className="min-w-0 line-clamp-2">{item.title}</span>
+                      <ExternalLink size={14} aria-hidden="true" />
+                      <span className="sr-only"> (opens in a new tab)</span>
                     </a>
                   </h2>
                   <p className="bookmark-url">{item.url}</p>
                   {item.description ? (
                     <p className="bookmark-description">{item.description}</p>
                   ) : null}
-                  <ul className="tags" aria-label="Tags">
-                    {item.tags.map((value) => (
-                      <li key={value}>{value}</li>
-                    ))}
-                  </ul>
+                  {item.tags.length ? (
+                    <ul className="tags" aria-label="Tags">
+                      {item.tags.map((value) => (
+                        <li key={value}>{value}</li>
+                      ))}
+                    </ul>
+                  ) : null}
                   <div className="actions">
-                    <Link
-                      className="button button--secondary"
-                      to={bookmarkTaskPath(
-                        `/bookmarks/${item.id}/edit`,
-                        displayedFilters,
-                      )}
-                    >
-                      Edit
-                    </Link>
+                    <Button asChild variant="ghost">
+                      <Link
+                        to={bookmarkTaskPath(
+                          `/bookmarks/${item.id}/edit`,
+                          displayedFilters,
+                        )}
+                      >
+                        <Pencil size={16} aria-hidden="true" />
+                        Edit
+                      </Link>
+                    </Button>
                     <PendingButton
-                      variant="outline"
+                      variant="ghost"
                       className="text-inherit"
                       pending={deleting === item.id}
                       pendingLabel="Deleting..."
@@ -362,39 +403,42 @@ export function BookmarkLibrary() {
                         });
                       }}
                     >
+                      <Trash2 size={16} aria-hidden="true" />
                       Delete
                     </PendingButton>
                   </div>
                 </article>
               ))}
             </div>
-            <nav className="pagination" aria-label="Bookmark pages">
-              <Button
-                disabled={
-                  loading || !!deleting || displayedFilters.offset === 0
-                }
-                onClick={() =>
-                  changeFilters({
-                    ...displayedFilters,
-                    offset: Math.max(0, displayedFilters.offset - 20),
-                  })
-                }
-              >
-                Previous
-              </Button>
-              <span>Page {Math.floor(displayedFilters.offset / 20) + 1}</span>
-              <Button
-                disabled={loading || !!deleting || !data.hasMore}
-                onClick={() =>
-                  changeFilters({
-                    ...displayedFilters,
-                    offset: displayedFilters.offset + 20,
-                  })
-                }
-              >
-                Next
-              </Button>
-            </nav>
+            {displayedFilters.offset > 0 || data.hasMore ? (
+              <nav className="pagination" aria-label="Bookmark pages">
+                <Button
+                  disabled={
+                    loading || !!deleting || displayedFilters.offset === 0
+                  }
+                  onClick={() =>
+                    changeFilters({
+                      ...displayedFilters,
+                      offset: Math.max(0, displayedFilters.offset - 20),
+                    })
+                  }
+                >
+                  Previous
+                </Button>
+                <span>Page {Math.floor(displayedFilters.offset / 20) + 1}</span>
+                <Button
+                  disabled={loading || !!deleting || !data.hasMore}
+                  onClick={() =>
+                    changeFilters({
+                      ...displayedFilters,
+                      offset: displayedFilters.offset + 20,
+                    })
+                  }
+                >
+                  Next
+                </Button>
+              </nav>
+            ) : null}
           </>
         ) : data && !loading && matchesQuery ? (
           <div className="empty">

@@ -8,22 +8,20 @@ Worker. O exemplo está em `examples/links`, com package
 ## Shared visual foundation
 
 `packages/ui/src/styles.css` defines semantic color, spacing, typography and
-focus tokens, with temporary aliases and legacy layout in
-`src/client/styles.css`. The shell uses the private UI workspace; existing pages
-retain their flows.
+focus tokens. `src/client/styles.css` owns Links compositions: a light canvas,
+deep green identity, restrained surfaces and a single-column library. The shell
+uses the private UI workspace; authentication protocols remain intact.
 
 - Layout: `.container`, `.container--narrow`, `.stack` and `.cluster`; flex/grid
   children can shrink and long content wraps instead of being clipped.
-- Buttons: `.button`, `.button--secondary`, `.button--quiet` and
-  `.button--danger`; native buttons default to primary, and `.secondary` remains
-  a compatible alias. Use native `disabled` for disabled buttons. Google keeps
-  its provider-specific branding and shares the minimum 44px touch target.
-- Surfaces: `.card`; forms, articles and empty states use the same surface,
-  border and responsive padding.
-- Feedback: `.alert`, `.alert--error` and `.alert--success`. Apply the correct
-  semantic role in markup: `alert` for errors, `status` for non-urgent updates.
-  `AsyncForm` exposes `data-kind` for its existing error/success feedback; field
-  errors remain associated with their inputs.
+- Buttons use Foundation Button/PendingButton variants and native `disabled`.
+  Google keeps its provider-specific branding and shares the minimum 44px touch
+  target.
+- Surfaces are intentional: forms/articles do not automatically become cards.
+- Feedback uses InlineFeedback for contextual errors and indeterminate outcomes,
+  with field errors associated with inputs. Confirmed mutations use one scoped
+  Sonner; email-link results remain persistent. Loading indicators retain busy
+  semantics and accessible announcements without duplicate visual narration.
 - Controls use 16px text at the default font size, visible invalid borders and a
   shared keyboard focus ring. High-contrast mode preserves control borders and
   focus. No animation is required to communicate a state.
@@ -38,23 +36,28 @@ Home/Auth/Account/Reset reuse the existing spacing and action groups. Field
 labels, hints and errors stay grouped separately from submit; Verification and
 invalid-reset backlinks share the 44px navigation targets. Intro/action gaps are
 explicit, Account's stack owns its title gap and Verification success uses the
-existing success variant. These opt-in rules leave header/Bookmarks and
-functional validation/state handling unchanged.
+existing success variant. Profile directly edits Name, with selectable readonly
+Email and a stable Save changes action, disabled until an effective change.
+Password uses a Dialog that blocks dismiss throughout mutation/reconciliation;
+Authenticator uses a Dialog with automatic close only after final confirmation.
+Drafts and security boundaries retain their existing lifecycle semantics.
 
 ## Bookmarks and compact navigation
 
-The shared header keeps all navigation/actions visible: compact two-row mobile
-layout, one-row desktop layout, 44px targets and active-route semantics. Long
-account names use a single-line ellipsis with the full name retained in text and
-the title attribute; Account still displays/edits the complete name.
+Links is the Home link. Desktop/tablet shows Bookmarks, Account and quiet global
+Sign out as navigation, without tab indicators. Mobile uses an accessible menu
+with those destinations and a divider before Sign out; the user name lives in
+Profile. Controls preserve 44px targets, keyboard focus and active-route
+semantics.
 
-The library consistently uses **Add bookmark**. Search/tag rows keep labels,
-Search and Clear filters visible, wrapping controls when text grows. Bookmark
-cards preserve full titles, URLs, descriptions and tags with safe wrapping;
-Edit/Delete remain explicit actions. The editor uses stacked mobile fields and
-wide actions, with two-column Title/URL on larger screens. These changes are
-presentation only: CRUD, validation, filters, pagination and navigation are
-unchanged.
+**Add bookmark** is aligned with the page heading: icon-only on narrow screens,
+with its accessible name intact. Search is explicit; Tag is disclosed and Clear
+appears when pertinent. Rows show compact URLs/descriptions, discreet tags and
+quiet Edit/Delete actions. Full text remains in the DOM/accessibility tree and
+in the dedicated editor; delete identifies the complete URL. Pagination appears
+only with a previous/next page. Editors put URL before Title in one column,
+disclose optional details and provide one Back to bookmarks return. CRUD,
+validation, applied filters, isolation and response-lost handling remain intact.
 
 ## Desenvolvimento local
 
@@ -95,8 +98,9 @@ podem expirar a nova identidade nem disparar navegação ou atualização de est
 `/` is the public Foundation/Links Home for signed-in and signed-out visitors;
 it does not load bookmarks and remains available while session resolution is
 pending or unavailable. **Open Links** leads to the private `/bookmarks`
-library. The header links to Home and Bookmarks, with Sign in/Create account for
-visitors or Account/Sign out for the current user.
+library. Links links to Home; the header offers Sign in/Create account to
+visitors and Bookmarks/Account/Sign out to the current user, through a menu on
+mobile.
 
 `/bookmarks`, `/bookmarks/new`, `/bookmarks/:id/edit` and `/account` remain
 protected. Sign-in defaults to `/bookmarks`; private deep links retain a

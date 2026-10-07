@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { z } from "zod";
+import { openNavigation } from "./navigation.js";
 import { extractEmailUrl } from "../test/email-link.js";
 
 const password = "correct-horse-battery-staple";
@@ -49,7 +50,7 @@ async function passwordUser(page: Page, email: string) {
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Your bookmarks" }),
+    page.getByRole("heading", { name: "Bookmarks", exact: true }),
   ).toBeVisible();
 }
 async function fillChange(
@@ -126,6 +127,7 @@ test("Security protects its route and changes password with one submit and a usa
   });
   expect(second.status()).toBe(200);
   expect((await request.get("/api/bookmarks")).status()).toBe(200);
+  await openNavigation(page);
   await page.getByRole("link", { name: "Account", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Security", exact: true }),
@@ -178,7 +180,7 @@ test("Security protects its route and changes password with one submit and a usa
   await fillChange(page, password);
   held = true;
   await page
-    .locator('section[aria-label="Account security"] form')
+    .getByRole("form", { name: "Change password" })
     .evaluate((form: HTMLFormElement) => {
       form.requestSubmit();
       form.requestSubmit();
@@ -187,6 +189,18 @@ test("Security protects its route and changes password with one submit and a usa
     page.getByRole("button", { name: "Changing password..." }),
   ).toBeDisabled();
   await expect.poll(() => calls).toBe(2);
+  const dialog = page.getByRole("dialog", { name: "Change password" });
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveAttribute("aria-busy", "true");
+  await expect(
+    dialog.getByRole("button", { name: "Close", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    dialog.getByRole("button", { name: "Cancel", exact: true }),
+  ).toBeDisabled();
+  await page.mouse.click(1, 1);
+  await expect(dialog).toBeVisible();
   release();
   await expect(
     page.getByText("Password updated. Other sessions have been signed out.", {
@@ -228,11 +242,16 @@ test("Security protects its route and changes password with one submit and a usa
     page.getByRole("link", { name: "Back to bookmarks" }),
   ).toHaveCount(0);
   await page
-    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("dialog")
+    .getByRole("button", { name: "Cancel", exact: true })
+    .click();
+  await openNavigation(page);
+  await page
+    .getByRole("navigation", { name: "Account navigation" })
     .getByRole("link", { name: "Bookmarks", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Your bookmarks" }),
+    page.getByRole("heading", { name: "Bookmarks", exact: true }),
   ).toBeVisible();
 });
 
@@ -256,9 +275,12 @@ test("Security capability loading/error/retry is distinct from false and unexpec
         .catch(() => undefined);
     } else await route.continue();
   });
+  await openNavigation(page);
   await page.getByRole("link", { name: "Account", exact: true }).click();
   await expect(
-    page.getByText("Checking password settings…", { exact: true }),
+    page
+      .getByRole("region", { name: "Account security" })
+      .locator('[data-slot="skeleton"]'),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Send password link" }),
@@ -292,7 +314,7 @@ test("Security capability loading/error/retry is distinct from false and unexpec
   await expect(page.getByText("unsafe-token-details")).toHaveCount(0);
   await expect(
     page.getByRole("form", { name: "Change password" }).getByRole("link", {
-      name: "Forgot your current password? Use password reset",
+      name: "Forgot password?",
     }),
   ).toBeVisible();
   for (const name of [
@@ -302,12 +324,27 @@ test("Security capability loading/error/retry is distinct from false and unexpec
   ])
     await expect(page.getByLabel(name, { exact: true })).toHaveValue("");
   expect(mutations).toBe(1);
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Cancel", exact: true })
+    .click();
+  await expect(
+    page.getByRole("region", { name: "Account security" }).getByRole("alert"),
+  ).toContainText(unconfirmed);
+  await page
+    .getByRole("button", { name: "Change password", exact: true })
+    .click();
+  await expect(page.getByRole("dialog").getByRole("alert")).toHaveText(
+    unconfirmed,
+  );
+  expect(mutations).toBe(1);
 });
 
 test("a delayed password failure cannot affect Security after logout and account switching", async ({
   page,
 }) => {
   await passwordUser(page, address());
+  await openNavigation(page);
   await page.getByRole("link", { name: "Account", exact: true }).click();
   await page
     .getByRole("button", { name: "Change password", exact: true })
@@ -335,11 +372,22 @@ test("a delayed password failure cannot affect Security after logout and account
   await expect(
     page.getByRole("button", { name: "Changing password..." }),
   ).toBeDisabled();
-  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  // A critical dialog cannot be dismissed. An external logout still invalidates
+  // the identity boundary and must discard the old outcome.
+  expect(
+    (
+      await page.request.post("/api/auth/sign-out", {
+        headers: { Origin: origin },
+        data: {},
+      })
+    ).ok(),
+  ).toBe(true);
+  await page.goto("/login");
   await expect(
     page.getByRole("button", { name: "Sign in", exact: true }),
   ).toBeVisible();
   await passwordUser(page, address());
+  await openNavigation(page);
   await page.getByRole("link", { name: "Account", exact: true }).click();
   await page
     .getByRole("button", { name: "Change password", exact: true })
@@ -378,15 +426,14 @@ test("passwordless Security sends the official email reset and confirms the firs
   ).toBeVisible();
   await page.goto(await mail(page, email, "Sign in to Links"));
   await expect(
-    page.getByRole("heading", { name: "Your bookmarks" }),
+    page.getByRole("heading", { name: "Bookmarks", exact: true }),
   ).toBeVisible();
   const before = sessionSchema.parse(
     await (await page.request.get("/api/auth/get-session")).json(),
   );
+  await openNavigation(page);
   await page.getByRole("link", { name: "Account", exact: true }).click();
-  await expect(
-    page.getByText("You don't have a password yet.", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("Not set", { exact: true })).toBeVisible();
   await expect(
     page.getByLabel("Current password", { exact: true }),
   ).toHaveCount(0);
@@ -401,8 +448,7 @@ test("passwordless Security sends the official email reset and confirms the firs
     resetRequestKeys = Object.keys(body).sort();
     await route.continue();
   });
-  await page.getByRole("button", { name: "Set password", exact: true }).click();
-  await page.getByRole("link", { name: "Set a password by email" }).click();
+  await page.getByRole("link", { name: "Set password by email" }).click();
   await expect(page.getByLabel("Email", { exact: true })).toHaveValue(email);
   await page
     .getByRole("button", { name: "Send reset link", exact: true })
@@ -445,20 +491,19 @@ test("passwordless Security sends the official email reset and confirms the firs
     .fill(newPassword);
   await page.getByRole("button", { name: "Update password" }).click();
   await expect(
-    page.getByText("Password updated.", { exact: true }),
+    page.getByRole("heading", { name: "Password updated", exact: true }),
   ).toBeVisible();
   expect(resets).toBe(1);
   expect(resetKeys).toEqual(["newPassword", "token"]);
-  await expect(page.getByLabel("New password", { exact: true })).toHaveValue(
-    "",
-  );
+  await expect(page.getByLabel("New password", { exact: true })).toHaveCount(0);
   await expect(
     page.getByLabel("Confirm new password", { exact: true }),
-  ).toHaveValue("");
+  ).toHaveCount(0);
   const after = sessionSchema.parse(
     await (await page.request.get("/api/auth/get-session")).json(),
   );
   expect(after).toEqual(before);
+  await openNavigation(page);
   await page.getByRole("link", { name: "Account", exact: true }).click();
   await page
     .getByRole("button", { name: "Change password", exact: true })

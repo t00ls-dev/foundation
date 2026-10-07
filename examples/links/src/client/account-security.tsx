@@ -3,7 +3,14 @@ import { Link } from "react-router";
 import { Button } from "@t00ls-dev/ui/components/button";
 import { Skeleton } from "@t00ls-dev/ui/components/skeleton";
 import { InlineFeedback } from "@t00ls-dev/ui/patterns/inline-feedback";
-import { SettingRow, SettingFlow } from "@t00ls-dev/ui/patterns/settings";
+import { SettingRow } from "@t00ls-dev/ui/patterns/settings";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "@t00ls-dev/ui/components/dialog";
+import { X } from "lucide-react";
 import { accountSecuritySchema } from "../shared/account-security.js";
 import { apiRequest } from "./api.js";
 import { authClient } from "./auth-client.js";
@@ -43,6 +50,8 @@ export function AccountSecurity({
   const [revision, setRevision] = useState(0);
   const authRequest = useRef<AbortController | null>(null);
   const [mutating, setMutating] = useState(false);
+  const [uncertain, setUncertain] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const controller = new AbortController();
     setState("loading");
@@ -96,27 +105,37 @@ export function AccountSecurity({
             kind: "error",
             message: "Password does not meet the server requirements.",
           };
+        setUncertain(true);
         return { kind: "error", message: unconfirmed, clearFields: true };
       }
       await onSessionChanged();
       const resolved = await authClient.getSession({
         query: { disableCookieCache: true },
       });
-      if (resolved.error || resolved.data?.user.id !== user.id)
+      if (resolved.error || resolved.data?.user.id !== user.id) {
+        setUncertain(true);
         return { kind: "error", message: unconfirmed, clearFields: true };
+      }
       // The shell resets private forms on session rotation. Deliver only this
       // fixed, authoritatively confirmed result to the replacement boundary.
       if (resolved.data.session.id !== sessionId) {
         onPasswordConfirmed(
           `${resolved.data.user.id}:${resolved.data.session.id}`,
         );
+      } else {
+        onPasswordConfirmed(
+          `${resolved.data.user.id}:${resolved.data.session.id}`,
+        );
+        onOpenChange(false);
       }
+      setUncertain(false);
       return {
         kind: "success",
         message: "Password updated. Other sessions have been signed out.",
         clearFields: true,
       };
     } catch {
+      setUncertain(true);
       return { kind: "error", message: unconfirmed, clearFields: true };
     } finally {
       setMutating(false);
@@ -126,29 +145,29 @@ export function AccountSecurity({
   }
 
   return (
-    <section aria-label="Account security">
+    <section aria-label="Account security" aria-busy={state === "loading"}>
       <SettingRow
         title="Password"
         description={
-          state === "ready"
-            ? passwordPresent
-              ? "Change your password or request a reset link."
-              : "You don't have a password yet."
-            : "Checking password settings…"
+          state === "ready" && !passwordPresent ? "Not set" : undefined
         }
         action={
           state === "ready" ? (
-            <Button
-              disabled={disabled || mutating}
-              variant="outline"
-              onClick={() => onOpenChange(!open)}
-            >
-              {open
-                ? "Cancel password edit"
-                : passwordPresent
-                  ? "Change password"
-                  : "Set password"}
-            </Button>
+            passwordPresent ? (
+              <Button
+                ref={trigger}
+                data-password-trigger
+                disabled={disabled || mutating}
+                variant="ghost"
+                onClick={() => onOpenChange(!open)}
+              >
+                Change password
+              </Button>
+            ) : (
+              <Button asChild variant="ghost">
+                <Link to="/forgot-password">Set password by email</Link>
+              </Button>
+            )
           ) : undefined
         }
       >
@@ -163,60 +182,102 @@ export function AccountSecurity({
               Retry security settings
             </Button>
           </>
-        ) : !open ? null : passwordPresent ? (
-          <SettingFlow>
-            <p>
-              Changing your password signs out other sessions. This browser
-              receives a replacement session.
-            </p>
-            <AsyncForm
-              hideTitle
-              className="border-0 bg-transparent p-0"
-              title="Change password"
-              action={change}
-              submitLabel="Change password"
-              pendingLabel="Changing password..."
-              requiredFields={[
-                "currentPassword",
-                "password",
-                "confirmPassword",
-              ]}
-              alternativeAction={
-                <Link className="text-sm" to="/forgot-password">
-                  Forgot your current password? Use password reset
-                </Link>
-              }
-            >
-              <FormField
-                autoFocus
-                label="Current password"
-                name="currentPassword"
-                type="password"
-                autoComplete="current-password"
-              />
-              <FormField
-                label="New password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                minLength={8}
-              />
-              <FormField
-                label="Confirm new password"
-                name="confirmPassword"
-                type="password"
-                autoComplete="new-password"
-              />
-            </AsyncForm>
-          </SettingFlow>
-        ) : (
-          <SettingFlow>
-            <Button asChild>
-              <Link to="/forgot-password">Set a password by email</Link>
-            </Button>
-          </SettingFlow>
-        )}
+        ) : null}
+        {uncertain && !open ? (
+          <InlineFeedback tone="error" announce="assertive">
+            {unconfirmed} <Link to="/forgot-password">Use password reset</Link>
+          </InlineFeedback>
+        ) : null}
       </SettingRow>
+      <Dialog
+        open={open && passwordPresent}
+        onOpenChange={(value) => {
+          if (!mutating) onOpenChange(value);
+        }}
+      >
+        <DialogContent
+          aria-busy={mutating}
+          onEscapeKeyDown={(event) => {
+            if (mutating) event.preventDefault();
+          }}
+          onInteractOutside={(event) => {
+            if (mutating) event.preventDefault();
+          }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            trigger.current?.focus();
+          }}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <DialogTitle>Change password</DialogTitle>
+            <Button
+              variant="ghost"
+              className="px-2"
+              disabled={mutating}
+              aria-label="Close"
+              onClick={() => onOpenChange(false)}
+            >
+              <X size={20} aria-hidden="true" />
+            </Button>
+          </div>
+          <DialogDescription>
+            Changing your password signs out your other sessions.
+          </DialogDescription>
+          <AsyncForm
+            hideTitle
+            hideSuccess
+            initialFeedback={
+              uncertain ? { kind: "error", message: unconfirmed } : undefined
+            }
+            className="border-0 bg-transparent p-0"
+            title="Change password"
+            action={change}
+            submitLabel="Change password"
+            pendingLabel="Changing password..."
+            requiredFields={["currentPassword", "password", "confirmPassword"]}
+            alternativeAction={
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={mutating}
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+            }
+          >
+            <FormField
+              autoFocus
+              label="Current password"
+              name="currentPassword"
+              type="password"
+              autoComplete="current-password"
+            />
+            {mutating ? (
+              <span className="auth-recovery-link" aria-disabled="true">
+                Forgot password?
+              </span>
+            ) : (
+              <Link className="auth-recovery-link" to="/forgot-password">
+                Forgot password?
+              </Link>
+            )}
+            <FormField
+              label="New password"
+              name="password"
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+            />
+            <FormField
+              label="Confirm new password"
+              name="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+            />
+          </AsyncForm>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

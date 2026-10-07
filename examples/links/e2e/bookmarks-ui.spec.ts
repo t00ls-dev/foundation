@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { z } from "zod";
+import { openNavigation } from "./navigation.js";
 import { extractEmailUrl } from "../test/email-link.js";
 import { bookmarkResponseSchema } from "../src/shared/bookmarks.js";
 
@@ -132,15 +133,12 @@ test("initial skeleton never announces empty; refresh retains nodes, geometry an
   await page.goto("/bookmarks");
   const results = page.getByRole("region", { name: "Bookmark results" });
   await expect(results).toHaveAttribute("aria-busy", "true");
-  await expect(page.getByLabel("Loading bookmark cards")).toBeVisible();
+  await expect(page.getByLabel("Loading bookmark rows")).toBeVisible();
   await expect(page.getByRole("article")).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "No bookmarks yet" }),
   ).toHaveCount(0);
-  await expect(page.locator(".bookmark-update-label")).toHaveCSS(
-    "background-color",
-    "rgba(0, 0, 0, 0)",
-  );
+  await expect(page.locator(".bookmark-update-label")).toHaveCount(0);
   held.release();
   await expect(page.getByRole("alert")).toContainText(
     "Could not load your bookmarks",
@@ -156,12 +154,10 @@ test("initial skeleton never announces empty; refresh retains nodes, geometry an
   const before = await card.boundingBox();
   held = gate();
   fail = true;
-  await page.getByRole("button", { name: "Refresh list" }).click();
-  await expect(
-    page.getByText("Updating bookmarks...", { exact: true }),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(results).toHaveAttribute("aria-busy", "true");
   expect(await node?.evaluate((element) => element.isConnected)).toBe(true);
-  expect(await card.boundingBox()).toEqual(before);
+  expect((await card.boundingBox())!.height).toEqual(before!.height);
   held.release();
   await expect(page.getByRole("alert")).toContainText(
     "Showing previously loaded results",
@@ -224,7 +220,9 @@ test("delete is single-submit, preserves filters and returns the last-page item 
     .getByRole("link", { name: "Edit", exact: true })
     .click();
   await expect(page.getByLabel("Title", { exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "Cancel", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Back to bookmarks", exact: true })
+    .click();
   await expect(page).toHaveURL(
     `${origin}/bookmarks?q=Matching&tag=docs&offset=40`,
   );
@@ -266,14 +264,12 @@ test("delete is single-submit, preserves filters and returns the last-page item 
   await expect(page.getByLabel("Search", { exact: true })).toHaveValue(
     "Matching",
   );
-  await expect(page.getByLabel("Filter by tag", { exact: true })).toHaveValue(
-    "docs",
-  );
+  await expect(page.getByLabel("Tag", { exact: true })).toHaveValue("docs");
   await expect(
     page.getByText("Bookmark deleted.", { exact: true }),
   ).toHaveCount(1);
   await expect(
-    page.getByRole("heading", { name: "Your bookmarks" }),
+    page.getByRole("heading", { name: "Bookmarks", exact: true }),
   ).toBeFocused();
   expect(deletes).toBe(1);
   // A subsequent deletion on a nonempty page must not jump back to page 1.
@@ -325,7 +321,7 @@ test("closing a pending delete does not claim rollback or success after a lost r
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(
-    page.getByRole("heading", { name: "Your bookmarks" }),
+    page.getByRole("heading", { name: "Bookmarks", exact: true }),
   ).toBeFocused();
   await expect(
     card.getByRole("button", { name: "Deleting..." }),
@@ -352,12 +348,13 @@ test("save keeps validated drafts on failure, guards double submits and returns 
     `/bookmarks/new?${new URLSearchParams({ returnTo: "/bookmarks?q=Draft&tag=docs" })}`,
   );
   await page.getByRole("button", { name: "Save bookmark" }).click();
-  await expect(page.getByLabel("Title", { exact: true })).toBeFocused();
+  await expect(page.getByLabel("URL", { exact: true })).toBeFocused();
   await page.getByLabel("Title", { exact: true }).fill("Draft reference");
   await page
     .getByLabel("URL", { exact: true })
     .fill("https://example.com/draft");
-  await page.getByLabel("Tags (comma-separated)").fill("Docs");
+  await page.getByRole("button", { name: "Add details" }).click();
+  await page.getByLabel("Tags (optional)").fill("Docs");
   const held = gate();
   let writes = 0;
   let fail = true;
@@ -457,6 +454,7 @@ test("edit skeleton/retry keeps unknown distinct from missing and old saves cann
   });
   await page.getByRole("button", { name: "Save bookmark" }).click();
   await started.promise;
+  await openNavigation(page);
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Sign in", exact: true }),

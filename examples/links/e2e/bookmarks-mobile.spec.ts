@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { z } from "zod";
+import { openNavigation } from "./navigation.js";
 import { extractEmailUrl } from "../test/email-link.js";
 
 test("compact header and bookmark layouts preserve targets and long content at 320px, mobile and desktop", async ({
@@ -59,11 +60,8 @@ test("compact header and bookmark layouts preserve targets and long content at 3
     await expect(
       card.getByRole("list", { name: "Tags" }).locator("li"),
     ).toHaveCount(10);
-    await expect(page.locator(".account > span")).toHaveText(name);
-    await expect(page.locator(".account > span")).toHaveAttribute(
-      "title",
-      name,
-    );
+    await expect(page.locator(".account > span")).toHaveCount(0);
+    await openNavigation(page);
     if (width === 320)
       await page
         .locator(".app-header, .bookmark-library .search")
@@ -89,11 +87,12 @@ test("compact header and bookmark layouts preserve targets and long content at 3
       )
       .all()) {
       const box = await control.boundingBox();
+      if (!(await control.isVisible())) continue;
       expect(box!.height).toBeGreaterThanOrEqual(44);
       expect(box!.width).toBeGreaterThanOrEqual(44);
     }
     const bookmarksLink = page
-      .getByRole("navigation", { name: "Main navigation" })
+      .getByRole("navigation", { name: "Account navigation" })
       .getByRole("link", { name: "Bookmarks", exact: true });
     await expect(bookmarksLink).toHaveAttribute("aria-current", "page");
     await expect(
@@ -126,15 +125,15 @@ test("compact header and bookmark layouts preserve targets and long content at 3
       name: "Save bookmark",
       exact: true,
     });
-    const cancel = page.getByRole("link", { name: "Cancel", exact: true });
+    const cancel = page.getByRole("link", {
+      name: "Back to bookmarks",
+      exact: true,
+    });
     const saveBox = (await save.boundingBox())!;
     const cancelBox = (await cancel.boundingBox())!;
     expect(saveBox.height).toBeGreaterThanOrEqual(44);
     expect(cancelBox.height).toBeGreaterThanOrEqual(44);
-    expect(
-      saveBox.y + saveBox.height <= cancelBox.y ||
-        saveBox.x + saveBox.width <= cancelBox.x,
-    ).toBe(true);
+    expect(cancelBox.y + cancelBox.height <= saveBox.y).toBe(true);
     expect(
       await page.evaluate(
         () =>
@@ -182,7 +181,8 @@ test("bookmark CRUD, search, tag and clear filters remain usable at 320px with r
     await page
       .getByLabel("URL", { exact: true })
       .fill("https://example.com/reference");
-    await page.getByLabel("Tags (comma-separated)").fill(tags);
+    await page.getByRole("button", { name: "Add details" }).click();
+    await page.getByLabel("Tags (optional)").fill(tags);
     await page
       .getByRole("button", { name: "Save bookmark", exact: true })
       .click();
@@ -193,7 +193,8 @@ test("bookmark CRUD, search, tag and clear filters remain usable at 320px with r
   await create("Foundation docs", "Docs, Work");
   await create("Other bookmark", "Personal");
   await page.getByLabel("Search", { exact: true }).fill("Foundation");
-  await page.getByLabel("Filter by tag", { exact: true }).fill("DOCS");
+  await page.getByRole("button", { name: "Tag", exact: true }).click();
+  await page.getByLabel("Tag", { exact: true }).fill("DOCS");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByRole("article")).toHaveCount(1);
   const selected = page.getByRole("article", {
@@ -206,9 +207,7 @@ test("bookmark CRUD, search, tag and clear filters remain usable at 320px with r
     .click();
   await expect(page.getByRole("article")).toHaveCount(2);
   await expect(page.getByLabel("Search", { exact: true })).toHaveValue("");
-  await expect(page.getByLabel("Filter by tag", { exact: true })).toHaveValue(
-    "",
-  );
+  await expect(page.getByLabel("Tag", { exact: true })).toHaveValue("");
   await selected.getByRole("link", { name: "Edit", exact: true }).click();
   await page.getByLabel("Title", { exact: true }).fill("Updated bookmark");
   await page

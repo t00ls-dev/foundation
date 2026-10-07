@@ -13,6 +13,7 @@ export default defineConfig(() => {
     optimizeDeps: {
       extensions: [".tsx"],
       include: [
+        "lucide-react",
         "@t00ls-dev/ui/components/skeleton",
         "@t00ls-dev/ui/components/alert-dialog",
         "@t00ls-dev/ui/components/dialog",

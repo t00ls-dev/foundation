@@ -81,7 +81,7 @@ test("valid reset checks before the form and keeps contextual navigation without
   });
   await page.goto(url);
   await expect(
-    page.getByText("Checking password link…", { exact: true }),
+    page.getByLabel("Checking password link", { exact: true }),
   ).toBeVisible();
   await expect(page.getByLabel("New password", { exact: true })).toHaveCount(0);
   await expect(
@@ -99,7 +99,7 @@ test("valid reset checks before the form and keeps contextual navigation without
   await fill(page);
   await page.getByRole("button", { name: "Update password" }).click();
   await expect(
-    page.getByText("Password updated. You can sign in now.", { exact: true }),
+    page.getByRole("heading", { name: "Password updated", exact: true }),
   ).toBeVisible();
 });
 
@@ -202,7 +202,7 @@ test("leaving reset aborts the preflight and suppresses late feedback", async ({
   });
   await page.goto(url);
   await expect(
-    page.getByText("Checking password link…", { exact: true }),
+    page.getByLabel("Checking password link", { exact: true }),
   ).toBeVisible();
   const aborted = page.waitForEvent("requestfailed", (request) =>
     new URL(request.url()).pathname.startsWith("/api/auth/reset-password/"),
@@ -236,7 +236,7 @@ test("authenticated reset preserves its session and returns to Account", async (
   await fill(page);
   await page.getByRole("button", { name: "Update password" }).click();
   await expect(
-    page.getByText("Password updated.", { exact: true }),
+    page.getByRole("heading", { name: "Password updated", exact: true }),
   ).toBeVisible();
   expect(
     await (await page.request.get("/api/auth/get-session")).json(),
@@ -361,7 +361,16 @@ test("official expiry results block the form and remain authoritative after pref
   await expect(page.getByRole("alert")).toHaveText(invalidMessage);
   await expect(page.locator('input[type="password"]')).toHaveCount(0);
   const fresh = await token();
-  await page.goto(`/reset-password?${new URLSearchParams({ token: fresh })}`);
+  // Keep the one-second official lifetime: SPA token replacement avoids paying
+  // for an unrelated dev-module reload before this expiry characterization.
+  await page.evaluate((value) => {
+    window.history.pushState(
+      {},
+      "",
+      `/reset-password?${new URLSearchParams({ token: value })}`,
+    );
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, fresh);
   await fill(page);
   await new Promise((resolve) => setTimeout(resolve, 1300));
   await page.getByRole("button", { name: "Update password" }).click();

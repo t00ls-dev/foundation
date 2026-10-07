@@ -200,8 +200,8 @@ test("widget binds all four actions, is light/centered before the primary action
         adjacent: widget.nextElementSibling === element,
       };
     });
-    expect(gaps.before).toBe(12);
-    expect(gaps.after).toBe(12);
+    expect(gaps.before).toBe(20);
+    expect(gaps.after).toBe(20);
     expect(gaps.adjacent).toBe(true);
     await complete(page);
     await expect(primary).toBeEnabled();
@@ -357,7 +357,7 @@ test("valid native server verification signs in and sends magic/reset links; par
   await complete(page);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Your bookmarks" }),
+    page.getByRole("heading", { name: "Bookmarks", exact: true }),
   ).toBeVisible();
   for (const [path, button, message] of [
     [
@@ -425,6 +425,8 @@ test("password TOTP challenge and authenticated enrollment/disable never receive
     page.getByRole("status", { name: "Authenticator status" }),
   ).toHaveText("On");
   await expect(page.locator(".turnstile-verification")).toHaveCount(0);
+  const menu = page.getByRole("button", { name: "Open navigation menu" });
+  if (await menu.isVisible()) await menu.click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await page.getByLabel("Email", { exact: true }).fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
@@ -440,7 +442,7 @@ test("password TOTP challenge and authenticated enrollment/disable never receive
   await page.getByLabel("Authenticator code").fill(totp(uri));
   await page.getByRole("button", { name: "Verify code" }).click();
   await expect(
-    page.getByRole("heading", { name: "Your bookmarks" }),
+    page.getByRole("heading", { name: "Bookmarks", exact: true }),
   ).toBeVisible();
   expect(leakedToken).toBe(false);
   expect(
@@ -580,7 +582,7 @@ test("normal public auth trusts its title and controls, with full-width aligned 
             ) < 2,
         };
       });
-      expect(geometry.beforeDivider).toBeLessThanOrEqual(16);
+      expect(geometry.beforeDivider).toBe(20);
       expect(geometry.beforeGoogle).toBeLessThanOrEqual(12);
       expect(geometry.centered).toBe(true);
       expect(geometry.leftDifference).toBeLessThanOrEqual(2);

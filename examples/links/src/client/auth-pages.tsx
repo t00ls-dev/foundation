@@ -80,6 +80,8 @@ export function AuthPage({
   const destination = authDestination(params.get("next"));
   const presentation = authPresentation[mode];
   const { title } = presentation;
+  const [sent, setSent] = useState<Feedback>();
+  useEffect(() => setSent(undefined), [mode]);
   const hasPassword = mode === "login" || mode === "signup";
   const loginRequest = useRef<AbortController | null>(null);
   const publicRequest = useRef<AbortController | null>(null);
@@ -289,16 +291,48 @@ export function AuthPage({
       if (publicRequest.current === controller) publicRequest.current = null;
     }
   }
+  if (sent)
+    return (
+      <AuthResult
+        title="Check your email"
+        action={
+          <nav className="auth-links" aria-label="Email link options">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setSent(undefined)}
+            >
+              Use another email
+            </Button>
+            <Link
+              to={
+                initialEmail && mode === "recover"
+                  ? "/account"
+                  : authPath("/login", destination)
+              }
+            >
+              {initialEmail && mode === "recover"
+                ? "Back to Account"
+                : "Sign in"}
+            </Link>
+          </nav>
+        }
+      >
+        <p role="status">{sent.message}</p>
+      </AuthResult>
+    );
   return (
     <AuthLayout
       title={title}
       footer={
         <nav className="auth-links" aria-label="Authentication options">
-          {presentation.links.map(({ path, label }) => (
-            <Link key={path} to={authPath(path, destination)}>
-              {label}
-            </Link>
-          ))}
+          {(mode === "recover" && initialEmail ? [] : presentation.links).map(
+            ({ path, label }) => (
+              <Link key={path} to={authPath(path, destination)}>
+                {label}
+              </Link>
+            ),
+          )}
           {mode === "recover" && initialEmail ? (
             <Link to="/account">Back to Account</Link>
           ) : null}
@@ -307,6 +341,8 @@ export function AuthPage({
     >
       <AsyncForm
         hideTitle
+        hideSuccess
+        onSuccess={mode === "magic" || mode === "recover" ? setSent : undefined}
         compact
         initialEmail={mode === "recover" ? initialEmail : undefined}
         submitDisabled={
@@ -456,6 +492,8 @@ export function ResetPassword({ authenticated }: { authenticated: boolean }) {
     status: ResetTokenResult | "checking";
   }>({ token: null, status: "checking" });
   const mutation = useRef<AbortController | null>(null);
+  const [updated, setUpdated] = useState(false);
+  useEffect(() => setUpdated(false), [token]);
   const status =
     !token || callbackInvalid
       ? "invalid"
@@ -524,6 +562,20 @@ export function ResetPassword({ authenticated }: { authenticated: boolean }) {
       if (mutation.current === controller) mutation.current = null;
     }
   }
+  if (updated)
+    return (
+      <AuthResult
+        title="Password updated"
+        success
+        action={
+          <Button asChild>
+            <Link to={authenticated ? "/account" : "/login"}>
+              {authenticated ? "Back to Account" : "Sign in"}
+            </Link>
+          </Button>
+        }
+      />
+    );
   return (
     <AuthLayout
       title="New password"
@@ -541,7 +593,9 @@ export function ResetPassword({ authenticated }: { authenticated: boolean }) {
           aria-busy="true"
           className="grid gap-4"
         >
-          <p role="status">Checking password link…</p>
+          <p role="status" className="sr-only">
+            Checking password link…
+          </p>
           <Skeleton className="h-40 w-full" />
         </div>
       ) : status === "invalid" ? (
@@ -567,6 +621,8 @@ export function ResetPassword({ authenticated }: { authenticated: boolean }) {
       ) : (
         <AsyncForm
           hideTitle
+          hideSuccess
+          onSuccess={() => setUpdated(true)}
           compact
           title="Reset password"
           submitLabel="Update password"

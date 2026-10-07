@@ -20,10 +20,10 @@ workspace em cada reload. Ao editar fontes UI durante dev, reinicie o Vite com
 
 Tokens: background/foreground, card, primary, muted, accent, destructive,
 border/input/ring, info, espaçamento, tipografia, radius, fonte local, foco,
-alvo de toque e duração de movimento. O Links mantém aliases de cor e layout
-legado durante a migração. Camadas `theme, base, legacy, components, utilities`
-permitem que utilities superem seletores globais antigos. Não estilize roles
-ARIA; aplique classes visuais explícitas.
+alvo de toque e duração de movimento. O Links usa composições explícitas, sem
+moldura automática para form/article. Camadas
+`theme, base, components, utilities` permitem especializações locais. Não
+estilize roles ARIA; aplique classes visuais explícitas.
 
 ## Loading e ações
 
@@ -69,13 +69,16 @@ ARIA; aplique classes visuais explícitas.
 ## Fronteiras
 
 `SettingSection`, `SettingRow` e `SettingFlow` organizam settings sem conhecer
-domínio/API. SettingFlow fornece espaçamento sem um card adicional; o consumidor
-controla uma tarefa aberta por vez. Dialog requer título/descrição e descarta os
-campos ao fechar; usa portal, trap, Escape e scroll em viewport estreito. O app
-restaura foco num controle estável quando a sessão rotaciona e substitui o
-trigger original. Collapsible não deve usar `forceMount` para secrets: renderize
-o conteúdo sensível somente quando aberto. O app mantém feedback de clipboard
-local e ignora promises após unmount.
+domínio/API. SettingSection organiza por tipografia/proximidade, SettingRow por
+linhas com divisores discretos; SettingFlow fornece espaçamento. O consumidor
+coordena tarefas modais, sem bloquear Profile por estar dirty. Dialog requer
+título/descrição e descarta os campos ao fechar; usa portal, trap, Escape e
+scroll com safe areas/overscroll em viewport estreito. O consumidor pode
+bloquear dismiss no trecho crítico de uma mutation, mantendo aria-busy e o
+controller de outcome montado. O app restaura foco num controle estável quando a
+sessão rotaciona e substitui o trigger original. Collapsible não deve usar
+`forceMount` para secrets: renderize o conteúdo sensível somente quando aberto.
+O app mantém feedback de clipboard local e ignora promises após unmount.
 
 AlertDialog é a confirmação de uma ação destrutiva, com título/descrição
 obrigatórios no consumidor, Cancel como foco inicial, trap de foco, Escape e

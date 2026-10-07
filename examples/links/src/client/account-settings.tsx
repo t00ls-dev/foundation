@@ -3,7 +3,7 @@ import { AccountName } from "./account-name.js";
 import { AccountTotp } from "./account-totp.js";
 import { useLocation } from "react-router";
 import { useState } from "react";
-import { SettingSection, SettingRow } from "@t00ls-dev/ui/patterns/settings";
+import { SettingSection } from "@t00ls-dev/ui/patterns/settings";
 
 export function AccountSettings({
   user,
@@ -27,21 +27,12 @@ export function AccountSettings({
   onAuthenticatorRecoveryObserved: () => void;
 }) {
   const location = useLocation();
-  const [flow, setFlow] = useState<
-    "name" | "password" | "authenticator" | null
-  >(null);
+  const [flow, setFlow] = useState<"password" | "authenticator" | null>(null);
   return (
     <section className="container--narrow stack" aria-label="Account settings">
-      <h1 className="cross-page-title">Account Settings</h1>
+      <h1 className="cross-page-title">Account</h1>
       <SettingSection title="Profile">
-        <AccountName
-          disabled={flow !== null && flow !== "name"}
-          user={user}
-          onNameChanged={onNameChanged}
-          open={flow === "name"}
-          onOpenChange={(open) => setFlow(open ? "name" : null)}
-        />
-        <SettingRow title="Email" description={user.email} />
+        <AccountName user={user} onNameChanged={onNameChanged} />
       </SettingSection>
       <SettingSection title="Security">
         <AccountSecurity

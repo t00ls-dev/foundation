@@ -1,7 +1,7 @@
 /* Foundation light identity; no remote fonts or generic theme replacement. */
 :root {
   color-scheme: light;
-  --background: #f3f5f2;
+  --background: #f7f9f6;
   --foreground: #17231d;
   --card: #fff;
   --card-foreground: var(--foreground);
@@ -19,7 +19,7 @@
   --ring: #245b9e;
   --info: #244e77;
   --info-surface: #edf4fb;
-  --radius: 0.375rem;
+  --radius: 0.625rem;
   --font-sans: ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-sans);
   --text-small: 0.875rem;

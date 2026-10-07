@@ -82,8 +82,7 @@ test("filled buttons keep shared high-contrast foreground across Auth, Account a
     await expect(button).toHaveCSS("opacity", "1");
   }
   await account(page);
-  await page.getByRole("button", { name: "Edit name" }).click();
-  const save = page.getByRole("button", { name: "Save name" });
+  const save = page.getByRole("button", { name: "Save changes" });
   await primary(save);
   let release!: () => void;
   const held = new Promise<void>((resolve) => {
@@ -109,7 +108,10 @@ test("filled buttons keep shared high-contrast foreground across Auth, Account a
       .getByRole("form", { name: "Change password" })
       .getByRole("button", { name: "Change password", exact: true }),
   );
-  await page.getByRole("button", { name: "Cancel password edit" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Cancel", exact: true })
+    .click();
   await page.getByRole("button", { name: "Set up", exact: true }).click();
   await primary(page.getByRole("button", { name: "Continue with password" }));
   await page.keyboard.press("Escape");
@@ -126,9 +128,8 @@ test("mobile success toast is compact, readable and contains its touch-sized clo
 }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await account(page);
-  await page.getByRole("button", { name: "Edit name" }).click();
   await page.getByLabel("Name", { exact: true }).fill("Toast Reader");
-  await page.getByRole("button", { name: "Save name" }).click();
+  await page.getByRole("button", { name: "Save changes" }).click();
   const toast = page
     .locator("[data-sonner-toast]")
     .filter({ hasText: "Name saved." });
@@ -166,9 +167,8 @@ test("mobile success toast is compact, readable and contains its touch-sized clo
   expect(geometry.contained).toBe(true);
   await close.click();
   await expect(toast).toHaveCount(0);
-  await page.getByRole("button", { name: "Edit name" }).click();
   await page.getByLabel("Name", { exact: true }).fill("Transient Reader");
-  await page.getByRole("button", { name: "Save name" }).click();
+  await page.getByRole("button", { name: "Save changes" }).click();
   await expect(toast).toBeVisible();
   await expect(toast).toHaveCount(0, { timeout: 6500 });
 });
@@ -190,7 +190,7 @@ test("Password keeps reset contextual and cancellation returns to normal Securit
   await field.fill("discard-on-cancel");
   await expect(
     form.getByRole("link", {
-      name: "Forgot your current password? Use password reset",
+      name: "Forgot password?",
     }),
   ).toHaveAttribute("href", "/forgot-password");
   await expect(
@@ -203,7 +203,10 @@ test("Password keeps reset contextual and cancellation returns to normal Securit
         getComputedStyle(element.parentElement!).borderTopWidth === "0px",
     ),
   ).toBe(true);
-  await page.getByRole("button", { name: "Cancel password edit" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Cancel", exact: true })
+    .click();
   await expect(form).toHaveCount(0);
   await expect(page.getByRole("link", { name: /password reset/i })).toHaveCount(
     0,

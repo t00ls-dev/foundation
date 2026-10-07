@@ -6,6 +6,8 @@ import {
   type ReactNode,
 } from "react";
 import { Skeleton } from "@t00ls-dev/ui/components/skeleton";
+import { Button } from "@t00ls-dev/ui/components/button";
+import { Menu, Bookmark, UserRound, LogOut } from "lucide-react";
 import { PendingButton } from "@t00ls-dev/ui/patterns/pending-button";
 import { InlineFeedback } from "@t00ls-dev/ui/patterns/inline-feedback";
 import {
@@ -50,12 +52,35 @@ function PasswordConfirmation({ operation }: { operation: string }) {
       operation,
       "Password updated. Other sessions have been signed out.",
     );
+    document
+      .querySelector<HTMLButtonElement>("[data-password-trigger]")
+      ?.focus();
   }, [confirmed, operation]);
   return null;
 }
 
 export function App() {
   const location = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuTrigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (menuOpen) document.getElementById("main-content")?.focus();
+    setMenuOpen(false);
+    const titles: Record<string, string> = {
+      "/": "Home",
+      "/bookmarks": "Bookmarks",
+      "/account": "Account",
+      "/login": "Sign in",
+      "/signup": "Create account",
+      "/magic-link": "Magic link",
+      "/forgot-password": "Forgot password",
+      "/reset-password": "Reset password",
+      "/verify-email": "Verify email",
+      "/two-factor": "Authenticator code",
+      "/bookmarks/new": "Add bookmark",
+    };
+    document.title = `${titles[location.pathname] ?? "Edit bookmark"} · Links`;
+  }, [location.pathname]);
   const navigate = useNavigate();
   const session = authClient.useSession();
   const sessionResolved = useRef(false);
@@ -149,15 +174,17 @@ export function App() {
   const isHome = location.pathname === "/";
   const isReset = location.pathname === "/reset-password";
   const compactPublicHeader =
-    !user &&
-    [
-      "/login",
-      "/signup",
-      "/magic-link",
-      "/forgot-password",
-      "/verify-email",
-      "/reset-password",
-    ].includes(location.pathname);
+    location.pathname === "/two-factor" ||
+    (!user &&
+      [
+        "/login",
+        "/signup",
+        "/magic-link",
+        "/forgot-password",
+        "/verify-email",
+        "/reset-password",
+        "/two-factor",
+      ].includes(location.pathname));
   const destination = authDestination(
     new URLSearchParams(location.search).get("next"),
   );
@@ -197,36 +224,68 @@ export function App() {
       <FeedbackProvider
         key={signingOut ? "signing-out" : (identity ?? "anonymous")}
       >
-        <main className="shell">
+        <div className="shell">
+          <a className="skip-link" href="#main-content">
+            Skip to content
+          </a>
           <header
             className={`app-header${compactPublicHeader ? " app-header--auth" : ""}`}
           >
             <Link to="/" className="brand">
               Links
             </Link>
-            {!compactPublicHeader ? (
+            {!compactPublicHeader && !user ? (
               <nav className="cluster header-main" aria-label="Main navigation">
-                <NavLink to="/" end>
-                  Home
-                </NavLink>
                 <NavLink to="/bookmarks">Bookmarks</NavLink>
               </nav>
             ) : null}
-            {user ? (
-              <div className="account">
-                <span title={user.name}>{user.name}</span>
+            {user && !compactPublicHeader ? (
+              <div
+                className="account"
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget))
+                    setMenuOpen(false);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    setMenuOpen(false);
+                    menuTrigger.current?.focus();
+                  }
+                }}
+              >
+                <button
+                  ref={menuTrigger}
+                  type="button"
+                  className="mobile-menu-trigger"
+                  aria-label="Open navigation menu"
+                  aria-expanded={menuOpen}
+                  aria-controls="private-navigation"
+                  onClick={() => setMenuOpen(!menuOpen)}
+                >
+                  <Menu size={20} aria-hidden="true" />
+                </button>
                 <nav
-                  className="cluster header-account"
+                  id="private-navigation"
+                  className={`cluster header-account private-navigation${menuOpen ? " is-open" : ""}`}
                   aria-label="Account navigation"
                 >
-                  <NavLink to="/account">Account</NavLink>
+                  <NavLink to="/bookmarks">
+                    <Bookmark size={18} aria-hidden="true" />
+                    Bookmarks
+                  </NavLink>
+                  <NavLink to="/account">
+                    <UserRound size={18} aria-hidden="true" />
+                    Account
+                  </NavLink>
+                  <hr className="private-navigation-divider" />
                   <PendingButton
-                    className="gap-0 px-1 py-1 text-inherit"
+                    className="justify-start gap-2 px-3 sm:justify-center sm:px-2"
                     variant="ghost"
                     pending={signingOut}
                     pendingLabel="Signing out..."
                     onClick={() => void signOut()}
                   >
+                    <LogOut size={18} aria-hidden="true" />
                     Sign out
                   </PendingButton>
                 </nav>
@@ -255,202 +314,211 @@ export function App() {
               </div>
             )}
           </header>
-          {!signingOut &&
-          passwordConfirmation &&
-          passwordConfirmation.identity === identity ? (
-            <PasswordConfirmation operation={passwordConfirmation.operation} />
-          ) : null}
-          {logoutError ? (
-            <InlineFeedback tone="error" announce="assertive">
-              {logoutError}
-            </InlineFeedback>
-          ) : null}
-          {sessionExpired ? (
-            <InlineFeedback>
-              Your session expired. Sign in again to continue.
-            </InlineFeedback>
-          ) : null}
-          {unknown && !isHome ? (
-            <div
-              className="container--narrow stack"
-              role="region"
-              aria-busy="true"
-              aria-label="Loading page"
-            >
-              <Skeleton className="h-10 w-2/3" />
-              <Skeleton className="h-48 w-full" />
-            </div>
-          ) : null}
-          {session.error && (!expired || isReset) ? (
-            <section>
-              {!sessionResolved.current ? (
-                <h1>Unable to load your session</h1>
-              ) : null}
+          <main id="main-content" tabIndex={-1}>
+            {!signingOut &&
+            passwordConfirmation &&
+            passwordConfirmation.identity === identity ? (
+              <PasswordConfirmation
+                operation={passwordConfirmation.operation}
+              />
+            ) : null}
+            {logoutError ? (
               <InlineFeedback tone="error" announce="assertive">
-                {user
-                  ? "Could not refresh your session. Please check your connection."
-                  : "Please check your connection."}
+                {logoutError}
               </InlineFeedback>
-              <button onClick={() => void session.refetch()}>Try again</button>
-            </section>
-          ) : null}
-          {isHome ? (
-            <Home />
-          ) : !blocked ? (
-            <Routes key={identity ?? "anonymous"}>
-              <Route
-                path="/login"
-                element={
-                  user ? (
-                    <Navigate to={destination} replace />
-                  ) : (
+            ) : null}
+            {sessionExpired ? (
+              <InlineFeedback>
+                Your session expired. Sign in again to continue.
+              </InlineFeedback>
+            ) : null}
+            {unknown && !isHome ? (
+              <div
+                className="container--narrow stack"
+                role="region"
+                aria-busy="true"
+                aria-label="Loading page"
+              >
+                <Skeleton className="h-10 w-2/3" />
+                <Skeleton className="h-48 w-full" />
+              </div>
+            ) : null}
+            {session.error && (!expired || isReset) ? (
+              <section>
+                {!sessionResolved.current ? (
+                  <h1>Unable to load your session</h1>
+                ) : null}
+                <InlineFeedback tone="error" announce="assertive">
+                  {user
+                    ? "Could not refresh your session. Please check your connection."
+                    : "Please check your connection."}
+                </InlineFeedback>
+                <Button onClick={() => void session.refetch()}>
+                  Try again
+                </Button>
+              </section>
+            ) : null}
+            {isHome ? (
+              <Home />
+            ) : !blocked ? (
+              <Routes key={identity ?? "anonymous"}>
+                <Route
+                  path="/login"
+                  element={
+                    user ? (
+                      <Navigate to={destination} replace />
+                    ) : (
+                      <AuthPage
+                        mode="login"
+                        onSignedIn={signedIn}
+                        onChallenge={(value) => {
+                          setChallenge(value);
+                          if (!value.available || value.uncertain)
+                            setAuthenticatorRecoveryEmail(value.email);
+                        }}
+                      />
+                    )
+                  }
+                />
+                <Route
+                  path="/signup"
+                  element={
+                    user ? (
+                      <Navigate to={destination} replace />
+                    ) : (
+                      <AuthPage mode="signup" onSignedIn={signedIn} />
+                    )
+                  }
+                />
+                <Route
+                  path="/magic-link"
+                  element={<AuthPage mode="magic" onSignedIn={signedIn} />}
+                />
+                <Route
+                  path="/forgot-password"
+                  element={
                     <AuthPage
-                      mode="login"
+                      mode="recover"
                       onSignedIn={signedIn}
-                      onChallenge={(value) => {
-                        setChallenge(value);
-                        if (!value.available || value.uncertain)
-                          setAuthenticatorRecoveryEmail(value.email);
+                      initialEmail={user?.email}
+                    />
+                  }
+                />
+                <Route path="/verify-email" element={<Verification />} />
+                <Route
+                  path="/two-factor"
+                  element={
+                    <TotpChallenge
+                      onAbandon={() => setChallenge(null)}
+                      onRecoveryObserved={() => {
+                        if (challenge)
+                          setAuthenticatorRecoveryEmail(challenge.email);
+                      }}
+                      challenge={challenge}
+                      destination={destination}
+                      onSignedIn={signedIn}
+                      onReconciling={() => {
+                        const pending = challenge
+                          ? { ...challenge, reconciling: true }
+                          : null;
+                        setChallenge(pending);
+                        // A completion from an abandoned/older challenge must not
+                        // turn a replacement challenge into recovery state.
+                        return () =>
+                          setChallenge((current) =>
+                            current && current === pending
+                              ? {
+                                  ...current,
+                                  reconciling: false,
+                                  uncertain: true,
+                                }
+                              : current,
+                          );
                       }}
                     />
-                  )
-                }
-              />
-              <Route
-                path="/signup"
-                element={
-                  user ? (
-                    <Navigate to={destination} replace />
-                  ) : (
-                    <AuthPage mode="signup" onSignedIn={signedIn} />
-                  )
-                }
-              />
-              <Route
-                path="/magic-link"
-                element={<AuthPage mode="magic" onSignedIn={signedIn} />}
-              />
-              <Route
-                path="/forgot-password"
-                element={
-                  <AuthPage
-                    mode="recover"
-                    onSignedIn={signedIn}
-                    initialEmail={user?.email}
-                  />
-                }
-              />
-              <Route path="/verify-email" element={<Verification />} />
-              <Route
-                path="/two-factor"
-                element={
-                  <TotpChallenge
-                    onAbandon={() => setChallenge(null)}
-                    onRecoveryObserved={() => {
-                      if (challenge)
-                        setAuthenticatorRecoveryEmail(challenge.email);
-                    }}
-                    challenge={challenge}
-                    destination={destination}
-                    onSignedIn={signedIn}
-                    onReconciling={() => {
-                      const pending = challenge
-                        ? { ...challenge, reconciling: true }
-                        : null;
-                      setChallenge(pending);
-                      // A completion from an abandoned/older challenge must not
-                      // turn a replacement challenge into recovery state.
-                      return () =>
-                        setChallenge((current) =>
-                          current && current === pending
-                            ? {
-                                ...current,
-                                reconciling: false,
-                                uncertain: true,
-                              }
-                            : current,
-                        );
-                    }}
-                  />
-                }
-              />
-              <Route
-                path="/reset-password"
-                element={<ResetPassword authenticated={Boolean(user)} />}
-              />
-              <Route
-                path="/account"
-                element={privatePage(
-                  user ? (
-                    <AccountSettings
-                      authenticatorCompletion={
-                        authenticatorConfirmation &&
-                        authenticatorConfirmation.identity === identity
-                          ? authenticatorConfirmation.enabled
-                          : null
-                      }
-                      onAuthenticatorConfirmed={(
-                        confirmedIdentity,
-                        enabled,
-                      ) => {
-                        setAuthenticatorConfirmation(
-                          enabled === null
-                            ? null
-                            : { identity: confirmedIdentity, enabled },
-                        );
-                        if (enabled !== null)
-                          setAuthenticatorRecoveryEmail(null);
-                      }}
-                      authenticatorRecoveryObserved={
-                        authenticatorRecoveryEmail === user.email.toLowerCase()
-                      }
-                      onAuthenticatorRecoveryObserved={() =>
-                        setAuthenticatorRecoveryEmail(user.email.toLowerCase())
-                      }
-                      user={user}
-                      onSessionChanged={signedIn}
-                      sessionId={session.data?.session.id ?? ""}
-                      onPasswordConfirmed={(confirmedIdentity) => {
-                        setPasswordConfirmation({
-                          identity: confirmedIdentity,
-                          operation: crypto.randomUUID(),
-                        });
-                      }}
-                      onNameChanged={async () => {
-                        await session.refetch();
-                      }}
+                  }
+                />
+                <Route
+                  path="/reset-password"
+                  element={<ResetPassword authenticated={Boolean(user)} />}
+                />
+                <Route
+                  path="/account"
+                  element={privatePage(
+                    user ? (
+                      <AccountSettings
+                        authenticatorCompletion={
+                          authenticatorConfirmation &&
+                          authenticatorConfirmation.identity === identity
+                            ? authenticatorConfirmation.enabled
+                            : null
+                        }
+                        onAuthenticatorConfirmed={(
+                          confirmedIdentity,
+                          enabled,
+                        ) => {
+                          setAuthenticatorConfirmation(
+                            enabled === null
+                              ? null
+                              : { identity: confirmedIdentity, enabled },
+                          );
+                          if (enabled !== null)
+                            setAuthenticatorRecoveryEmail(null);
+                        }}
+                        authenticatorRecoveryObserved={
+                          authenticatorRecoveryEmail ===
+                          user.email.toLowerCase()
+                        }
+                        onAuthenticatorRecoveryObserved={() =>
+                          setAuthenticatorRecoveryEmail(
+                            user.email.toLowerCase(),
+                          )
+                        }
+                        user={user}
+                        onSessionChanged={signedIn}
+                        sessionId={session.data?.session.id ?? ""}
+                        onPasswordConfirmed={(confirmedIdentity) => {
+                          setPasswordConfirmation({
+                            identity: confirmedIdentity,
+                            operation: crypto.randomUUID(),
+                          });
+                        }}
+                        onNameChanged={async () => {
+                          await session.refetch();
+                        }}
+                      />
+                    ) : null,
+                  )}
+                />
+                <Route
+                  path="/account/security"
+                  element={
+                    <Navigate
+                      to={`/account${location.search}${location.hash}`}
+                      replace
                     />
-                  ) : null,
-                )}
-              />
-              <Route
-                path="/account/security"
-                element={
-                  <Navigate
-                    to={`/account${location.search}${location.hash}`}
-                    replace
-                  />
-                }
-              />
-              <Route
-                path="/bookmarks"
-                element={privatePage(<BookmarkLibrary />)}
-              />
-              <Route
-                path="/bookmarks/new"
-                element={privatePage(<BookmarkEditor key="new" />)}
-              />
-              <Route
-                path="/bookmarks/:id/edit"
-                element={privatePage(<BookmarkEditor />)}
-              />
-              <Route
-                path="*"
-                element={<Navigate to={user ? "/bookmarks" : "/"} replace />}
-              />
-            </Routes>
-          ) : null}
-        </main>
+                  }
+                />
+                <Route
+                  path="/bookmarks"
+                  element={privatePage(<BookmarkLibrary />)}
+                />
+                <Route
+                  path="/bookmarks/new"
+                  element={privatePage(<BookmarkEditor key="new" />)}
+                />
+                <Route
+                  path="/bookmarks/:id/edit"
+                  element={privatePage(<BookmarkEditor />)}
+                />
+                <Route
+                  path="*"
+                  element={<Navigate to={user ? "/bookmarks" : "/"} replace />}
+                />
+              </Routes>
+            ) : null}
+          </main>
+        </div>
       </FeedbackProvider>
     </>
   );
