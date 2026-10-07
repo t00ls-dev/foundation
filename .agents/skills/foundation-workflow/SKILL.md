@@ -5,7 +5,36 @@ description:
   planejar mudanças, executar checks e respeitar autorizações.
 ---
 
-# Foundation Workflow
+# Fluxo de trabalho do Foundation
+
+## Idioma da documentação e da comunicação
+
+Esta seção é a referência canônica da política de idioma do Foundation. O
+português brasileiro (pt-BR) é o idioma padrão da documentação e da comunicação
+humana do projeto, incluindo títulos e descrições de PRs, issues, notas de
+versão (release notes) e demais textos administrativos ou explicativos.
+
+Documentação nova deve ser escrita em pt-BR. Não traduza em massa a documentação
+legada em inglês ou com idiomas misturados: quando uma alteração exigir
+modificar um desses arquivos documentais, traduza integralmente seu conteúdo
+humano para pt-BR no mesmo trabalho, preservando o conteúdo pertencente ao
+código. Atualize também as referências documentais diretamente relacionadas
+quando necessário para manter consistência, incluindo textos de links,
+descrições, índices, sumários, referências cruzadas e documentação que apresente
+ou descreva o arquivo. Limite essa expansão ao necessário para manter o arquivo
+traduzido e suas referências consistentes; ela não autoriza tradução recursiva
+ou indiscriminada da documentação, nem tradução de arquivos legados não
+alcançados pela alteração.
+
+A política não autoriza alterações por motivo de idioma em código-fonte,
+comentários dentro de código, JSDoc/TSDoc/docstrings, identificadores, nomes de
+funções, classes, tipos ou variáveis, strings da aplicação, mensagens de erro,
+testes ou fixtures, schemas, configurações, workflows, scripts, comandos, paths
+ou comportamento da aplicação. Isso também vale para conteúdo pertencente ao
+código dentro de documentos. Preserve nomes técnicos, APIs, bibliotecas,
+protocolos, comandos, paths e referências ao código em sua forma original quando
+apropriado. As convenções técnicas existentes, inclusive o padrão de commits,
+permanecem vigentes.
 
 ## Planejamento e escopo
 
