@@ -1,12 +1,16 @@
 # Pacotes e Release do Foundation
 
 Os nove pacotes reutilizáveis `@t00ls-dev/*` usam versões SemVer independentes,
-Changesets e GitHub Packages (`https://npm.pkg.github.com`). A raiz, examples,
-tests e tooling, incluindo create-app/doctor, permanecem privados e não são
-publicados. O código próprio usa MIT, com o aviso `Copyright (c) 2026 t00ls-dev`
-confirmado pelo mantenedor, conforme [Licenças e distribuição](licensing.md). O
-acesso aos pacotes continua restrito; a visibilidade do repositório não o
-altera. O deploy do Foundation continua DEV-only.
+Changesets e GitHub Packages (`https://npm.pkg.github.com`). O código-fonte do
+repositório é público. A raiz e os workspaces de examples, tests e tooling,
+incluindo create-app/doctor, usam `private: true` e não são publicados no
+registry; isso não restringe a leitura de seu código. O código próprio usa MIT,
+com o aviso `Copyright (c) 2026 t00ls-dev` confirmado pelo mantenedor, conforme
+[Licenças e distribuição](licensing.md). Os nove pacotes publicados continuam
+com visibilidade privada no GitHub Packages. O acesso depende de permissões,
+herança e Manage Actions access: código público não torna automaticamente os
+pacotes públicos nem garante que o público autorizado permaneça igual. O deploy
+do Foundation continua DEV-only.
 
 ## Histórico do bootstrap
 
@@ -279,12 +283,15 @@ necessariamente pelo workflow de release. Os gates de runtime continuam
 verificando identidade/namespace, versões, tags e integridade, com reconsulta
 antes da publicação e reconciliação posterior.
 
-Atualmente a conta pessoal Free/repositório privado não possui aprovação efetiva
-de Environment; `master` está sem branch protection. Não se apresenta um
-Environment sem regras como proteção. Quem pode alterar workflows ainda pode
-alterar gates: revisão humana, controle dos acessos e verificação do SHA são
-essenciais. Consultar SHA e registry não é uma transação atômica; alterações
-externas concorrentes podem causar falha parcial, que deve ser reconciliada.
+Na verificação de 11/10/2026, o repositório é público e `master` possui proteção
+clássica com pull request obrigatório e status check `checks` do GitHub Actions.
+Não há aprovação humana obrigatória; administradores podem contornar as regras.
+O Environment `dev` restringe deployments à `master`, sem required reviewers ou
+wait timer, mantendo o ciclo DEV automático. Quem pode alterar workflows ainda
+pode alterar gates: revisão humana, controle dos acessos e verificação do SHA
+continuam essenciais. Consultar SHA e registry não é uma transação atômica;
+alterações externas concorrentes podem causar falha parcial, que deve ser
+reconciliada.
 
 ## Consumo privado
 

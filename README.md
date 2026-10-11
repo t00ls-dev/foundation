@@ -7,11 +7,16 @@ regras de negócio específicas de produtos.
 
 ## Estado
 
+O repositório é público. A branch `master` possui proteção com pull request
+obrigatório e status check `checks` do GitHub Actions, sem aprovação humana
+obrigatória e com possibilidade de bypass administrativo.
+
 A v0.1 possui um caminho local completo, CI e deploy automático do exemplo em
 DEV. O Foundation não possui ambiente PROD; aplicações consumidoras são donas
-dos seus ambientes. Consulte [`docs/project-status.md`](docs/project-status.md)
-para entregas, validações, pendências priorizadas e itens deliberadamente
-adiados.
+dos seus ambientes. Na verificação de 11/10/2026, `Deploy DEV` está habilitado,
+mas a primeira execução automática após a reativação ainda aguarda observação.
+Consulte [`docs/project-status.md`](docs/project-status.md) para entregas,
+validações, pendências priorizadas e itens deliberadamente adiados.
 
 ## Início rápido
 
@@ -63,8 +68,11 @@ testes automatizados têm harness e bancos descartáveis próprios.
 O código próprio é licenciado sob MIT, com o aviso
 `Copyright (c) 2026 t00ls-dev` confirmado pelo mantenedor; veja
 [LICENSE](LICENSE) e [licenças e distribuição](docs/runbooks/licensing.md).
-Licenças de terceiros permanecem vigentes. Visibilidade pública do código não
-autoriza publicação de pacotes nem altera o acesso ao registry.
+Licenças de terceiros permanecem vigentes. Código-fonte público não autoriza
+publicação nem torna automaticamente públicos os pacotes no GitHub Packages.
+Workspaces com `private: true` não são publicados no registry, embora seu código
+esteja público. O acesso aos pacotes depende das permissões e da herança
+administrativas do GitHub Packages, separadas da visibilidade do código.
 
 Veja [CONTRIBUTING.md](CONTRIBUTING.md) para contribuir e
 [SECURITY.md](SECURITY.md) para divulgação responsável de vulnerabilidades.

@@ -5,7 +5,12 @@ Este documento é a fonte de verdade sobre o que existe no
 deliberadamente adiado. Ele descreve o código atual, não uma arquitetura
 hipotética.
 
-Última revisão: 1 de outubro de 2026.
+Última revisão do estado de publicação e automação: 11 de outubro de 2026.
+
+O repositório é público. `master` possui proteção clássica com pull request
+obrigatório e status check `checks` do GitHub Actions, sem aprovação humana
+obrigatória e com possibilidade de bypass administrativo. O único Environment
+existente no GitHub é `dev`; não há Environment nem operação PROD no Foundation.
 
 ## Objetivo e escopo
 
@@ -54,9 +59,13 @@ da primeira entrega.
 | `@t00ls-dev/observability` | Logging JSON estruturado com contexto de request, usuário e tenant.                                                                                                 |
 | `@t00ls-dev/audit`         | Eventos append-only para D1/PostgreSQL, com validação recursiva que rejeita chaves sensíveis na metadata.                                                           |
 
-Os nove pacotes estão preparados para publicação privada no GitHub Packages;
-internamente são consumidos com `workspace:*`. A publicação automatizada está
-bloqueada.
+Os nove pacotes possuem versões `0.1.0` e `0.1.1` publicadas com visibilidade
+privada no GitHub Packages; internamente são consumidos com `workspace:*`. Novas
+publicações exigem execução manual de Release e autorização explícita.
+Código-fonte público não torna automaticamente os pacotes públicos; seu acesso
+depende das permissões e da herança administrativas. Os demais workspaces com
+`private: true` não são publicados no registry, embora seu código esteja
+público.
 
 ### Aplicação de referência
 
@@ -192,7 +201,9 @@ normal do Vitest para evitar dezenas de summaries fragmentados no GitHub.
   Migration DEV é workflow reutilizável; deploy não aplica SQL e verifica
   `/health` com SHA/D1 obrigatórios. Verifica evento push/master, repositório de
   origem, identidade do workflow e job aprovado na mesma tentativa. Não repete a
-  suíte de testes.
+  suíte de testes. Na verificação de 11/10/2026, o workflow está habilitado após
+  a reativação; a primeira execução automática posterior ainda aguarda
+  observação.
 - O Foundation não possui ambiente ou workflow PROD. Aplicações consumidoras
   definem seus próprios ambientes e processos de deploy.
 - Operações D1/recuperação compartilham serialização sem cancelar mutation
@@ -274,9 +285,12 @@ Não serão implementados sem consumidor real:
 ## Publicação e releases
 
 Changesets prepara releases independentes dos nove pacotes reutilizáveis em
-`packages/*` para GitHub Packages privado. O workflow abre Release PRs, mas a
-publicação permanece explicitamente bloqueada até uma ativação revisada. Veja o
-[runbook de pacotes](runbooks/packages.md). Nesse período:
+`packages/*` para GitHub Packages privado. O job Version Packages da CI de
+push/master cria ou atualiza o PR de versionamento; não publica pacotes. Release
+é manual e requer CI aprovada do SHA exato, audit/preflight e autorização
+explícita. As versões `0.1.0` e `0.1.1` já foram publicadas; abertura do código
+não autoriza uma nova publicação. Veja o
+[runbook de pacotes](runbooks/packages.md). Nesse fluxo:
 
 - APIs podem amadurecer sem releases artificiais;
 - cada pacote mantém versão própria;

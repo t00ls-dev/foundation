@@ -5,6 +5,10 @@ usando `examples/links`.
 
 ## DEV automático
 
+Na verificação de 11/10/2026, o workflow `Deploy DEV` está habilitado após sua
+reativação. A primeira execução automática pós-reativação ainda aguarda
+observação; uma CI ou um deploy anterior não comprova essa validação.
+
 Um push em `master` executa a CI completa. O workflow `Deploy DEV` recebe o SHA
 validado e coordena expand/deploy/backfill/contract em jobs independentes. O job
 de deploy **não aplica migrations**: verifica schema read-only, publica o Worker
@@ -123,5 +127,5 @@ reutilizável e recovery referenciam esse Environment; validate/CI não. O job d
 workflow chamado resolve seus Environment Secrets, com repasse explícito de
 nomes canônicos pelo caller. Não há aprovação manual nova para DEV nem
 configuração automática dos secrets. Não há fallback para token de deploy em
-migration. O Environment `production` vazio existente no GitHub não é aprovação
-nem ambiente PROD do Foundation.
+migration. O inventário do GitHub confirmado em 11/10/2026 contém somente o
+Environment `dev`; o Foundation não possui Environment nem operação PROD.

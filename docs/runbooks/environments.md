@@ -26,6 +26,10 @@ operacional do GitHub pertence ao **Environment `dev`**, associado ao job
 `deploy`, ao job `migration` do reusable workflow e ao job `recover`. `validate`
 consulta apenas evidência GitHub; ele e a CI não usam esse Environment.
 
+Na verificação de 11/10/2026, o workflow `Deploy DEV` está habilitado. A
+primeira execução automática após a reativação ainda está pendente de
+observação.
+
 ### Provisionamento no GitHub
 
 Antes do merge/ativação, um administrador precisa criar/configurar o Environment
@@ -49,10 +53,10 @@ interfaces. Configuração geral do repositório não deve conter tokens DEV.
 O YAML **não configura Environment Secrets nem regras administrativas**. O
 GitHub pode criar um Environment vazio quando um job o referencia: isso não
 comprova provisionamento/proteção. O ciclo DEV continua automático; não exige
-required reviewers ou wait timer. Quando suportado, restrinja branches de
-deployment à `master`, sem habilitar branches de PR/fork. Disponibilidade
-depende do plano e da visibilidade; não se presume proteção efetiva sem
-verificar as configurações.
+required reviewers ou wait timer. Na verificação de 11/10/2026, o Environment
+`dev` possui policy de deployment limitada à `master`, sem branches de PR/fork.
+Essa regra administrativa é distinta da proteção de branch; configurações
+efetivas devem ser verificadas no GitHub.
 
 Secrets de Environment têm precedência sobre nomes iguais no repositório, mas
 `secrets` não comprova sua origem. Depois de provisionar/verificar `dev`, remova
@@ -111,11 +115,11 @@ aplica SQL. Não há fallback entre credenciais.
 
 CI de PR/fork não recebe esses secrets. Migration/recuperação recebe D1 Edit
 somente no step autorizado; deploy usa D1 Read na pré-condição. Pós-deploy usa
-Workers Read para provar deployment/versão. O `production` atual sem regras não
-é usado por DEV e permanece fora do escopo; sua configuração não foi alterada.
-Environment só protege jobs que o referenciam com regras efetivas.
-Origem/SHA/serialização são verificados pelo código; revisão e controle de
-escrita continuam necessários.
+Workers Read para provar deployment/versão. O inventário do GitHub confirmado em
+11/10/2026 contém somente o Environment `dev`; não há Environment `production`
+no Foundation. Environment só protege jobs que o referenciam com regras
+efetivas. Origem/SHA/serialização são verificados pelo código; revisão e
+controle de escrita continuam necessários.
 
 ## Aplicações consumidoras
 
