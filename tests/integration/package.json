@@ -21,7 +21,7 @@
     "miniflare": "^4.20250906.0",
     "postgres": "^3.4.7",
     "testcontainers": "^12.2.0",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.3"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
