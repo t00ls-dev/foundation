@@ -27,8 +27,8 @@ importers:
         specifier: 26.1.0
         version: 26.1.0
       npm:
-        specifier: 11.5.1
-        version: 11.5.1
+        specifier: 12.2.0
+        version: 12.2.0
       prettier:
         specifier: ^3.9.10
         version: 3.9.10
@@ -3013,16 +3013,18 @@ packages:
     resolution: {integrity: sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA==}
     engines: {node: '>=0.10.0'}
 
-  npm@11.5.1:
-    resolution: {integrity: sha512-Iy5vXZ55m8tIaSCz6bqQf9+W5XbPfoyURsgWLjOkFglqHTep6RDZqRj2sfYGeRyZvGu2HuJWm0lux0rxPQ29lQ==}
-    engines: {node: ^20.17.0 || >=22.9.0}
+  npm@12.2.0:
+    resolution: {integrity: sha512-ZsJjKpTnlmSXOLLXiU1xDCzC4Wlok4IwZmh/aw2KUuXytU7q6qMv/cUT7MoeSf95Slwuw/lRXYefGzGCspHPNQ==}
+    engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
     hasBin: true
     bundledDependencies:
       - '@isaacs/string-locale-compare'
       - '@npmcli/arborist'
       - '@npmcli/config'
       - '@npmcli/fs'
+      - '@npmcli/git'
       - '@npmcli/map-workspaces'
+      - '@npmcli/metavuln-calculator'
       - '@npmcli/package-json'
       - '@npmcli/promise-spawn'
       - '@npmcli/redact'
@@ -3030,10 +3032,11 @@ packages:
       - '@sigstore/tuf'
       - abbrev
       - archy
+      - bin-links
       - cacache
       - chalk
       - ci-info
-      - cli-columns
+      - diff
       - fastest-levenshtein
       - fs-minipass
       - glob
@@ -3060,7 +3063,6 @@ packages:
       - ms
       - node-gyp
       - nopt
-      - normalize-package-data
       - npm-audit-report
       - npm-install-checks
       - npm-package-arg
@@ -6084,7 +6086,7 @@ snapshots:
 
   normalize-path@3.0.0: {}
 
-  npm@11.5.1: {}
+  npm@12.2.0: {}
 
   nwsapi@2.2.28: {}
 
