@@ -29,7 +29,7 @@
   "devDependencies": {
     "@types/node": "^22.20.5",
     "@types/pg": "^8.23.1",
-    "@cloudflare/workers-types": "^5.20261010.1",
+    "@cloudflare/workers-types": "^5.20261016.1",
     "@t00ls-dev/typescript-config": "workspace:*",
     "drizzle-kit": "^0.31.11",
     "esbuild": "0.28.2"
