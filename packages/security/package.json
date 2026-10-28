@@ -21,7 +21,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "hono": "^4.13.13"
+    "hono": "^4.13.14"
   },
   "devDependencies": {
     "vitest": "^5.0.5"
