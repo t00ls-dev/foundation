@@ -55,7 +55,7 @@
     "@vitejs/plugin-react": "^6.1.2",
     "cross-env": "^10.0.0",
     "drizzle-kit": "^0.31.11",
-    "miniflare": "^4.20250906.0",
+    "miniflare": "^5.20261006.1-alpha",
     "tailwindcss": "^4.1.13",
     "vite": "^8.3.4",
     "vitest": "^5.0.5",
