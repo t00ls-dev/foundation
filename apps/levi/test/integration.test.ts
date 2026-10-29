@@ -483,7 +483,7 @@ void test("prova pública: Magic Link verifica antes da primeira senha e permite
   assert.ok(cookie.includes("session_token="));
   assert.deepEqual(
     await (await request("/api/onboarding", undefined, cookie)).json(),
-    { etapa: "senha" },
+    { etapa: "organizacao" },
   );
   const sentBeforePassword = sent.length;
   assert.equal(
@@ -523,10 +523,10 @@ void test("prova pública: Magic Link verifica antes da primeira senha e permite
   assert.equal(cookies(replay), "");
 });
 
-void test("e-mail e sessão sem senha não podem provisionar nem contornar a allowlist", async () => {
+void test("sessão sem senha pode provisionar, sem contornar a allowlist", async () => {
   assert.equal((await provision("")).status, 401);
   const account = await verifiedAccount();
-  assert.equal((await provision(account.cookie)).status, 403);
+  assert.equal((await provision(account.cookie)).status, 201);
   for (const path of [
     "sign-up/email",
     "set-password",
@@ -590,7 +590,7 @@ void test("e-mail e sessão sem senha não podem provisionar nem contornar a all
   assert.equal((await provision(account.cookie)).status, 403);
 });
 
-void test("conta existente retoma o fluxo e sessão com credencial perdida volta à etapa de senha", async () => {
+void test("conta existente retoma o fluxo sem exigir credencial", async () => {
   const account = await readyAccount();
   assert.equal(
     (await request("/api/onboarding/email", { email: account.email })).status,
@@ -622,7 +622,7 @@ void test("conta existente retoma o fluxo e sessão com credencial perdida volta
     await (
       await request("/api/onboarding", undefined, cookies(promoted))
     ).json(),
-    { etapa: "senha" },
+    { etapa: "organizacao" },
   );
   assert.equal((await provision(cookie)).status, 401); // Better Auth revogou a sessão anterior
 });

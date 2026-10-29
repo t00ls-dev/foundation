@@ -116,7 +116,7 @@ recorte. Não entram por herança do legado nem por campos livres genéricos.
 
 O envio de e-mail não equivale à verificação. A primeira igreja não é opcional no
 provisionamento inicial. Esse fluxo não cria automaticamente um membro para o
-administrador. Conta verificada com senha pode existir antes do provisionamento
+administrador. Conta verificada, com ou sem senha, pode existir antes do provisionamento
 da organização; não prometer uma transação única incluindo interação humana e
 envio externo de e-mail.
 
@@ -221,3 +221,5 @@ relatórios anteriores não reativam essas funcionalidades.
 Essas pendências não reabrem organização como tenant, PostgreSQL, campos opcionais,
 Ativo/Inativo, administradores exclusivamente organizacionais ou a sequência de
 onboarding aprovada.
+
+A entrada por Magic Link não exige senha nem vínculo organizacional. A conta sem igrejas oferece o cadastro atual da primeira igreja e orientação para solicitar convite ao responsável; os novos serviços de igrejas e convites ainda não estão implementados. A primeira senha é opcional, configurada posteriormente com sessão verificada recente; credenciais existentes e recuperação por e-mail permanecem disponíveis. A administração global mantém a autoridade configurada e seus gates de sessão, sem exigir senha.

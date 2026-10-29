@@ -23,7 +23,7 @@ Para manter esse grafo na master, a integração do PR exige merge commit, sem s
 
 ## Estado e limites operacionais
 
-A aplicação inclui onboarding por e-mail verificado e senha posterior,
+A aplicação inclui entrada única por Magic Link para contas novas e existentes, com senha opcional posterior,
 provisionamento atômico de organização/igreja/membership/auditoria, contexto
 organizacional, gestão de membros e interface React. Os testes usam PostgreSQL
 descartável e runtime workerd local.
@@ -111,3 +111,5 @@ não exige banco, sessão ou deploy compartilhado com outro aplicativo.
 - [Preparação do publicador manual DEV](docs/deploy-dev.md).
 - [Interface e onboarding](docs/interface-onboarding.md).
 - [Gestão de membros](docs/gestao-membros.md).
+
+A entrada por Magic Link não exige senha nem vínculo organizacional. A conta sem igrejas oferece o cadastro atual da primeira igreja e orientação para solicitar convite ao responsável; os novos serviços de igrejas e convites ainda não estão implementados. A primeira senha é opcional, configurada posteriormente com sessão verificada recente; credenciais existentes e recuperação por e-mail permanecem disponíveis. A administração global mantém a autoridade configurada e seus gates de sessão, sem exigir senha.

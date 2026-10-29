@@ -10,12 +10,7 @@ import {
   type MemberEditInput,
 } from "../../src/member-types.js";
 export type Stage =
-  | "email"
-  | "verificar-email"
-  | "senha"
-  | "organizacao"
-  | "concluido"
-  | "sem-acesso";
+  "email" | "verificar-email" | "organizacao" | "concluido" | "sem-acesso";
 export interface NamedItem {
   id: string;
   nome: string;
@@ -209,7 +204,6 @@ export const api = {
     if (
       etapa !== "email" &&
       etapa !== "verificar-email" &&
-      etapa !== "senha" &&
       etapa !== "organizacao" &&
       etapa !== "sem-acesso" &&
       etapa !== "concluido"

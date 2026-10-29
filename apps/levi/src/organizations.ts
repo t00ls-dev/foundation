@@ -15,7 +15,6 @@ import {
 import type { FoundationSession } from "@t00ls-dev/auth";
 import { and, eq, gt, sql } from "drizzle-orm";
 import type { Database } from "./auth.js";
-import { hasPassword } from "./auth.js";
 import { RequestError } from "./contracts.js";
 import {
   churches,
@@ -192,11 +191,11 @@ export async function provisionOrganization(
       .from(user)
       .where(eq(user.id, identity.user.id))
       .for("update");
-    if (!locked[0]?.verified || !(await hasPassword(tx, identity.user.id))) {
+    if (!locked[0]?.verified) {
       throw new RequestError(
         403,
         "CONTA_NAO_PRONTA",
-        "Conclua a verificação e a definição de senha.",
+        "Conclua a verificação de e-mail.",
       );
     }
     // Após aguardar o lock, uma sessão revogada não pode provisionar.

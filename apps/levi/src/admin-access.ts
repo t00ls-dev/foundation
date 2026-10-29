@@ -1,9 +1,9 @@
 import type { FoundationSession } from "@t00ls-dev/auth";
-import { and, eq, isNotNull, ne, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { Database } from "./auth.js";
 import { administrativeEmail } from "./admin-config.js";
 import { RequestError } from "./contracts.js";
-import { account, session, user } from "./data/schema.js";
+import { session, user } from "./data/schema.js";
 
 export type AdministrativeTransaction = Parameters<
   Parameters<Database["db"]["transaction"]>[0]
@@ -29,20 +29,6 @@ export async function lockReadyUser(
     .where(eq(user.id, userId))
     .for("share");
   if (!current?.verified) administrativeNotFound();
-  const credentials = await tx
-    .select({ id: account.id })
-    .from(account)
-    .where(
-      and(
-        eq(account.userId, userId),
-        eq(account.providerId, "credential"),
-        eq(account.accountId, userId),
-        isNotNull(account.password),
-        ne(account.password, ""),
-      ),
-    )
-    .for("share");
-  if (!credentials.length) administrativeNotFound();
   return current;
 }
 

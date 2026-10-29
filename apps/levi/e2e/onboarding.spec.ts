@@ -113,8 +113,13 @@ test("fluxo real completo, login, seleção e retomada por refresh", async ({
   const email = await verifyEmail(page);
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "E-mail verificado. Agora, sua senha." }),
+    page.getByRole("heading", {
+      name: "Sua conta está pronta. Você ainda não tem igrejas.",
+    }),
   ).toBeVisible();
+  await page
+    .getByRole("link", { name: "Configurar senha", exact: true })
+    .click();
   await page.getByLabel("Nova senha", { exact: true }).fill("curta");
   await page
     .getByLabel("Confirme a nova senha", { exact: true })
@@ -130,6 +135,12 @@ test("fluxo real completo, login, seleção e retomada por refresh", async ({
     .getByLabel("Confirme a nova senha", { exact: true })
     .fill("synthetic-browser-password");
   await page.getByRole("button", { name: "Salvar minha senha" }).click();
+  await expect(
+    page.getByText("Senha definida. Sua conta está pronta para continuar.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.goto("/criar-igreja");
   await expect(
     page.getByRole("heading", { name: "Um lugar para sua comunidade" }),
   ).toBeVisible();
@@ -230,7 +241,11 @@ test("link legado e refresh permitem definir senha sem outra mensagem", async ({
   );
   expect(saved.includes(new URL(link).pathname.split("/").at(-1)!)).toBe(false);
   await page.reload();
-  await expect(page.getByLabel("Nova senha", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      name: "Sua conta está pronta. Você ainda não tem igrejas.",
+    }),
+  ).toBeVisible();
   await definePassword(page);
 });
 
@@ -262,7 +277,9 @@ test("link nativo reutilizado retorna erro seguro e URL limpa", async ({
   await expect(page.getByRole("alert")).toContainText("Este link não é válido");
   expect(new URL(page.url()).search).toBe("");
   await expect(
-    page.getByRole("heading", { name: "E-mail verificado. Agora, sua senha." }),
+    page.getByRole("heading", {
+      name: "Sua conta está pronta. Você ainda não tem igrejas.",
+    }),
   ).toBeVisible();
 });
 
@@ -574,7 +591,9 @@ test("409 interceptado não mostra provisionamento fictício e impede nova tenta
     .getByRole("button", { name: "Criar organização e primeira igreja" })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Seu acesso precisa de atenção" }),
+    page.getByRole("heading", {
+      name: "Sua conta está pronta. Você ainda não tem igrejas.",
+    }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Criar organização e primeira igreja" }),
@@ -844,7 +863,7 @@ test("acesso revogado permanece sem acesso após reload e novo login, sem criar 
     await page.reload();
     await expect(
       page.getByRole("heading", {
-        name: "Seu acesso precisa de atenção",
+        name: "Sua conta está pronta. Você ainda não tem igrejas.",
         exact: true,
       }),
     ).toBeVisible();
@@ -873,7 +892,7 @@ test("acesso revogado permanece sem acesso após reload e novo login, sem criar 
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
   await expect(
     page.getByRole("heading", {
-      name: "Seu acesso precisa de atenção",
+      name: "Sua conta está pronta. Você ainda não tem igrejas.",
       exact: true,
     }),
   ).toBeVisible();
@@ -1073,4 +1092,18 @@ test("shell mantém navegação e reflow nas cinco larguras aprovadas", async ({
   }
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);
+});
+
+test("conta nova utiliza sessão sem senha e pode iniciar criação da primeira igreja", async ({
+  page,
+}) => {
+  await verifyEmail(page);
+  await expect(
+    page.getByRole("link", { name: "Criar igreja", exact: true }),
+  ).toBeVisible();
+  expect((await page.request.get("/api/session-context")).status()).toBe(200);
+  expect((await page.request.get("/api/admin/context")).status()).toBe(404);
+  await page.reload();
+  await page.getByRole("link", { name: "Criar igreja", exact: true }).click();
+  await provision(page);
 });

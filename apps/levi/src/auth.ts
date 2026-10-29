@@ -6,7 +6,6 @@ import {
 } from "@t00ls-dev/auth";
 import type { createPostgresDatabase } from "@t00ls-dev/db/postgres";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { and, eq, isNotNull, ne, sql } from "drizzle-orm";
 import { account, session, user, verification } from "./data/schema.js";
 import { RequestError } from "./contracts.js";
 
@@ -66,39 +65,11 @@ export function verifiedSession(
   return identity;
 }
 
-export async function hasPassword(
-  db: Pick<Database["db"], "select">,
-  userId: string,
-): Promise<boolean> {
-  const rows = await db
-    .select({ present: sql<number>`1` })
-    .from(account)
-    .where(
-      and(
-        eq(account.userId, userId),
-        eq(account.providerId, "credential"),
-        eq(account.accountId, userId),
-        isNotNull(account.password),
-        ne(account.password, ""),
-      ),
-    )
-    .limit(1);
-  return rows.length === 1;
-}
-
-export async function readySession(
-  database: Database,
+export function readySession(
+  _database: Database,
   resolved: FoundationSession | null,
 ) {
-  const identity = verifiedSession(resolved);
-  if (!(await hasPassword(database.db, identity.user.id))) {
-    throw new RequestError(
-      403,
-      "SENHA_NECESSARIA",
-      "Defina sua senha antes de continuar.",
-    );
-  }
-  return identity;
+  return Promise.resolve(verifiedSession(resolved));
 }
 
 // Chama somente o handler HTTP público. A instância Better Auth não é acessada.

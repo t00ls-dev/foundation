@@ -42,7 +42,6 @@ import {
   authRequest,
   verifiedSession,
   readySession,
-  hasPassword,
   type Database,
   type AppOptions,
 } from "./auth.js";
@@ -392,8 +391,6 @@ export function createApp(options: AppOptions) {
     if (!identity) return c.json({ etapa: "email" });
     if (!identity.user.emailVerified)
       return c.json({ etapa: "verificar-email" });
-    if (!(await hasPassword(c.get("database").db, identity.user.id)))
-      return c.json({ etapa: "senha" });
     return c.json({
       etapa: await organizationStage(c.get("database"), identity),
     });

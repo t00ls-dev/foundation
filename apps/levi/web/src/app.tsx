@@ -95,6 +95,7 @@ export function App({
   }, [emailRetryAt, emailWait]);
   const [uncertain, setUncertain] = useState(false);
   const [hasSession, setHasSession] = useState(false);
+  const [canProvision, setCanProvision] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const active = useRef(false);
   const generation = useRef(0);
@@ -182,12 +183,13 @@ export function App({
       )
         return;
       setHasSession(stage !== "email");
+      setCanProvision(stage === "organizacao");
       if (stage === "email" || stage === "verificar-email") {
         attempt.current = null;
         setUncertain(false);
         setScreen({
           kind:
-            window.location.pathname === "/entrar" && stage === "email"
+            window.location.pathname === "/entrar/senha" && stage === "email"
               ? "login"
               : "email",
         });
@@ -200,7 +202,7 @@ export function App({
         return;
       }
       setEmailJourney({ kind: "entry", email: "" });
-      if (stage === "senha" || tokenRef.current) {
+      if (tokenRef.current || window.location.pathname === "/conta/senha") {
         setScreen({ kind: "password" });
         return;
       }
@@ -214,7 +216,12 @@ export function App({
       }
       if (stage === "organizacao") {
         memberList.current = null;
-        setScreen({ kind: denied.current ? "no-access" : "organization" });
+        setScreen({
+          kind:
+            window.location.pathname === "/criar-igreja" && !denied.current
+              ? "organization"
+              : "no-access",
+        });
         setUncertain(false);
         return;
       }
@@ -562,14 +569,12 @@ export function App({
   const titles: Record<Screen["kind"], string> = {
     loading: "Consultando seu acesso",
     failure: "Vamos tentar novamente",
-    "no-access": "Seu acesso precisa de atenção",
+    "no-access": "Sua conta está pronta. Você ainda não tem igrejas.",
     email: emailSent
       ? "Confira sua caixa de entrada"
       : "Comece pelo seu e-mail",
     login: "Bem-vindo de volta",
-    password: token
-      ? "Escolha sua senha"
-      : "E-mail verificado. Agora, sua senha.",
+    password: token ? "Escolha sua senha" : "Configurar senha opcional",
     organization: "Um lugar para sua comunidade",
     organizations: "Suas organizações",
     dashboard: "Visão geral",
@@ -593,7 +598,7 @@ export function App({
       : screen.kind === "password"
         ? 1
         : 2;
-  const showSteps = ["email", "password", "organization"].includes(screen.kind);
+  const showSteps = ["email", "organization"].includes(screen.kind);
   const managementLoading =
     screen.kind === "loading" && screen.layout === "management";
   const administrative =
@@ -748,6 +753,11 @@ export function App({
             <span className="context-role">Administração</span>
           </div>
         )}
+        {hasSession && (
+          <NavigationLink href="/conta/senha" navigate={go} disabled={busy}>
+            Configurar senha
+          </NavigationLink>
+        )}
         {hasSession && !currentOrganization && logoutButton}
       </header>
       {managementLoading && (
@@ -787,7 +797,7 @@ export function App({
             <ol>
               {[
                 "Verifique seu e-mail",
-                "Defina sua senha",
+                "Senha opcional, quando desejar",
                 "Organize sua primeira igreja",
               ].map((label, index) => (
                 <li
@@ -800,8 +810,8 @@ export function App({
               ))}
             </ol>
             <p className="journey-note">
-              Você recebe um e-mail para confirmar seu acesso e depois define
-              sua senha aqui.
+              Você recebe um e-mail para entrar. Sua conta funciona sem senha e
+              sem igreja cadastrada.
             </p>
           </aside>
         )}
@@ -905,10 +915,10 @@ export function App({
               <p className="secondary-action">
                 Já definiu sua senha?{" "}
                 <a
-                  href="/entrar"
+                  href="/entrar/senha"
                   onClick={(event) => {
                     event.preventDefault();
-                    navigate("/entrar");
+                    navigate("/entrar/senha");
                     update();
                   }}
                 >
@@ -952,9 +962,23 @@ export function App({
           {screen.kind === "password" && (
             <>
               <p>
-                Defina e confirme sua senha para concluir a preparação da sua
-                conta.
+                A senha é opcional. Defina uma senha para também poder entrar
+                com ela.
               </p>
+              <button
+                disabled={busy}
+                onClick={() =>
+                  void perform(async () => {
+                    await api.passwordEmail();
+                    setNotice({
+                      kind: "info",
+                      text: "Consulte seu e-mail para definir ou redefinir sua senha.",
+                    });
+                  })
+                }
+              >
+                Receber link para redefinir senha
+              </button>
               <AccessForm
                 mode="password"
                 busy={busy}
@@ -1255,11 +1279,27 @@ export function App({
             <>
               <p>
                 {screen.kind === "no-access"
-                  ? "Não há acesso administrativo disponível neste momento. Atualize para verificar novamente ou procure o responsável pela organização."
+                  ? "Sua conta pode ser usada sem igreja. Para participar de uma igreja existente, solicite um convite ao responsável."
                   : notice?.rateLimited
                     ? "Aguarde o prazo indicado antes de atualizar o acesso."
                     : "Confira sua conexão e tente consultar seu acesso novamente."}
               </p>
+              {screen.kind === "no-access" && canProvision && (
+                <>
+                  <p>
+                    Você pode criar sua primeira igreja pelo cadastro atual de
+                    organização. A criação independente e os convites estarão
+                    disponíveis em uma próxima etapa.
+                  </p>
+                  <NavigationLink
+                    href="/criar-igreja"
+                    navigate={go}
+                    disabled={busy}
+                  >
+                    Criar igreja
+                  </NavigationLink>
+                </>
+              )}
               <button className="primary" disabled={busy} onClick={update}>
                 Atualizar acesso
               </button>

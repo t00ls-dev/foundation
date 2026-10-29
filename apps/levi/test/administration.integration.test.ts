@@ -198,7 +198,7 @@ const owner = await account();
 const second = await account();
 await account();
 
-void test("bootstrap: identidade inválida, ambiguidade, senha e sessão inadequadas não concedem", async () => {
+void test("bootstrap: identidade inválida, ambiguidade e sessão inadequadas não concedem", async () => {
   const base = confirmation(owner);
   for (const candidate of [
     { ...base, userId: second.userId },
@@ -213,10 +213,6 @@ void test("bootstrap: identidade inválida, ambiguidade, senha e sessão inadequ
     [
       'UPDATE "user" SET email_verified=false WHERE id=$1',
       'UPDATE "user" SET email_verified=true WHERE id=$1',
-    ],
-    [
-      "UPDATE account SET password='' WHERE user_id=$1",
-      "UPDATE account SET password='synthetic-fixture-restored' WHERE user_id=$1",
     ],
   ]) {
     await observer.client.query(mutate!, [owner.userId]);
@@ -1434,7 +1430,6 @@ void test("e-mail configurado é a única autoridade; sessão e identidade atuai
     `UPDATE "user" SET email='changed@example.test' WHERE id=$1`,
     `UPDATE session SET expires_at=now()-interval '1 second' WHERE user_id=$1`,
     `UPDATE session SET created_at=now()+interval '1 day' WHERE user_id=$1`,
-    `UPDATE account SET password='' WHERE user_id=$1`,
   ]) {
     const table = statement.includes('UPDATE "user"')
       ? "user"
@@ -1620,6 +1615,21 @@ void test("identidade ambígua, aliases, sessão removida e identidade forjada n
   );
   await assert.rejects(
     requireGlobalAdministrator(runtime, actor.identity, actor.email),
+    denied(),
+  );
+});
+
+void test("administrador configurado mantém autoridade sem senha; conta comum continua negada", async () => {
+  await observer.client.query(
+    "UPDATE account SET password=NULL WHERE user_id=$1",
+    [owner.userId],
+  );
+  assert.equal(
+    await requireGlobalAdministrator(runtime, owner.identity, owner.email),
+    owner.userId,
+  );
+  await assert.rejects(
+    requireGlobalAdministrator(runtime, second.identity, owner.email),
     denied(),
   );
 });

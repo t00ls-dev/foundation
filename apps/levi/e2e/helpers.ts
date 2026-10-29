@@ -44,11 +44,15 @@ export async function verifyEmail(page: Page, email = syntheticEmail()) {
   ).toBeVisible();
   await page.goto(await emailLink(email, "Verifique seu e-mail no Levi"));
   await expect(
-    page.getByRole("heading", { name: "E-mail verificado. Agora, sua senha." }),
+    page.getByRole("heading", {
+      name: "Sua conta está pronta. Você ainda não tem igrejas.",
+    }),
   ).toBeVisible();
   return email;
 }
 export async function definePassword(page: Page) {
+  if (!(await page.getByLabel("Nova senha", { exact: true }).isVisible()))
+    await page.goto("/conta/senha");
   await page
     .getByLabel("Nova senha", { exact: true })
     .fill("synthetic-browser-password");
@@ -56,6 +60,12 @@ export async function definePassword(page: Page) {
     .getByLabel("Confirme a nova senha", { exact: true })
     .fill("synthetic-browser-password");
   await page.getByRole("button", { name: "Salvar minha senha" }).click();
+  await expect(
+    page.getByText("Senha definida. Sua conta está pronta para continuar.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.goto("/criar-igreja");
   await expect(
     page.getByRole("heading", { name: "Um lugar para sua comunidade" }),
   ).toBeVisible();

@@ -784,7 +784,7 @@ test("membros: edição com vínculo revogado é negada e remove o rascunho prot
     .click();
   await expect(
     page.getByRole("heading", {
-      name: "Seu acesso precisa de atenção",
+      name: "Sua conta está pronta. Você ainda não tem igrejas.",
       exact: true,
     }),
   ).toBeVisible();

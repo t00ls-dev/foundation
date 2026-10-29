@@ -77,7 +77,9 @@ test("painel exige guard HTTP real, funciona sem organização e mantém navega�
   ).toBe(true);
   await page.getByRole("link", { name: "Voltar ao Levi" }).click();
   await expect(
-    page.getByRole("heading", { name: "Um lugar para sua comunidade" }),
+    page.getByRole("heading", {
+      name: "Sua conta está pronta. Você ainda não tem igrejas.",
+    }),
   ).toBeVisible();
   await page.goBack();
   await expect(
