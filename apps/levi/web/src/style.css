@@ -457,6 +457,7 @@ footer {
   flex-shrink: 0;
 }
 .context-label {
+  overflow-wrap: anywhere;
   margin-right: auto;
   min-width: 0;
   padding-left: 1rem;
@@ -605,6 +606,9 @@ footer {
   padding: var(--space-6);
   margin: 1.8rem 0 1.5rem;
   background: #faf9ff;
+}
+.welcome > div {
+  min-width: 0;
 }
 .welcome h2 {
   font-size: clamp(1.5rem, 2.4vw, 2rem);

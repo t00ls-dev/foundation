@@ -677,6 +677,7 @@ test("interface: navegação, listas e formulários em largura estreita e texto 
     await page.setViewportSize({ width, height: 667 });
     await page.evaluate(() => {
       document.documentElement.style.fontSize = "200%";
+      document.body.style.fontFamily = "Arial, sans-serif";
     });
     expect(
       await page.evaluate(
@@ -692,6 +693,7 @@ test("interface: navegação, listas e formulários em largura estreita e texto 
   }
   await page.evaluate(() => {
     document.documentElement.style.fontSize = "";
+    document.body.style.fontFamily = "";
   });
   // Altura reduzida aproxima a área útil com teclado aberto, sem simular um teclado iOS real.
   await page.setViewportSize({ width: 375, height: 360 });
@@ -824,36 +826,42 @@ test("interface: contraste da ficha, nomes longos, tablets e texto a 200%", asyn
     if (state === "focus") await ficha.focus();
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   }
-  for (const width of [320, 375, 760, 768, 1024, 1280, 1440]) {
-    await page.setViewportSize({ width, height: 900 });
-    for (const fontSize of ["100%", "200%"]) {
-      await page.evaluate((size) => {
-        document.documentElement.style.fontSize = size;
-      }, fontSize);
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= window.innerWidth,
-        ),
-        `${width}px / ${fontSize}`,
-      ).toBe(true);
-      const bounds = await page.locator(".admin-nav").boundingBox();
-      const main = await page.locator("main").boundingBox();
-      expect(
-        bounds!.x + bounds!.width <= main!.x ||
-          bounds!.y + bounds!.height <= main!.y,
-        `navegação sem sobreposição: ${width}px / ${fontSize}`,
-      ).toBe(true);
-      for (const button of await page.locator(".admin-nav a").all()) {
+  for (const fontFamily of ["", "Arial, sans-serif"]) {
+    await page.evaluate((family) => {
+      document.body.style.fontFamily = family;
+    }, fontFamily);
+    for (const width of [320, 375, 760, 768, 1024, 1280, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const fontSize of ["100%", "200%"]) {
+        await page.evaluate((size) => {
+          document.documentElement.style.fontSize = size;
+        }, fontSize);
         expect(
-          await button.evaluate(
-            (element) => element.scrollWidth <= element.clientWidth,
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= window.innerWidth,
           ),
+          `${width}px / ${fontSize}`,
         ).toBe(true);
+        const bounds = await page.locator(".admin-nav").boundingBox();
+        const main = await page.locator("main").boundingBox();
+        expect(
+          bounds!.x + bounds!.width <= main!.x ||
+            bounds!.y + bounds!.height <= main!.y,
+          `navegação sem sobreposição: ${width}px / ${fontSize}`,
+        ).toBe(true);
+        for (const button of await page.locator(".admin-nav a").all()) {
+          expect(
+            await button.evaluate(
+              (element) => element.scrollWidth <= element.clientWidth,
+            ),
+          ).toBe(true);
+        }
       }
     }
   }
   await page.evaluate(() => {
     document.documentElement.style.fontSize = "";
+    document.body.style.fontFamily = "";
   });
 });
 
