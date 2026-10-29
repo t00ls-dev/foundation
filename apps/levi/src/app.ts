@@ -52,7 +52,7 @@ import {
   requireUuid,
   RequestError,
 } from "./contracts.js";
-import { verification } from "./data/schema.js";
+import { tenants, verification } from "./data/schema.js";
 import {
   findChurch,
   listChurches,
@@ -69,6 +69,8 @@ type Environment = {
     auth: FoundationAuth;
     identity: FoundationSession | null;
     abuse: ReturnType<typeof createAbuseProtection> | null;
+    memberIdentity: FoundationSession;
+    memberContext: Awaited<ReturnType<typeof organizationContext>>;
   };
 };
 
@@ -458,8 +460,21 @@ export function createApp(options: AppOptions) {
       c.get("database"),
       await readySession(c.get("database"), c.get("identity")),
     );
+    const [organization] = await c
+      .get("database")
+      .db.select({ name: tenants.name })
+      .from(tenants)
+      .where(eq(tenants.id, context.tenantId))
+      .limit(1);
+    if (!organization)
+      throw new RequestError(
+        404,
+        "NAO_ENCONTRADO",
+        "Organização não encontrada.",
+      );
     return c.json({
       organizationId: context.tenantId,
+      organizationName: organization.name,
       role: context.role,
       membersEnabled: true,
     });
@@ -482,36 +497,37 @@ export function createApp(options: AppOptions) {
     ),
   );
   app.use("/api/members*", async (c, next) => {
-    await organizationContext(
-      c.get("database"),
-      await readySession(c.get("database"), c.get("identity")),
+    const identity = await readySession(c.get("database"), c.get("identity"));
+    c.set("memberIdentity", identity);
+    c.set(
+      "memberContext",
+      await organizationContext(c.get("database"), identity),
     );
     await next();
   });
-  app.post("/api/members", async (c) => {
-    const identity = await readySession(c.get("database"), c.get("identity"));
-    return c.json(
+  app.post("/api/members", async (c) =>
+    c.json(
       await createMember(
         c.get("database"),
-        identity,
+        c.get("memberIdentity"),
         await readMember(c.req.raw),
         readMemberRequestKey(c.req.raw),
+        c.get("memberContext"),
       ),
       201,
-    );
-  });
-  app.get("/api/members", async (c) => {
-    const identity = await readySession(c.get("database"), c.get("identity"));
-    return c.json(
+    ),
+  );
+  app.get("/api/members", async (c) =>
+    c.json(
       await listMembers(
         c.get("database"),
-        identity,
+        c.get("memberIdentity"),
         readMemberFilters(new URL(c.req.url)),
+        c.get("memberContext"),
       ),
-    );
-  });
+    ),
+  );
   app.get("/api/members/requests/:key", async (c) => {
-    const identity = await readySession(c.get("database"), c.get("identity"));
     const key = c.req.param("key");
     if (!/^[a-zA-Z0-9_-]{16,128}$/.test(key))
       throw new RequestError(
@@ -519,29 +535,36 @@ export function createApp(options: AppOptions) {
         "ENTRADA_INVALIDA",
         "A tentativa informada é inválida.",
       );
-    return c.json(await findMemberRequest(c.get("database"), identity, key));
-  });
-  app.patch("/api/members/:id", async (c) => {
-    const identity = await readySession(c.get("database"), c.get("identity"));
     return c.json(
+      await findMemberRequest(
+        c.get("database"),
+        c.get("memberIdentity"),
+        key,
+        c.get("memberContext"),
+      ),
+    );
+  });
+  app.patch("/api/members/:id", async (c) =>
+    c.json(
       await editMember(
         c.get("database"),
-        identity,
+        c.get("memberIdentity"),
         requireUuid(c.req.param("id")),
         await readMemberEdit(c.req.raw),
+        c.get("memberContext"),
       ),
-    );
-  });
-  app.get("/api/members/:id", async (c) => {
-    const identity = await readySession(c.get("database"), c.get("identity"));
-    return c.json(
+    ),
+  );
+  app.get("/api/members/:id", async (c) =>
+    c.json(
       await findMember(
         c.get("database"),
-        identity,
+        c.get("memberIdentity"),
         requireUuid(c.req.param("id")),
+        c.get("memberContext"),
       ),
-    );
-  });
+    ),
+  );
   // Allowlist exata: signup, mudança de e-mail/senha e novos plugins não vazam.
   app.all("/api/auth/*", (c) =>
     c.json(

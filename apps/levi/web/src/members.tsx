@@ -77,6 +77,7 @@ export function Members({
   const [filters, setFilters] = useState<MemberFilters>(initialFilters);
   const [uncertain, setUncertain] = useState(false);
   const generation = useRef(0);
+  const contextValidated = useRef(false);
   const running = useRef(false);
   const pending = useRef<{ key: string; input: MemberInput } | null>(null);
   const storageKey = `levi.member.request.${organization.id}`;
@@ -157,8 +158,12 @@ export function Members({
     setError(null);
     setBusy(true);
     try {
-      await validateContext();
-      if (sequence !== generation.current) return;
+      if (contextValidated.current) {
+        await validateContext();
+        if (sequence !== generation.current) return;
+      } else {
+        contextValidated.current = true;
+      }
       if (mode === "list") {
         const result = await memberApi.list(filters);
         check(result.organizationId);

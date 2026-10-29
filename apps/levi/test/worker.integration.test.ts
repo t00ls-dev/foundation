@@ -865,6 +865,7 @@ void test("workerd: schema anterior preserva onboarding e igrejas e falha fechad
     const context = await runtime.send("/api/context", undefined, cookie);
     assert.deepEqual(await context.json(), {
       organizationId,
+      organizationName: body.organizationName,
       role: "admin",
       membersEnabled: true,
     });
@@ -960,6 +961,7 @@ void test("workerd: todas as organizações têm membros, com autorização e is
       );
       assert.deepEqual(await context.json(), {
         organizationId: account.organizationId,
+        organizationName: body.organizationName,
         role: "admin",
         membersEnabled: true,
       });

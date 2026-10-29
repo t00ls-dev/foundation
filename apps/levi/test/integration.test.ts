@@ -1057,6 +1057,7 @@ void test("duas organizações ficam isoladas e administrador acessa múltiplas 
     await (await request("/api/context", undefined, first.cookie)).json(),
     {
       organizationId: first.organizationId,
+      organizationName: provisionBody.organizationName,
       role: "admin",
       membersEnabled: true,
     },

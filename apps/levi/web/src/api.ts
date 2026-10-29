@@ -245,8 +245,15 @@ export const api = {
     const data = record(await request("/api/context"));
     if (data.role !== "admin") return contractError();
     if (typeof data.membersEnabled !== "boolean") return contractError();
+    if (
+      typeof data.organizationName !== "string" ||
+      !data.organizationName.trim() ||
+      data.organizationName.length > 160
+    )
+      return contractError();
     return {
       organizationId: id(data.organizationId),
+      organizationName: data.organizationName,
       membersEnabled: data.membersEnabled,
     };
   },

@@ -13,7 +13,7 @@ import {
   createPostgresTenantSessionStore,
 } from "@t00ls-dev/tenant/postgres";
 import type { FoundationSession } from "@t00ls-dev/auth";
-import { and, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 import type { Database } from "./auth.js";
 import { hasPassword } from "./auth.js";
 import { RequestError } from "./contracts.js";
@@ -82,52 +82,53 @@ export async function selectOrganization(
   tenantId: string,
 ) {
   const repository = createPostgresTenantRepository<string>(database.client);
-  const membership = await repository.findMembership(
-    identity.user.id,
-    tenantId,
-  );
-  if (!membership)
-    throw new RequestError(
-      403,
-      "ACESSO_NEGADO",
-      "Você não administra esta organização.",
-    );
-  assertAdministrator(membership.role);
   // A validação também ocorre no helper público antes de gravar a sessão.
-  const context = await switchTenant({
-    repository: {
-      findMembership: async (userId, selectedTenantId) => {
-        const current = await repository.findMembership(
-          userId,
-          selectedTenantId,
-        );
-        if (current) assertAdministrator(current.role);
-        return current;
+  try {
+    const context = await switchTenant({
+      repository: {
+        findMembership: async (userId, selectedTenantId) => {
+          const current = await repository.findMembership(
+            userId,
+            selectedTenantId,
+          );
+          if (current) assertAdministrator(current.role);
+          return current;
+        },
       },
-    },
-    sessionId: identity.session.id,
-    sessions: createPostgresTenantSessionStore(database.client),
-    tenantId,
-    userId: identity.user.id,
-  });
-  return { organizationId: context.tenantId };
+      sessionId: identity.session.id,
+      sessions: createPostgresTenantSessionStore(database.client),
+      tenantId,
+      userId: identity.user.id,
+    });
+    return { organizationId: context.tenantId };
+  } catch (error) {
+    if (
+      error instanceof TenantAccessDeniedError ||
+      error instanceof TenantContextRequiredError
+    )
+      throw new RequestError(
+        403,
+        "ACESSO_NEGADO",
+        "Você não administra esta organização.",
+      );
+    throw error;
+  }
 }
 
 export async function listOrganizations(
   database: Database,
   identity: FoundationSession,
 ) {
-  const memberships = await createPostgresTenantRepository<string>(
-    database.client,
-  ).listMemberships(identity.user.id);
-  const ids = memberships
-    .filter((membership) => membership.role === "admin")
-    .map((membership) => membership.tenantId);
-  if (!ids.length) return [];
   return database.db
     .select({ id: tenants.id, nome: tenants.name })
-    .from(tenants)
-    .where(inArray(tenants.id, ids))
+    .from(tenantMemberships)
+    .innerJoin(tenants, eq(tenants.id, tenantMemberships.tenantId))
+    .where(
+      and(
+        eq(tenantMemberships.userId, identity.user.id),
+        eq(tenantMemberships.role, "admin"),
+      ),
+    )
     .orderBy(tenants.id);
 }
 
@@ -137,7 +138,17 @@ export async function organizationStage(
   database: Database,
   identity: FoundationSession,
 ): Promise<"concluido" | "organizacao" | "sem-acesso"> {
-  if ((await listOrganizations(database, identity)).length) return "concluido";
+  const memberships = await database.db
+    .select({ id: tenantMemberships.id })
+    .from(tenantMemberships)
+    .where(
+      and(
+        eq(tenantMemberships.userId, identity.user.id),
+        eq(tenantMemberships.role, "admin"),
+      ),
+    )
+    .limit(1);
+  if (memberships.length) return "concluido";
   const receipts = await database.db
     .select({ userId: onboardingProvisions.userId })
     .from(onboardingProvisions)

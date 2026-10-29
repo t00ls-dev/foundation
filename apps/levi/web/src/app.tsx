@@ -217,48 +217,34 @@ export function App({
         setUncertain(false);
         return;
       }
-      const organizations = await api.organizations();
-      if (sequence !== generation.current) return;
-      if (
-        memberList.current &&
-        !organizations.some(
-          (item) => item.id === memberList.current?.organizationId,
-        )
-      )
-        memberList.current = null;
       const finishProvision =
         Boolean(provisionResult) ||
         (!denied.current && attempt.current !== null);
-      denied.current = false;
-      setUncertain(false);
-      if (
+      const management =
         finishProvision ||
         (resumeChurches &&
           !sessionChanged &&
           (["/igrejas", "/painel"].includes(window.location.pathname) ||
-            window.location.pathname.startsWith("/membros")))
-      ) {
-        const context = await api.context();
+            window.location.pathname.startsWith("/membros")));
+      const expectedOrganizationId =
+        provisionResult && provisionResult !== "recover"
+          ? provisionResult.organizationId
+          : attempt.current?.kind === "confirmed"
+            ? attempt.current.organizationId
+            : null;
+      denied.current = false;
+      setUncertain(false);
+      if (management) {
+        const [context, churches] = await Promise.all([
+          api.context(),
+          api.churches(),
+        ]);
+        if (sequence !== generation.current) return;
         if (
           memberList.current &&
           memberList.current.organizationId !== context.organizationId
         )
           memberList.current = null;
-        const organization = organizations.find(
-          (item) => item.id === context.organizationId,
-        );
-        if (!organization)
-          throw new ApiError(
-            403,
-            "ACESSO_NEGADO",
-            "Seu acesso precisa ser atualizado.",
-          );
-        const expectedOrganizationId =
-          provisionResult && provisionResult !== "recover"
-            ? provisionResult.organizationId
-            : attempt.current?.kind === "confirmed"
-              ? attempt.current.organizationId
-              : null;
         if (
           expectedOrganizationId &&
           context.organizationId !== expectedOrganizationId
@@ -268,14 +254,16 @@ export function App({
             "CONTEXTO_ALTERADO",
             "Selecione novamente a organização para continuar.",
           );
-        const churches = await api.churches();
         if (churches.organizationId !== context.organizationId)
           throw new ApiError(
             403,
             "CONTEXTO_ALTERADO",
             "Selecione novamente a organização para continuar.",
           );
-        if (sequence !== generation.current) return;
+        const organization = {
+          id: context.organizationId,
+          nome: context.organizationName,
+        };
         if (!(await confirmSession(currentIdentity, sequence))) return;
         if (finishProvision) navigate("/painel");
         if (
@@ -322,6 +310,15 @@ export function App({
             membersEnabled: context.membersEnabled,
           });
       } else {
+        const organizations = await api.organizations();
+        if (sequence !== generation.current) return;
+        if (
+          memberList.current &&
+          !organizations.some(
+            (item) => item.id === memberList.current?.organizationId,
+          )
+        )
+          memberList.current = null;
         if (!(await confirmSession(currentIdentity, sequence))) return;
         setScreen({ kind: "organizations", items: organizations });
       }

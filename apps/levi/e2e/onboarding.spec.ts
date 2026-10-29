@@ -927,6 +927,7 @@ test("provisionamento confirmado exige contexto autorizado antes de abrir painel
       contentType: "application/json",
       body: JSON.stringify({
         organizationId: "11111111-1111-4111-8111-111111111111",
+        organizationName: "Organização sintética",
         role: "admin",
         membersEnabled: true,
       }),

@@ -23,12 +23,14 @@ import type {
 } from "./member-types.js";
 import type { readMemberFilters } from "./member-contracts.js";
 
+type ResolvedContext = Awaited<ReturnType<typeof organizationContext>>;
 async function context(
   database: Database,
   identity: FoundationSession,
   permission: "members:read" | "members:create" | "members:update",
+  resolved?: ResolvedContext,
 ) {
-  const current = await organizationContext(database, identity);
+  const current = resolved ?? (await organizationContext(database, identity));
   if (current.role !== "admin" || !access.can(current.role, permission))
     throw new RequestError(
       403,
@@ -48,8 +50,9 @@ export async function listMembers(
   database: Database,
   identity: FoundationSession,
   filters: ReturnType<typeof readMemberFilters>,
+  resolved?: ResolvedContext,
 ) {
-  const current = await context(database, identity, "members:read");
+  const current = await context(database, identity, "members:read", resolved);
   // Escapa curingas: nome é trecho literal, sem distinção de caixa e sem busca global.
   const literalName = filters.name.replace(/[\\%_]/g, "\\$&");
   const rows = await database.db
@@ -85,8 +88,9 @@ export async function findMember(
   database: Database,
   identity: FoundationSession,
   id: string,
+  resolved?: ResolvedContext,
 ) {
-  const current = await context(database, identity, "members:read");
+  const current = await context(database, identity, "members:read", resolved);
   const [row] = await database.db
     .select({ member: members, churchName: churches.name })
     .from(members)
@@ -108,8 +112,9 @@ export async function createMember(
   identity: FoundationSession,
   input: Required<MemberInput>,
   requestKey: string,
+  resolved?: ResolvedContext,
 ) {
-  const current = await context(database, identity, "members:create");
+  const current = await context(database, identity, "members:create", resolved);
   const requestHash = createHash("sha256")
     .update(JSON.stringify(input))
     .digest("hex");
@@ -189,8 +194,9 @@ export async function findMemberRequest(
   database: Database,
   identity: FoundationSession,
   requestKey: string,
+  resolved?: ResolvedContext,
 ) {
-  const current = await context(database, identity, "members:read");
+  const current = await context(database, identity, "members:read", resolved);
   const [receipt] = await database.db
     .select({ memberId: memberCreationRequests.memberId })
     .from(memberCreationRequests)
@@ -256,8 +262,9 @@ export async function editMember(
   identity: FoundationSession,
   id: string,
   input: MemberEditInput,
+  resolved?: ResolvedContext,
 ) {
-  const current = await context(database, identity, "members:update");
+  const current = await context(database, identity, "members:update", resolved);
   return database.db.transaction(async (tx) => {
     await lockWriteContext(tx, identity, current.tenantId);
     const [previous] = await tx
