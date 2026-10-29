@@ -381,7 +381,7 @@ void test("workerd: onboarding público, dois e-mails, prontidão, cookies e cal
         "Idempotency-Key": randomUUID(),
       })
     ).status,
-    403,
+    201,
   );
   assert.equal(
     (await send("/api/auth/sign-up/email", { email: account.email, password }))
@@ -417,7 +417,7 @@ void test("workerd: onboarding público, dois e-mails, prontidão, cookies e cal
   );
   assert.deepEqual(
     await (await send("/api/onboarding", undefined, account.cookie)).json(),
-    { etapa: "organizacao" },
+    { etapa: "concluido" },
   );
   assert.equal(
     (await send("/api/auth/sign-out", {}, account.cookie)).status,
