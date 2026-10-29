@@ -1,6 +1,12 @@
 import { formText } from "./form-data.js";
 import { useDraftGuard } from "./ui.js";
-import { useId, useState, type FormEvent } from "react";
+import {
+  useId,
+  useRef,
+  useLayoutEffect,
+  useState,
+  type FormEvent,
+} from "react";
 import type { ProvisionInput } from "./api.js";
 
 type Field = {
@@ -32,6 +38,16 @@ function Form({
   const id = useId();
   const draft = useDraftGuard();
   const [errors, setErrors] = useState<Values>({});
+  const invalidField = useRef<HTMLInputElement | null>(null);
+  useLayoutEffect(() => {
+    // O grupo opcional já foi expandido pelo render antes de mover o foco.
+    const target = invalidField.current;
+    // O usuário pode ter recolhido o grupo desde a validação anterior.
+    const group = target?.closest("details");
+    if (group instanceof HTMLDetailsElement) group.open = true;
+    target?.focus();
+    invalidField.current = null;
+  }, [errors]);
   async function handle(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
@@ -44,7 +60,8 @@ function Form({
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) {
       const firstInvalid = form.elements.namedItem(Object.keys(nextErrors)[0]!);
-      if (firstInvalid instanceof HTMLInputElement) firstInvalid.focus();
+      if (firstInvalid instanceof HTMLInputElement)
+        invalidField.current = firstInvalid;
       return;
     }
     await onSubmit(values);
@@ -133,10 +150,12 @@ export function AccessForm({
   busy,
   onSubmit,
   initial,
+  email,
 }: {
   mode: "email" | "login" | "password" | "organization";
   busy: boolean;
   initial?: ProvisionInput | undefined;
+  email?: string;
   onSubmit: (values: Values) => Promise<void>;
 }) {
   if (mode === "organization")
@@ -242,6 +261,7 @@ export function AccessForm({
       label: "Seu e-mail",
       type: "email",
       autoComplete: "email",
+      value: email,
       max: 254,
     },
   ];

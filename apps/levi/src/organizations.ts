@@ -131,6 +131,21 @@ export async function listOrganizations(
     .orderBy(tenants.id);
 }
 
+// A ausência de vínculo não distingue conta nova de acesso revogado.
+// O recibo pertence à conta autenticada e nunca é usado para conceder acesso.
+export async function organizationStage(
+  database: Database,
+  identity: FoundationSession,
+): Promise<"concluido" | "organizacao" | "sem-acesso"> {
+  if ((await listOrganizations(database, identity)).length) return "concluido";
+  const receipts = await database.db
+    .select({ userId: onboardingProvisions.userId })
+    .from(onboardingProvisions)
+    .where(eq(onboardingProvisions.userId, identity.user.id))
+    .limit(1);
+  return receipts.length ? "sem-acesso" : "organizacao";
+}
+
 export async function provisionOrganization(
   database: Database,
   identity: FoundationSession,

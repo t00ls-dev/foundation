@@ -6,6 +6,8 @@ import {
   takeLinkReturn,
   provisionKey,
   clearProvisionKey,
+  sameSession,
+  clearSessionRequests,
 } from "../web/src/session.js";
 
 const originalFetch = globalThis.fetch;
@@ -337,4 +339,88 @@ void test("campos textuais preservam valores e não convertem arquivos em texto"
   assert.equal(formText(data, "empty"), "");
   assert.equal(formText(data, "missing"), "");
   assert.equal(formText(data, "file"), "");
+});
+
+void test("filtro institucional preserva apenas UUID de igreja e remove credenciais e busca pessoal", () => {
+  const churchId = "11111111-1111-4111-8111-111111111111";
+  for (const [path, query, expected] of [
+    [
+      "/membros",
+      `?igreja=${churchId}&token=secret&nome=Pessoa#fragmento`,
+      `/membros?igreja=${churchId}`,
+    ],
+    ["/membros", "?igreja=invalid&nome=Pessoa", "/membros"],
+    ["/onboarding", `?igreja=${churchId}&token=secret`, "/onboarding"],
+  ]) {
+    let actual: string | URL | null | undefined;
+    takeLinkReturn(
+      { href: `http://localhost${path}${query}`, pathname: path! },
+      {
+        replaceState: (_data, _unused, url) => {
+          actual = url;
+        },
+      },
+    );
+    assert.equal(actual, expected);
+  }
+});
+
+void test("cliente reconhece ausência autoritativa de acesso sem abrir provisionamento", async () => {
+  globalThis.fetch = () =>
+    Promise.resolve(Response.json({ etapa: "sem-acesso" }));
+  assert.equal(await api.stage(), "sem-acesso");
+});
+
+void test("contexto de sessão valida IDs, distingue 401 de falha e não aceita contrato incompleto", async () => {
+  const expected = {
+    userId: "11111111-1111-4111-8111-111111111111",
+    sessionId: "22222222-2222-4222-8222-222222222222",
+  };
+  globalThis.fetch = () => Promise.resolve(Response.json(expected));
+  assert.deepEqual(await api.sessionContext(), expected);
+  globalThis.fetch = () =>
+    Promise.resolve(
+      Response.json({ erro: "SESSAO_NECESSARIA" }, { status: 401 }),
+    );
+  assert.equal(await api.sessionContext(), null);
+  globalThis.fetch = () =>
+    Promise.resolve(Response.json({ userId: expected.userId }));
+  await assert.rejects(
+    api.sessionContext(),
+    (error: unknown) => error instanceof ApiError && error.status === 502,
+  );
+  globalThis.fetch = () => Promise.resolve(Response.json({}, { status: 503 }));
+  await assert.rejects(
+    api.sessionContext(),
+    (error: unknown) => error instanceof ApiError && error.status === 503,
+  );
+  assert.equal(sameSession(expected, { ...expected }), true);
+  assert.equal(
+    sameSession(expected, { ...expected, sessionId: expected.userId }),
+    false,
+  );
+  assert.equal(
+    sameSession(expected, { ...expected, userId: expected.sessionId }),
+    false,
+  );
+  assert.equal(sameSession(expected, null), false);
+  assert.equal(sameSession(null, null), true);
+});
+
+void test("troca de sessão descarta somente chaves transitórias do Levi", () => {
+  const values = new Map([
+    ["levi.onboarding.request", "opaque-provision"],
+    ["levi.member.request.organization", "opaque-member"],
+    ["unrelated", "preservar"],
+  ]);
+  clearSessionRequests({
+    get length() {
+      return values.size;
+    },
+    key: (index) => [...values.keys()][index] ?? null,
+    removeItem: (key) => {
+      values.delete(key);
+    },
+  });
+  assert.deepEqual([...values], [["unrelated", "preservar"]]);
 });

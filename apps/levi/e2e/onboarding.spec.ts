@@ -2,11 +2,14 @@ import { test, expect } from "@playwright/test";
 import { AxeBuilder } from "@axe-core/playwright";
 import { createPostgresDatabase } from "@t00ls-dev/db/postgres";
 import { mkdir } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   definePassword,
   emailLink,
   provision,
   readyAccount,
+  showOrganizations,
   verifyEmail,
 } from "./helpers.js";
 
@@ -23,6 +26,7 @@ test("429 de navegação mostra espera, evita novas chamadas e permite sair", as
 }) => {
   await readyAccount(page);
   await provision(page);
+  await showOrganizations(page);
   let blocked = 0;
   await page.route("**/api/organizations", (route) => {
     if (route.request().method() !== "GET") return route.continue();
@@ -132,6 +136,7 @@ test("fluxo real completo, login, seleção e retomada por refresh", async ({
     page.getByText("Informe um nome para continuar.").first(),
   ).toBeVisible();
   await provision(page);
+  await showOrganizations(page);
   await page
     .getByRole("button", {
       name: "Acessar organização Comunidade sintética",
@@ -287,6 +292,7 @@ test("falha de rede antes de gravar conserva a chave depois de refresh", async (
       request.method() === "POST",
   );
   await provision(page, "Organização de retomada");
+  await showOrganizations(page);
   expect((await posted).headers()["idempotency-key"]).toBe(firstKey);
 });
 
@@ -337,7 +343,7 @@ test("resposta perdida após commit recupera o resultado sem outro provisionamen
     .getByRole("button", { name: "Verificar resultado", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Suas organizações" }),
+    page.getByRole("heading", { name: "Visão geral" }),
   ).toBeVisible();
   expect(posts).toBe(1);
   const result = await observer.client.query<{
@@ -355,6 +361,7 @@ test("troca real entre organizações não conserva igrejas anteriores e revoga�
 }) => {
   const email = await readyAccount(page);
   await provision(page, "Organização inicial");
+  await showOrganizations(page);
   const user = (
     await observer.client.query<{ id: string }>(
       'SELECT id FROM "user" WHERE email=$1',
@@ -399,7 +406,7 @@ test("troca real entre organizações não conserva igrejas anteriores e revoga�
     page.getByText("Primeira igreja sintética", { exact: true }),
   ).toBeVisible();
   await page
-    .getByRole("button", { name: "Trocar organização", exact: true })
+    .getByRole("link", { name: "Trocar organização", exact: true })
     .click();
   await page
     .getByRole("button", {
@@ -439,6 +446,7 @@ test("mudança de tenant entre leituras não mistura o nome da organização e s
 }) => {
   const email = await readyAccount(page);
   await provision(page, "Organização escolhida");
+  await showOrganizations(page);
   const user = (
     await observer.client.query<{ id: string }>(
       'SELECT id FROM "user" WHERE email=$1',
@@ -486,6 +494,7 @@ test("401 e 403 interceptados removem igrejas exibidas e reconsultam o servidor"
 }) => {
   await readyAccount(page);
   await provision(page);
+  await showOrganizations(page);
   await page
     .getByRole("button", {
       name: "Acessar organização Comunidade sintética",
@@ -601,9 +610,9 @@ test("responsividade, teclado e acessibilidade básica da interface real", async
     .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
     .analyze();
   expect(initial.violations.map((violation) => violation.id)).toEqual([]);
-  await mkdir(".local/e2e", { recursive: true });
+  await mkdir(join(tmpdir(), "levi-ui-e2e"), { recursive: true });
   await page.screenshot({
-    path: `.local/e2e/${info.project.name}.png`,
+    path: join(tmpdir(), `levi-ui-e2e/${info.project.name}.png`),
     fullPage: false,
   });
   await verifyEmail(page);
@@ -613,6 +622,7 @@ test("responsividade, teclado e acessibilidade básica da interface real", async
     .analyze();
   expect(form.violations.map((violation) => violation.id)).toEqual([]);
   await provision(page);
+  await showOrganizations(page);
   const organization = page.getByRole("button", {
     name: "Acessar organização Comunidade sintética",
     exact: true,
@@ -645,9 +655,9 @@ test("onboarding: contatos opcionais, validação e rascunho preservado ao recup
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(organization).toHaveValue("Organização com contatos sintéticos");
   const { mkdir } = await import("node:fs/promises");
-  await mkdir(".local/e2e", { recursive: true });
+  await mkdir(join(tmpdir(), "levi-ui-e2e"), { recursive: true });
   await page.screenshot({
-    path: `.local/e2e/${info.project.name}-onboarding.png`,
+    path: join(tmpdir(), `levi-ui-e2e/${info.project.name}-onboarding.png`),
     fullPage: false,
   });
   await page
@@ -661,6 +671,29 @@ test("onboarding: contatos opcionais, validação e rascunho preservado ao recup
     .fill("00 0000-0000");
   const email = page.getByLabel("E-mail da igreja (opcional)", { exact: true });
   await email.fill("inválido");
+  await page.locator(".optional-details summary").click();
+  await page
+    .getByRole("button", {
+      name: "Criar organização e primeira igreja",
+      exact: true,
+    })
+    .focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByText("Informe um e-mail válido.", { exact: true }),
+  ).toBeVisible();
+  await expect(email).toBeFocused();
+  await page.locator(".optional-details summary").click();
+  await page
+    .getByRole("button", {
+      name: "Criar organização e primeira igreja",
+      exact: true,
+    })
+    .focus();
+  await page.keyboard.press("Enter");
+  await expect(email).toBeFocused();
+  await expect(page.locator(".optional-details")).toHaveAttribute("open", "");
+  await email.fill("igreja@example.test");
   await page
     .getByRole("button", {
       name: "Criar organização e primeira igreja",
@@ -668,10 +701,243 @@ test("onboarding: contatos opcionais, validação e rascunho preservado ao recup
     })
     .click();
   await expect(
-    page.getByText("Informe um e-mail válido.", { exact: true }),
+    page.getByRole("heading", { name: "Visão geral", exact: true }),
   ).toBeVisible();
-  await expect(email).toBeFocused();
-  await email.fill("igreja@example.test");
+  await page.getByRole("link", { name: "Igrejas", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Igrejas da organização" }),
+  ).toBeVisible();
+
+  await expect(
+    page.getByText("Endereço sintético da igreja", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("igreja@example.test", { exact: true }),
+  ).toBeVisible();
+});
+
+test("e-mail em memória: conferência, reenvio, 429 e alteração explícita", async ({
+  page,
+}) => {
+  const sent: string[] = [];
+  await page.route("**/api/onboarding/email", async (route) => {
+    const input: unknown = route.request().postDataJSON();
+    if (
+      !input ||
+      typeof input !== "object" ||
+      !("email" in input) ||
+      typeof input.email !== "string"
+    )
+      throw new Error("Solicitação sintética sem e-mail válido.");
+    sent.push(input.email);
+    return route.fulfill(
+      sent.length === 2
+        ? {
+            status: 429,
+            headers: { "Retry-After": "90" },
+            contentType: "application/json",
+            body: JSON.stringify({ erro: "LIMITE_DE_SOLICITACOES" }),
+          }
+        : {
+            contentType: "application/json",
+            body: JSON.stringify({ ok: true }),
+          },
+    );
+  });
+  await page.goto("/");
+  await page.clock.install();
+  await page
+    .getByLabel("Seu e-mail", { exact: true })
+    .fill("conferencia@example.test");
+  await page
+    .getByRole("button", { name: "Receber link de acesso", exact: true })
+    .click();
+  await expect(page.locator(".email-confirmation")).toContainText(
+    "conferencia@example.test",
+  );
+  const resend = page.getByRole("button", {
+    name: "Reenviar link",
+    exact: true,
+  });
+  await expect(resend).toBeDisabled();
+  await page.clock.fastForward(60_000);
+  await expect(resend).toBeEnabled();
+  await resend.click();
+  await expect(page.getByRole("alert")).toContainText("Muitas solicitações");
+  await expect(resend).toBeDisabled();
+  await page.clock.fastForward(90_000);
+  await resend.click();
+  expect(sent).toEqual(Array(3).fill("conferencia@example.test"));
+  await page
+    .getByRole("button", { name: "Alterar e-mail", exact: true })
+    .click();
+  await expect(page.getByLabel("Seu e-mail", { exact: true })).toHaveValue(
+    "conferencia@example.test",
+  );
+  await page
+    .getByRole("button", { name: "Receber link de acesso", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toContainText("Aguarde");
+  expect(sent).toHaveLength(3);
+  expect(
+    await page.evaluate(() =>
+      JSON.stringify([
+        Object.entries(localStorage),
+        Object.entries(sessionStorage),
+        history.state,
+      ]),
+    ),
+  ).not.toContain("conferencia");
+  await page.reload();
+  await expect(page.getByLabel("Seu e-mail", { exact: true })).toHaveValue("");
+  await page.getByRole("link", { name: "Entrar na minha conta" }).click();
+  const viewport = page.viewportSize()!;
+  for (const width of [320, 760, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = "200%";
+    });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  }
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = "";
+  });
+  await page.setViewportSize(viewport);
+  await expect(page.getByLabel("Etapas para começar")).toHaveCount(0);
+  await expect(page).toHaveTitle("Bem-vindo de volta · Levi");
+});
+
+test("acesso revogado permanece sem acesso após reload e novo login, sem criar organização", async ({
+  page,
+}) => {
+  const email = await readyAccount(page);
+  await provision(page);
+  const account = (
+    await observer.client.query<{ id: string }>(
+      'SELECT id FROM "user" WHERE email=$1',
+      [email],
+    )
+  ).rows[0]!;
+  await observer.client.query(
+    "DELETE FROM tenant_memberships WHERE user_id=$1",
+    [account.id],
+  );
+  let posts = 0;
+  await page.route("**/api/organizations", (route) => {
+    if (route.request().method() === "POST") posts++;
+    return route.continue();
+  });
+  for (let check = 0; check < 2; check++) {
+    await page.reload();
+    await expect(
+      page.getByRole("heading", {
+        name: "Seu acesso precisa de atenção",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("form", { name: "Criar organização", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText("Primeira igreja sintética", { exact: true }),
+    ).toHaveCount(0);
+    await page
+      .getByRole("button", { name: "Atualizar acesso", exact: true })
+      .click();
+  }
+  await page.getByRole("button", { name: "Sair", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Entrar na minha conta", exact: true })
+    .click();
+  await page.getByLabel("Seu e-mail", { exact: true }).fill(email);
+  await page
+    .getByLabel("Sua senha", { exact: true })
+    .fill("synthetic-browser-password");
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Seu acesso precisa de atenção",
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect(posts).toBe(0);
+  const count = await observer.client.query<{ count: number }>(
+    "SELECT count(*)::int AS count FROM onboarding_provisions WHERE user_id=$1",
+    [account.id],
+  );
+  expect(count.rows[0]?.count).toBe(1);
+});
+
+test("carregamento conserva só moldura pública e descarta dados quando a sessão termina", async ({
+  page,
+  context,
+}) => {
+  await readyAccount(page);
+  await provision(page, "Organização privada da sessão anterior");
+  await expect(page.locator(".context-label")).toContainText(
+    "Organização privada da sessão anterior",
+  );
+  let release!: () => void;
+  const waiting = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/churches", async (route) => {
+    await waiting;
+    await route.continue();
+  });
+  await page.getByRole("link", { name: "Membros", exact: true }).click();
+  await expect(page.locator(".loading-sidebar")).toBeVisible();
+  await expect(page.locator(".context-label")).toHaveCount(0);
+  await expect(
+    page.getByText("Organização privada da sessão anterior", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("navigation", { name: "Navegação da organização" }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  expect(
+    await page
+      .locator(".loading")
+      .evaluate(
+        (element) => getComputedStyle(element, "::before").animationName,
+      ),
+  ).toBe("none");
+  await context.clearCookies();
+  release();
+  await expect(
+    page.getByRole("heading", { name: "Comece pelo seu e-mail", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".loading-sidebar")).toHaveCount(0);
+  await expect(
+    page.getByRole("form", { name: "Filtrar membros", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("provisionamento confirmado exige contexto autorizado antes de abrir painel", async ({
+  page,
+}) => {
+  await readyAccount(page);
+  await page.route("**/api/context", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        organizationId: "11111111-1111-4111-8111-111111111111",
+        role: "admin",
+        membersEnabled: true,
+      }),
+    }),
+  );
+  await page
+    .getByLabel("Nome da organização", { exact: true })
+    .fill("Organização cuja sessão mudou");
+  await page
+    .getByLabel("Nome da primeira igreja", { exact: true })
+    .fill("Igreja confirmada");
   await page
     .getByRole("button", {
       name: "Criar organização e primeira igreja",
@@ -681,16 +947,81 @@ test("onboarding: contatos opcionais, validação e rascunho preservado ao recup
   await expect(
     page.getByRole("heading", { name: "Suas organizações", exact: true }),
   ).toBeVisible();
-  await page
-    .getByRole("button", {
-      name: "Acessar organização Organização com contatos sintéticos",
-      exact: true,
-    })
-    .click();
   await expect(
-    page.getByText("Endereço sintético da igreja", { exact: true }),
-  ).toBeVisible();
+    page.getByRole("heading", { name: "Visão geral", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("alert")).toContainText(
+    "Sua sessão ou seu acesso mudou",
+  );
   await expect(
-    page.getByText("igreja@example.test", { exact: true }),
-  ).toBeVisible();
+    page.getByRole("form", { name: "Criar organização", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("resposta de provisionamento da sessão anterior não restaura nomes no novo onboarding", async ({
+  page,
+  context,
+  browser,
+}) => {
+  await readyAccount(page);
+  const otherContext = await browser.newContext({
+    baseURL: new URL(page.url()).origin,
+  });
+  const gate = { release: () => {}, entered: () => {} };
+  const waiting = new Promise<void>((resolve) => {
+    gate.release = resolve;
+  });
+  const entered = new Promise<void>((resolve) => {
+    gate.entered = resolve;
+  });
+  try {
+    await readyAccount(await otherContext.newPage());
+    await page.route("**/api/organizations", async (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      const response = await route.fetch();
+      expect(response.status()).toBe(201);
+      gate.entered();
+      await waiting;
+      return route.fulfill({ response });
+    });
+    await page
+      .getByLabel("Nome da organização", { exact: true })
+      .fill("Organização privada da primeira sessão");
+    await page
+      .getByLabel("Nome da primeira igreja", { exact: true })
+      .fill("Igreja privada da primeira sessão");
+    await page
+      .getByRole("button", {
+        name: "Criar organização e primeira igreja",
+        exact: true,
+      })
+      .click();
+    await entered;
+    await context.clearCookies();
+    await context.addCookies(await otherContext.cookies());
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(
+      page.getByLabel("Nome da organização", { exact: true }),
+    ).toHaveValue("");
+    gate.release();
+    await expect(
+      page.getByRole("button", {
+        name: "Criar organização e primeira igreja",
+        exact: true,
+      }),
+    ).toBeEnabled();
+    await expect(
+      page.getByLabel("Nome da organização", { exact: true }),
+    ).toHaveValue("");
+    await expect(
+      page.getByLabel("Nome da primeira igreja", { exact: true }),
+    ).toHaveValue("");
+    await expect(
+      page.getByRole("heading", { name: "Visão geral", exact: true }),
+    ).toHaveCount(0);
+    await expect(page.locator(".notice.success")).toHaveCount(0);
+  } finally {
+    gate.release();
+    await otherContext.close();
+  }
 });

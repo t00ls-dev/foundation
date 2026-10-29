@@ -527,6 +527,10 @@ void test("workerd: provisionamento concorrente, UUID, isolamento, múltiplas ig
     (await send("/api/churches", undefined, first.cookie)).status,
     403,
   );
+  assert.deepEqual(
+    await (await send("/api/onboarding", undefined, first.cookie)).json(),
+    { etapa: "sem-acesso" },
+  );
   await observer.client.query(
     "DELETE FROM tenant_memberships WHERE tenant_id=$1 AND user_id=$2",
     [tenantId, first.id],
@@ -534,6 +538,10 @@ void test("workerd: provisionamento concorrente, UUID, isolamento, múltiplas ig
   assert.equal(
     (await send("/api/churches", undefined, first.cookie)).status,
     403,
+  );
+  assert.deepEqual(
+    await (await send("/api/onboarding", undefined, first.cookie)).json(),
+    { etapa: "sem-acesso" },
   );
   assert.equal(
     (
@@ -1269,3 +1277,28 @@ function readObjects(value: unknown): Record<string, unknown>[] {
   assert.ok(Array.isArray(value));
   return value.map((item: unknown) => readObject(item));
 }
+
+void test("workerd: contexto de sessão fornece apenas IDs internos e exige autenticação", async () => {
+  assert.equal((await send("/api/session-context")).status, 401);
+  const account = await ready();
+  const response = await send(
+    "/api/session-context",
+    undefined,
+    account.cookie,
+  );
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("cache-control") ?? "", /private/);
+  assert.match(response.headers.get("cache-control") ?? "", /no-store/);
+  const value = readObject(await response.json());
+  assert.deepEqual(Object.keys(value).sort(), ["sessionId", "userId"]);
+  assert.equal(value.userId, account.id);
+  assert.equal(typeof value.sessionId, "string");
+  assert.equal(
+    (await send("/api/auth/sign-out", {}, account.cookie)).status,
+    200,
+  );
+  assert.equal(
+    (await send("/api/session-context", undefined, account.cookie)).status,
+    401,
+  );
+});

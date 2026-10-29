@@ -1,3 +1,5 @@
+import type { SessionContext } from "../../src/session-types.js";
+
 // Token de recuperação: memória desta página apenas. Nunca é serializado.
 export function takeLinkReturn(
   location: Pick<Location, "href" | "pathname">,
@@ -6,7 +8,16 @@ export function takeLinkReturn(
   const params = new URL(location.href).searchParams;
   const token = params.get("token");
   const invalid = params.has("error");
-  history.replaceState(null, "", location.pathname);
+  const churchId = params.get("igreja");
+  const churchQuery =
+    location.pathname === "/membros" &&
+    churchId &&
+    /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(
+      churchId,
+    )
+      ? `?igreja=${churchId}`
+      : "";
+  history.replaceState(null, "", location.pathname + churchQuery);
   return { token: token && token.length <= 512 ? token : null, invalid };
 }
 
@@ -42,5 +53,28 @@ export function requestStorage(): Storage | undefined {
     return window.sessionStorage;
   } catch {
     return undefined;
+  }
+}
+
+export function sameSession(
+  left: SessionContext | null | undefined,
+  right: SessionContext | null | undefined,
+): boolean {
+  if (!left || !right) return left === right;
+  return left.userId === right.userId && left.sessionId === right.sessionId;
+}
+
+export function clearSessionRequests(
+  storage: Pick<Storage, "length" | "key" | "removeItem"> | undefined,
+) {
+  try {
+    if (!storage) return;
+    for (let index = storage.length - 1; index >= 0; index--) {
+      const key = storage.key(index);
+      if (key === storageKey || key?.startsWith("levi.member.request."))
+        storage.removeItem(key);
+    }
+  } catch {
+    /* Storage indisponível não autoriza retenção dos payloads em memória. */
   }
 }

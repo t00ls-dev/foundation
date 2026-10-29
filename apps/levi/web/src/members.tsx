@@ -1,8 +1,20 @@
 import { formText } from "./form-data.js";
-import { EmptyState, Icon, Status, useDraftGuard } from "./ui.js";
+import {
+  EmptyState,
+  Icon,
+  NavigationLink,
+  Status,
+  useDraftGuard,
+} from "./ui.js";
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
-import { api, ApiError, memberApi, type NamedItem } from "./api.js";
-import { requestStorage } from "./session.js";
+import {
+  api,
+  ApiError,
+  memberApi,
+  type NamedItem,
+  type SessionContext,
+} from "./api.js";
+import { requestStorage, sameSession } from "./session.js";
 import {
   formatCivilDate,
   memberTextLimits,
@@ -29,10 +41,16 @@ export function Members({
   path,
   navigate,
   onAccessChanged,
+  identity,
+  initialFilters,
+  onFiltersChange,
 }: {
   organization: NamedItem;
   churches: NamedItem[];
   path: string;
+  identity: SessionContext;
+  initialFilters: MemberFilters;
+  onFiltersChange: (filters: MemberFilters) => void;
   navigate: (path: string, success?: string) => void;
   onAccessChanged: () => void;
 }) {
@@ -44,10 +62,10 @@ export function Members({
         ? "list"
         : "detail";
   const [filtersOpen, setFiltersOpen] = useState(
-    () => window.matchMedia("(min-width: 761px)").matches,
+    () => window.matchMedia("(min-width: 64.001rem)").matches,
   );
   useEffect(() => {
-    const media = window.matchMedia("(min-width: 761px)");
+    const media = window.matchMedia("(min-width: 64.001rem)");
     const change = () => setFiltersOpen(media.matches);
     media.addEventListener("change", change);
     return () => media.removeEventListener("change", change);
@@ -56,10 +74,7 @@ export function Members({
   const [member, setMember] = useState<Member | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<MemberFilters>({
-    page: 1,
-    pageSize: 20,
-  });
+  const [filters, setFilters] = useState<MemberFilters>(initialFilters);
   const [uncertain, setUncertain] = useState(false);
   const generation = useRef(0);
   const running = useRef(false);
@@ -101,7 +116,16 @@ export function Members({
         "Selecione novamente a organização para continuar.",
       );
   }
+  async function validateSession() {
+    if (!sameSession(identity, await api.sessionContext()))
+      throw new ApiError(
+        401,
+        "SESSAO_ALTERADA",
+        "Sua sessão mudou. Confira seu acesso antes de continuar.",
+      );
+  }
   async function validateContext() {
+    await validateSession();
     const current = await api.context();
     check(current.organizationId);
     if (!current.membersEnabled)
@@ -138,10 +162,12 @@ export function Members({
       if (mode === "list") {
         const result = await memberApi.list(filters);
         check(result.organizationId);
+        await validateSession();
         if (sequence === generation.current) setPage(result);
       } else if (mode === "detail" || mode === "edit") {
         const result = await memberApi.find(path.split("/")[2] ?? "");
         check(result.organizationId);
+        await validateSession();
         if (sequence === generation.current) setMember(result.member);
       } else {
         const key = getKey();
@@ -149,6 +175,7 @@ export function Members({
           try {
             const result = await memberApi.recover(key);
             check(result.organizationId);
+            await validateSession();
             if (sequence === generation.current) {
               clearKey();
               navigate(
@@ -169,6 +196,7 @@ export function Members({
     }
   }
   useEffect(() => {
+    if (mode === "list") onFiltersChange(filters);
     void load();
     return () => {
       ++generation.current;
@@ -189,6 +217,7 @@ export function Members({
       if (sequence !== generation.current) return;
       const result = await memberApi.create(attempt.input, attempt.key);
       check(result.organizationId);
+      await validateSession();
       if (sequence === generation.current) {
         clearKey();
         navigate(
@@ -222,6 +251,7 @@ export function Members({
       await validateContext();
       const result = await memberApi.recover(key);
       check(result.organizationId);
+      await validateSession();
       if (sequence === generation.current) {
         clearKey();
         navigate(
@@ -254,17 +284,24 @@ export function Members({
         : {}),
     });
   }
+  const hasFilters = Boolean(
+    filters.name ||
+    filters.churchId ||
+    filters.status ||
+    (filters.page ?? 1) > 1,
+  );
   return (
     <section aria-label="Gestão de membros" aria-busy={busy}>
       {mode !== "list" && (
-        <button
+        <NavigationLink
+          href="/membros"
+          navigate={navigate}
           aria-label="Voltar aos membros"
           className="text-button back-link"
           disabled={busy}
-          onClick={() => navigate("/membros")}
         >
           ← Voltar aos membros
-        </button>
+        </NavigationLink>
       )}
       {busy && <p role="status">Consultando membros…</p>}
       {error && (
@@ -359,21 +396,47 @@ export function Members({
                         <span>{item.churchName}</span>
                       </div>
                       <Status value={item.status} />
-                      <button
-                        className="primary compact"
-                        onClick={() => navigate(`/membros/${item.id}`)}
+                      <NavigationLink
+                        href={`/membros/${item.id}`}
+                        navigate={navigate}
+                        className="secondary compact"
                         aria-label={`Consultar ficha de ${item.name}`}
                       >
                         Consultar ficha
-                      </button>
+                      </NavigationLink>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <EmptyState title="Nenhum membro encontrado.">
-                  <p>
-                    Cadastre a primeira pessoa ou ajuste os filtros da busca.
-                  </p>
+                <EmptyState
+                  title={
+                    hasFilters
+                      ? "Nenhum membro neste recorte."
+                      : "Nenhum membro cadastrado."
+                  }
+                >
+                  {hasFilters ? (
+                    <>
+                      <p>
+                        Altere os filtros ou volte à lista completa da
+                        organização.
+                      </p>
+                      <button
+                        className="secondary"
+                        onClick={() => {
+                          onFiltersChange({ page: 1, pageSize: 20 });
+                          navigate("/membros");
+                        }}
+                      >
+                        Limpar filtros
+                      </button>
+                    </>
+                  ) : (
+                    <p>
+                      Use “Cadastrar membro” para registrar a primeira pessoa.
+                      Apenas nome, igreja e situação são obrigatórios.
+                    </p>
+                  )}
                 </EmptyState>
               )}
               <nav
@@ -466,6 +529,7 @@ export function Members({
                 version: member.version,
               });
               check(result.organizationId);
+              await validateSession();
               if (sequence === generation.current)
                 navigate(
                   `/membros/${member.id}`,

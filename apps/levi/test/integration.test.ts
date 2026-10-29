@@ -1719,3 +1719,139 @@ function readObject(value: unknown): Record<string, unknown> {
   );
   return value as Record<string, unknown>;
 }
+
+void test("etapa autoritativa: conta nova, múltiplos vínculos, revogação e isolamento de recibos", async () => {
+  const existing = await provisionedAccount();
+  const fresh = await readyAccount();
+  async function stage(cookie: string, query = "") {
+    const result = await request(`/api/onboarding${query}`, undefined, cookie);
+    assert.equal(result.status, 200);
+    assert.match(result.headers.get("cache-control") ?? "", /no-store/);
+    const value: unknown = await result.json();
+    return value;
+  }
+  assert.deepEqual(await stage(""), { etapa: "email" });
+  assert.deepEqual(await stage(fresh.cookie, `?userId=${existing.id}`), {
+    etapa: "organizacao",
+  });
+  assert.deepEqual(await stage(existing.cookie), { etapa: "concluido" });
+  const second = (
+    await observer.client.query<{ id: string }>(
+      "INSERT INTO tenants(name) VALUES('Segundo vínculo sintético') RETURNING id",
+    )
+  ).rows[0]!;
+  await observer.client.query(
+    "INSERT INTO tenant_memberships(tenant_id,user_id,role) VALUES($1,$2,'admin')",
+    [second.id, existing.id],
+  );
+  const organizations = await request(
+    "/api/organizations",
+    undefined,
+    existing.cookie,
+  );
+  assert.deepEqual(
+    readObject(await organizations.json()).organizations,
+    [
+      { id: existing.organizationId, nome: "Organização sintética" },
+      { id: second.id, nome: "Segundo vínculo sintético" },
+    ].sort((a, b) => a.id.localeCompare(b.id)),
+  );
+  assert.deepEqual(await stage(existing.cookie), { etapa: "concluido" });
+  await observer.client.query(
+    "DELETE FROM tenant_memberships WHERE tenant_id=$1 AND user_id=$2",
+    [existing.organizationId, existing.id],
+  );
+  assert.deepEqual(await stage(existing.cookie), { etapa: "concluido" });
+  assert.equal(
+    (await request("/api/context", undefined, existing.cookie)).status,
+    403,
+  );
+  await observer.client.query(
+    "UPDATE tenant_memberships SET role='desconhecida' WHERE user_id=$1",
+    [existing.id],
+  );
+  assert.deepEqual(await stage(existing.cookie), { etapa: "sem-acesso" });
+  await observer.client.query(
+    "DELETE FROM tenant_memberships WHERE user_id=$1",
+    [existing.id],
+  );
+  assert.deepEqual(await stage(existing.cookie, `?userId=${fresh.id}`), {
+    etapa: "sem-acesso",
+  });
+  assert.deepEqual(await stage(fresh.cookie), { etapa: "organizacao" });
+  assert.deepEqual(
+    await (
+      await request("/api/organizations", undefined, existing.cookie)
+    ).json(),
+    { organizations: [] },
+  );
+  assert.equal(
+    (
+      await request(
+        "/api/tenant",
+        { organizationId: second.id },
+        existing.cookie,
+      )
+    ).status,
+    403,
+  );
+  assert.equal((await provision(existing.cookie, existing.key)).status, 403);
+  assert.equal((await provision(existing.cookie)).status, 409);
+  const receipt = await observer.client.query<{ count: number }>(
+    "SELECT count(*)::int AS count FROM onboarding_provisions WHERE user_id=$1",
+    [existing.id],
+  );
+  assert.equal(receipt.rows[0]?.count, 1);
+  // Conta independente continua apta a provisionar apesar do recibo da outra.
+  assert.equal((await provision(fresh.cookie)).status, 201);
+});
+
+void test("contexto de sessão: autenticação, IDs internos, isolamento, expiração e logout", async () => {
+  assert.equal((await request("/api/session-context")).status, 401);
+  const first = await verifiedAccount();
+  const second = await readyAccount();
+  const expected = (
+    await observer.client.query<{ id: string; token: string }>(
+      "SELECT id,token FROM session WHERE user_id=$1",
+      [first.id],
+    )
+  ).rows[0];
+  assert.ok(expected);
+  const result = await request(
+    `/api/session-context?userId=${second.id}`,
+    undefined,
+    first.cookie,
+  );
+  assert.equal(result.status, 200);
+  assert.match(result.headers.get("cache-control") ?? "", /private/);
+  assert.match(result.headers.get("cache-control") ?? "", /no-store/);
+  const value: unknown = await result.json();
+  assert.deepEqual(value, { userId: first.id, sessionId: expected.id });
+  assert.ok(!JSON.stringify(value).includes(expected.token));
+  assert.equal(
+    (await request("/api/session-context", {}, first.cookie)).status,
+    404,
+  );
+  await observer.client.query(
+    "UPDATE session SET expires_at=now()-interval '1 second' WHERE id=$1",
+    [expected.id],
+  );
+  assert.equal(
+    (await request("/api/session-context", undefined, first.cookie)).status,
+    401,
+  );
+  const secondContext = await request(
+    "/api/session-context",
+    undefined,
+    second.cookie,
+  );
+  assert.equal(secondContext.status, 200);
+  assert.equal(
+    (await request("/api/auth/sign-out", {}, second.cookie)).status,
+    200,
+  );
+  assert.equal(
+    (await request("/api/session-context", undefined, second.cookie)).status,
+    401,
+  );
+});

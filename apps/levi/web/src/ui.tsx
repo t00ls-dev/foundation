@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 
 export function Icon({
   name,
@@ -28,17 +34,62 @@ export function Icon({
     </svg>
   );
 }
+// Links mantêm abertura em outra aba; a navegação corrente passa pela guarda de rascunho.
+export function NavigationLink({
+  href,
+  navigate,
+  disabled = false,
+  children,
+  className,
+  ...attributes
+}: Omit<ComponentProps<"a">, "href" | "onClick"> & {
+  href: string;
+  navigate: (path: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <a
+      {...attributes}
+      href={href}
+      className={`button-link ${className ?? ""}`}
+      aria-disabled={disabled || undefined}
+      onClick={(event) => {
+        if (disabled) {
+          event.preventDefault();
+          return;
+        }
+        if (
+          event.defaultPrevented ||
+          (attributes.target && attributes.target !== "_self") ||
+          attributes.download !== undefined ||
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey
+        )
+          return;
+        event.preventDefault();
+        navigate(href);
+      }}
+    >
+      {children}
+    </a>
+  );
+}
 export function EmptyState({
   title,
   children,
+  icon = "people",
 }: {
   title: string;
   children?: ReactNode;
+  icon?: ComponentProps<typeof Icon>["name"];
 }) {
   return (
     <div className="empty-state">
       <span className="empty-icon">
-        <Icon name="people" />
+        <Icon name={icon} />
       </span>
       <h2>{title}</h2>
       {children}
@@ -92,20 +143,13 @@ export function useFormFocusVisibility() {
         const viewport = window.visualViewport;
         const viewportTop = viewport?.offsetTop ?? 0;
         let top = viewportTop + 12;
-        let bottom =
+        const bottom =
           viewportTop + (viewport?.height ?? window.innerHeight) - 12;
         const header = document
           .querySelector(".topbar")
           ?.getBoundingClientRect();
         if (header && header.bottom > top && header.bottom < bottom)
           top = header.bottom + 12;
-        if (window.matchMedia("(max-width: 760px)").matches) {
-          const navigation = document
-            .querySelector(".sidebar")
-            ?.getBoundingClientRect();
-          if (navigation && navigation.top > top)
-            bottom = Math.min(bottom, navigation.top - 12);
-        }
         const rect = target.getBoundingClientRect();
         if (rect.bottom > bottom) window.scrollBy(0, rect.bottom - bottom);
         else if (rect.top < top) window.scrollBy(0, rect.top - top);

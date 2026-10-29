@@ -8,7 +8,7 @@ administrada, consultar suas igrejas e acessar um painel de atalhos. O escopo pe
 
 ## Estrutura e execução
 
-Um projeto npm, com TypeScript estrito. `web/src/app.tsx` compõe os estados da
+Aplicação do workspace pnpm do Foundation, com TypeScript estrito. `web/src/app.tsx` compõe os estados da
 interface; `forms.tsx` contém os formulários; `api.ts` valida as respostas HTTP;
 `session.ts` trata retornos de links e a chave de idempotência. O frontend não
 importa módulos de servidor, schema, adapters ou credenciais. React e React DOM
@@ -29,12 +29,12 @@ cookies e `Set-Cookie`; não habilita CORS nem reescreve cookies. A origem públ
 Use esse hostname de forma consistente. Para iniciar os processos separadamente:
 
 ```sh
-LEVI_PUBLIC_ORIGIN=http://localhost:5173 pnpm dev:api
+LEVI_PUBLIC_ORIGIN=http://localhost:5173 pnpm --filter levi dev:api
 # Em outro terminal, com a mesma LEVI_PORT se personalizada:
-pnpm dev:web
+pnpm --filter levi dev:web
 ```
 
-`pnpm build` compila API e SPA em `dist/`. `pnpm start` serve ambos pela origem
+`pnpm --filter levi build` compila API e SPA em `dist/`. `pnpm --filter levi start` serve ambos pela origem
 local 3000. `src/web.ts` entrega HTML apenas nos caminhos conhecidos da SPA:
 `/`, `/onboarding`, `/entrar`, `/organizacoes`, `/painel`, `/igrejas` e as rotas de membros
 listadas em `src/web-paths.ts`. Rotas desconhecidas da
@@ -52,8 +52,20 @@ e separadas da inicialização e do build. A publicação Worker DEV usa o
    autenticar sessões posteriores.
 4. Informe os nomes da organização e da primeira igreja. Endereço, telefone e
    e-mail da igreja são opcionais, em uma seção expansível sem etapa adicional.
-   Após o provisionamento,
-   selecione explicitamente a organização para consultar as igrejas autorizadas.
+   Após o provisionamento confirmado, a SPA confere o vínculo e o contexto
+   autorizado antes de abrir o painel, com confirmação e cadastro de membro
+   como próxima ação opcional. A recuperação de resposta incerta consulta o
+   estado antes de qualquer reenvio.
+
+O login recorrente não exibe as três etapas de primeiro acesso. Durante a espera,
+o endereço informado aparece para conferência e fica apenas em memória. Reenviar
+não exige redigitação; alterar o e-mail é uma ação explícita. O reenvio aguarda
+60 segundos após sucesso e respeita o prazo retornado em `429`.
+
+Sem vínculo administrativo, o servidor distingue conta nova de conta já
+provisionada por seu recibo. `sem-acesso` mostra orientação e atualização do
+acesso, inclusive após reload ou novo login, sem oferecer criação de outra
+organização. Múltiplos vínculos continuam disponíveis no seletor autorizado.
 
 A primeira leitura e cada retorno/atualização consultam `/api/onboarding`. Refresh
 retoma a etapa real do servidor; links inválidos, expirados ou reutilizados
@@ -83,8 +95,14 @@ Respostas são validadas antes de abrir estados protegidos. `401`/`403` removem 
 dados exibidos e reconsultam a sessão/vínculos; `409` não concede acesso nem cria
 uma nova tentativa automaticamente. Erros de conexão não expõem a exceção original.
 
-Duas adaptações mínimas permitem compor a web sem mudar autenticação:
+A composição web utiliza contratos mínimos, preservando a política de autenticação:
 
+- `GET /api/session-context` fornece apenas IDs internos de usuário e sessão,
+  sem token/cookie, com `401` para sessão ausente ou expirada. A SPA compara
+  essa identidade antes de reutilizar estado e antes de exibir dados consultados.
+  Nova sessão, mesmo da mesma conta, descarta filtros, rascunhos, avisos, tentativas
+  locais e respostas obsoletas. Uma troca observada também limpa esperas do cliente;
+  os limites impostos pelo servidor continuam independentes.
 - O callback de onboarding aceita uma opção estática `/onboarding` na composição
   local. O padrão `/api/onboarding` permanece para consumidores da API. Nenhum
   destino de redirecionamento é aceito do usuário.
@@ -102,12 +120,12 @@ a capacidade da organização ativa; troca de contexto remove os dados anteriore
 ## Validação
 
 ```sh
-pnpm format:check
-pnpm typecheck
-pnpm test
-pnpm build
-ppnpm test:integration
-ppnpm test:e2e
+pnpm --filter levi format:check
+pnpm --filter levi typecheck
+pnpm --filter levi test
+pnpm --filter levi build
+pnpm --filter levi test:integration
+pnpm --filter levi test:e2e
 ```
 
 As duas últimas suítes exigem Docker disponível; cada comando cria e remove seu
@@ -115,7 +133,7 @@ próprio PostgreSQL sintético, sem usar uma URL externa. O E2E exige o Chromium
 versão instalada do Playwright (`npx playwright install chromium`, se ausente).
 O build deve preceder o E2E. As portas 4317, 4318 e 5173 precisam estar livres;
 processos existentes não são reutilizados. É possível filtrar casos, por exemplo
-`ppnpm test:e2e -- --project=desktop --grep 'fluxo real completo'`.
+`pnpm --filter levi test:e2e --project=desktop --grep 'fluxo real completo'`.
 
 O navegador exercita a confirmação capturada localmente, links legados, cookies reais,
 login/logout, retomada, seleção, revogação e consultas PostgreSQL. Falhas de rede
@@ -129,7 +147,7 @@ e Axe (WCAG 2 A/AA e 2.1 AA) nas telas de e-mail, provisionamento e igrejas. Lab
 erros associados, foco visível, regiões de status e contraste foram considerados.
 Isso constitui acessibilidade básica, não certificação ou teste em aparelho físico.
 Firefox não faz parte da suíte atual. O projeto móvel padrão usa iPhone 13 Mini
-emulado em Chromium. `LEVI_WEBKIT=1 ppnpm test:e2e -- --runtime-acls` inclui
+emulado em Chromium. `LEVI_WEBKIT=1 pnpm --filter levi test:e2e --runtime-acls` inclui
 o mesmo conjunto no WebKit (instale com `npx playwright install --with-deps webkit`).
 WebKit em Linux não equivale a Safari real nem ao teclado virtual de um iPhone.
 
@@ -143,7 +161,7 @@ Vite também omite URLs em erros. A caixa sintética temporária é removida no 
 Entrega externa de e-mail e operação pública pertencem à composição Worker DEV,
 conforme [Deploy DEV](deploy-dev.md). O E2E permanece sintético e local; não
 comprova entrega externa ou operação remota nem autoriza dados reais.
-O modo `ppnpm test:e2e -- --runtime-acls` preserva os mesmos cenários usando
+O modo `pnpm --filter levi test:e2e --runtime-acls` preserva os mesmos cenários usando
 login restrito; é o modo executado na CI.
 
 Capturas finais e roteiro de revisão estão nas [evidências da interface](evidencias-interface/index.md).
@@ -157,7 +175,7 @@ serviços externos para renderização. O Levi usa CSS e componentes React próp
 tema claro, violeta, tipografia de sistema e ícones neutros. O Foundation continua
 fornecendo os contratos técnicos, sem fornecer a identidade visual do produto.
 
-A navegação lateral desktop se torna navegação inferior no celular, com áreas de
+A navegação lateral desktop se torna uma grade no fluxo da página em tablets e celulares, com áreas de
 toque de pelo menos 44 px e identificação persistente da organização. A lista de
 membros usa linhas compactas no desktop e cartões no móvel, sem tabela larga.
 Formulários são divididos por assunto e a confirmação fica ao final, sem barra
@@ -172,6 +190,20 @@ Erros de rede preservam valores, e o provisionamento incerto mantém sua chave e
 consulta do resultado. Aviso nativo de saída é uma proteção adicional, sem promessa
 de recuperação após encerramento do navegador pelo iOS. Senhas/tokens continuam
 sem persistência. O controle focado é reposicionado por rolagem quando necessário para ficar fora
-do cabeçalho e da navegação inferior, respeitando o viewport visual.
+dos limites da área útil, respeitando o viewport visual. Cabeçalho e navegação não cobrem os campos.
 A redução da área útil da tela é testada com viewport menor,
 sem afirmar teste de teclado virtual real ou VoiceOver.
+
+Os atalhos das igrejas abrem a lista de membros com `?igreja=UUID`. Esse filtro
+institucional é preservado no reload; parâmetros de tokens, nomes e erros são
+removidos da URL. Buscas por nome e rascunhos não são persistidos. O retorno da
+ficha conserva filtros e paginação apenas em memória, vinculados à identidade
+validada e à organização. Trocar organização ou sessão descarta esse recorte;
+reload conserva apenas o ID institucional explícito da igreja, sem nome de pessoa.
+
+Durante consultas entre telas de gestão, apenas a moldura pública é preservada,
+com placeholders estáticos. Organização, navegação autorizada, dados e avisos são
+removidos antes da revalidação. Respostas obsoletas são descartadas pela geração
+da consulta; erros e ausência de acesso não conservam a moldura de gestão.
+Não há cache de conteúdo privado entre sessões. A lista guarda somente seus
+critérios em memória na mesma sessão, sem reter respostas de membros ao navegar.

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { readyAccount, provision } from "./helpers.js";
+import { readyAccount, provision, showOrganizations } from "./helpers.js";
 
 test("Vite e Hono completam o fluxo real em mesma origem, sem liberar CORS", async ({
   page,
@@ -7,6 +7,7 @@ test("Vite e Hono completam o fluxo real em mesma origem, sem liberar CORS", asy
 }) => {
   await readyAccount(page);
   await provision(page, "Organização pelo proxy");
+  await showOrganizations(page);
   await page
     .getByRole("button", {
       name: "Acessar organização Organização pelo proxy",

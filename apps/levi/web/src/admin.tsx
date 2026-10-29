@@ -21,6 +21,9 @@ type Notice = { text: string; error: boolean; reauthenticate?: boolean } | null;
 
 export function Admin() {
   useFormFocusVisibility();
+  useEffect(() => {
+    document.title = "Administração global · Levi";
+  }, []);
   const [screen, setScreen] = useState<Screen>({ kind: "loading" });
   const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
@@ -177,6 +180,9 @@ export function Admin() {
   }
   return (
     <div className="global-admin">
+      <a className="skip-link" href="#conteudo-admin">
+        Pular para o conteúdo
+      </a>
       <header className="topbar">
         <a className="brand" href="/">
           Levi
@@ -187,7 +193,7 @@ export function Admin() {
           Sair
         </button>
       </header>
-      <main className="global-admin-main">
+      <main id="conteudo-admin" className="global-admin-main" tabIndex={-1}>
         <h1>Painel administrativo</h1>
         {notice && (
           <div

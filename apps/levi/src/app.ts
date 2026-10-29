@@ -1,3 +1,4 @@
+import type { SessionContext } from "./session-types.js";
 import { administrativePath } from "./admin-paths.js";
 import {
   administrativeNotFound,
@@ -57,6 +58,7 @@ import {
   listChurches,
   listOrganizations,
   organizationContext,
+  organizationStage,
   provisionOrganization,
   selectOrganization,
 } from "./organizations.js";
@@ -364,6 +366,19 @@ export function createApp(options: AppOptions) {
     await readObject(c.req.raw, []);
     return authRequest(c.get("auth"), options, c.req.raw, "/sign-out", {});
   });
+  app.get("/api/session-context", (c) => {
+    const identity = c.get("identity");
+    if (!identity)
+      throw new RequestError(
+        401,
+        "SESSAO_NECESSARIA",
+        "Entre na sua conta para continuar.",
+      );
+    return c.json({
+      userId: identity.user.id,
+      sessionId: identity.session.id,
+    } satisfies SessionContext);
+  });
   app.get("/api/onboarding", async (c) => {
     if (c.req.query("error"))
       throw new RequestError(
@@ -378,9 +393,7 @@ export function createApp(options: AppOptions) {
     if (!(await hasPassword(c.get("database").db, identity.user.id)))
       return c.json({ etapa: "senha" });
     return c.json({
-      etapa: (await listOrganizations(c.get("database"), identity)).length
-        ? "concluido"
-        : "organizacao",
+      etapa: await organizationStage(c.get("database"), identity),
     });
   });
   app.post("/api/organizations", async (c) => {

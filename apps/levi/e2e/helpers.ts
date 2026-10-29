@@ -74,6 +74,15 @@ export async function provision(page: Page, name = "Comunidade sintética") {
     .getByRole("button", { name: "Criar organização e primeira igreja" })
     .click();
   await expect(
+    page.getByRole("heading", { name: "Visão geral" }),
+  ).toBeVisible();
+}
+
+export async function showOrganizations(page: Page) {
+  await page
+    .getByRole("link", { name: "Trocar organização", exact: true })
+    .click();
+  await expect(
     page.getByRole("heading", { name: "Suas organizações" }),
   ).toBeVisible();
 }

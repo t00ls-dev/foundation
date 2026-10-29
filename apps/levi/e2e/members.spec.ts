@@ -1,8 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
 import { AxeBuilder } from "@axe-core/playwright";
 import { createPostgresDatabase } from "@t00ls-dev/db/postgres";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { readyAccount, provision } from "./helpers.js";
+import { readyAccount, provision, showOrganizations } from "./helpers.js";
 const databaseUrl = process.env.LEVI_DATABASE_URL;
 if (
   !databaseUrl ||
@@ -19,15 +21,16 @@ test.use({ timezoneId: "Pacific/Kiritimati" });
 async function openMembers(page: Page) {
   const email = await readyAccount(page);
   await provision(page, "Organização sintética de pessoas");
+  await showOrganizations(page);
   await page
     .getByRole("button", {
       name: "Acessar organização Organização sintética de pessoas",
       exact: true,
     })
     .click();
-  await page.getByRole("button", { name: "Membros", exact: true }).click();
+  await page.getByRole("link", { name: "Membros", exact: true }).click();
   await expect(
-    page.getByText("Nenhum membro encontrado.", { exact: true }),
+    page.getByText("Nenhum membro cadastrado.", { exact: true }),
   ).toBeVisible();
   const user = (
     await observer.client.query<{ id: string }>(
@@ -125,14 +128,14 @@ test("membros: cadastro completo, ficha com datas civis, filtros e acessibilidad
     page.getByText("Pessoa sintética completa", { exact: true }),
   ).toBeVisible();
   await page
-    .getByRole("button", { name: "Voltar aos membros", exact: true })
+    .getByRole("link", { name: "Voltar aos membros", exact: true })
     .click();
   await page.getByLabel("Nome", { exact: true }).fill("não existe");
   await page
     .getByRole("button", { name: "Filtrar membros", exact: true })
     .click();
   await expect(
-    page.getByText("Nenhum membro encontrado.", { exact: true }),
+    page.getByText("Nenhum membro neste recorte.", { exact: true }),
   ).toBeVisible();
   await page.getByLabel("Nome", { exact: true }).fill("sintética");
   if (!(await page.getByLabel("Situação", { exact: true }).isVisible()))
@@ -142,18 +145,34 @@ test("membros: cadastro completo, ficha com datas civis, filtros e acessibilidad
     .getByRole("button", { name: "Filtrar membros", exact: true })
     .click();
   await expect(
-    page.getByText("Nenhum membro encontrado.", { exact: true }),
+    page.getByText("Nenhum membro neste recorte.", { exact: true }),
   ).toBeVisible();
   await page.getByLabel("Situação", { exact: true }).selectOption("Inativo");
   await page
     .getByRole("button", { name: "Filtrar membros", exact: true })
     .click();
   await expect(
-    page.getByRole("button", {
+    page.getByRole("link", {
       name: "Consultar ficha de Pessoa sintética completa",
       exact: true,
     }),
   ).toBeVisible();
+  await page
+    .getByRole("link", {
+      name: "Consultar ficha de Pessoa sintética completa",
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("link", { name: "Voltar aos membros", exact: true })
+    .click();
+  await expect(page.getByLabel("Nome", { exact: true })).toHaveValue(
+    "sintética",
+  );
+  await expect(page.getByLabel("Situação", { exact: true })).toHaveValue(
+    "Inativo",
+  );
+  expect(page.url()).not.toContain("sint");
 });
 
 test("membros: cadastro mínimo, paginação e nenhuma persistência pessoal no navegador", async ({
@@ -183,17 +202,26 @@ test("membros: cadastro mínimo, paginação e nenhuma persistência pessoal no 
     expect(response.status()).toBe(201);
   }
   await page
-    .getByRole("button", { name: "Voltar aos membros", exact: true })
+    .getByRole("link", { name: "Voltar aos membros", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: /^Consultar ficha de Pessoa/ }),
+    page.getByRole("link", { name: /^Consultar ficha de Pessoa/ }),
   ).toHaveCount(20);
   await page
     .getByRole("button", { name: "Próxima página", exact: true })
     .click();
   await expect(page.getByText("Página 2", { exact: true })).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /^Consultar ficha de Pessoa/ }),
+    page.getByRole("link", { name: /^Consultar ficha de Pessoa/ }),
+  ).toHaveCount(1);
+  await page.getByRole("link", { name: /^Consultar ficha de Pessoa/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Ficha do membro", exact: true }),
+  ).toBeVisible();
+  await page.goBack();
+  await expect(page.getByText("Página 2", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: /^Consultar ficha de Pessoa/ }),
   ).toHaveCount(1);
   await page
     .getByRole("button", { name: "Página anterior", exact: true })
@@ -278,7 +306,7 @@ test("membros: troca organizacional e revogação removem ficha e listagem anter
     [tenant.id, who.userId],
   );
   await page
-    .getByRole("button", { name: "Trocar organização", exact: true })
+    .getByRole("link", { name: "Trocar organização", exact: true })
     .click();
   await expect(
     page.getByText("Pessoa da primeira organização", { exact: true }),
@@ -289,9 +317,9 @@ test("membros: troca organizacional e revogação removem ficha e listagem anter
       exact: true,
     })
     .click();
-  await page.getByRole("button", { name: "Membros", exact: true }).click();
+  await page.getByRole("link", { name: "Membros", exact: true }).click();
   await expect(
-    page.getByText("Nenhum membro encontrado.", { exact: true }),
+    page.getByText("Nenhum membro cadastrado.", { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByText("Pessoa da primeira organização", { exact: true }),
@@ -336,7 +364,7 @@ test("membros: resposta de tenant divergente e perda de sessão não mantêm dad
     });
   });
   await page
-    .getByRole("button", { name: "Voltar aos membros", exact: true })
+    .getByRole("link", { name: "Voltar aos membros", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "Suas organizações", exact: true }),
@@ -351,7 +379,7 @@ test("membros: resposta de tenant divergente e perda de sessão não mantêm dad
       exact: true,
     })
     .click();
-  await page.getByRole("button", { name: "Membros", exact: true }).click();
+  await page.getByRole("link", { name: "Membros", exact: true }).click();
   await expect(
     page.getByText("Pessoa protegida sintética", { exact: true }),
   ).toBeVisible();
@@ -399,10 +427,10 @@ test("membros: capacidade desabilitada remove dados e navegação e impede abert
     })
     .click();
   await expect(
-    page.getByRole("button", { name: "Trocar organização", exact: true }),
+    page.getByRole("link", { name: "Trocar organização", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Membros", exact: true }),
+    page.getByRole("link", { name: "Membros", exact: true }),
   ).toHaveCount(0);
   await page.goto("/membros");
   await expect(
@@ -550,10 +578,10 @@ test("membros: Enter não grava, confirmação explícita, erros locais e ediç�
   ).toBe("Pessoa com cadastro atualizado");
   // Somente fixtures sintéticas, sem tokens ou credenciais nas evidências.
   const { mkdir } = await import("node:fs/promises");
-  await mkdir(".local/e2e", { recursive: true });
+  await mkdir(join(tmpdir(), "levi-ui-e2e"), { recursive: true });
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({
-    path: `.local/e2e/${info.project.name}-edicao.png`,
+    path: join(tmpdir(), `levi-ui-e2e/${info.project.name}-edicao.png`),
     fullPage: false,
   });
 });
@@ -617,38 +645,38 @@ test("interface: navegação, listas e formulários em largura estreita e texto 
   const viewport = page.viewportSize()!;
   await openMembers(page);
   const { mkdir } = await import("node:fs/promises");
-  await mkdir(".local/e2e", { recursive: true });
+  await mkdir(join(tmpdir(), "levi-ui-e2e"), { recursive: true });
   await page.screenshot({
-    path: `.local/e2e/${info.project.name}-membros-vazio.png`,
+    path: join(tmpdir(), `levi-ui-e2e/${info.project.name}-membros-vazio.png`),
     fullPage: false,
   });
-  await page.getByRole("button", { name: "Início", exact: true }).click();
+  await page.getByRole("link", { name: "Início", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Visão geral", exact: true }),
   ).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.screenshot({
-    path: `.local/e2e/${info.project.name}-painel.png`,
+    path: join(tmpdir(), `levi-ui-e2e/${info.project.name}-painel.png`),
     fullPage: false,
   });
-  await page.getByRole("button", { name: "Igrejas", exact: true }).click();
+  await page.getByRole("link", { name: "Igrejas", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Igrejas da organização", exact: true }),
   ).toBeVisible();
   await page.screenshot({
-    path: `.local/e2e/${info.project.name}-igrejas.png`,
+    path: join(tmpdir(), `levi-ui-e2e/${info.project.name}-igrejas.png`),
     fullPage: false,
   });
-  await page.getByRole("button", { name: "Membros", exact: true }).click();
+  await page.getByRole("link", { name: "Membros", exact: true }).click();
   await startCreate(page, "Pessoa sintética em tela estreita");
   await page.screenshot({
-    path: `.local/e2e/${info.project.name}-cadastro.png`,
+    path: join(tmpdir(), `levi-ui-e2e/${info.project.name}-cadastro.png`),
     fullPage: false,
   });
-  for (const width of [320, 375, 390]) {
+  for (const width of [320, 375, 760, 768, 1024, 1280, 1440]) {
     await page.setViewportSize({ width, height: 667 });
     await page.evaluate(() => {
-      document.documentElement.style.fontSize = "150%";
+      document.documentElement.style.fontSize = "200%";
     });
     expect(
       await page.evaluate(
@@ -682,17 +710,23 @@ test("interface: navegação, listas e formulários em largura estreita e texto 
   )
     await page.keyboard.press("Tab");
   await expect(save).toBeFocused();
+  const windowHeight = page.viewportSize()!.height;
   await expect
     .poll(async () => {
       const buttonBounds = await save.boundingBox();
-      const navigationBounds = await page.locator(".admin-nav").boundingBox();
-      return buttonBounds!.y + buttonBounds!.height <= navigationBounds!.y;
+      return (
+        buttonBounds!.y >= 0 &&
+        buttonBounds!.y + buttonBounds!.height <= windowHeight
+      );
     })
     .toBe(true);
   await page.setViewportSize(viewport);
   await save.scrollIntoViewIfNeeded();
   await page.screenshot({
-    path: `.local/e2e/${info.project.name}-cadastro-confirmacao.png`,
+    path: join(
+      tmpdir(),
+      `levi-ui-e2e/${info.project.name}-cadastro-confirmacao.png`,
+    ),
     fullPage: false,
   });
   await save.click();
@@ -700,14 +734,14 @@ test("interface: navegação, listas e formulários em largura estreita e texto 
     page.getByRole("heading", { name: "Ficha do membro", exact: true }),
   ).toBeVisible();
   await page.screenshot({
-    path: `.local/e2e/${info.project.name}-ficha.png`,
+    path: join(tmpdir(), `levi-ui-e2e/${info.project.name}-ficha.png`),
     fullPage: false,
   });
   await page
-    .getByRole("button", { name: "Voltar aos membros", exact: true })
+    .getByRole("link", { name: "Voltar aos membros", exact: true })
     .click();
   await expect(
-    page.getByRole("button", {
+    page.getByRole("link", {
       name: "Consultar ficha de Pessoa sintética em tela estreita",
       exact: true,
     }),
@@ -715,7 +749,7 @@ test("interface: navegação, listas e formulários em largura estreita e texto 
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({
-    path: `.local/e2e/${info.project.name}-lista.png`,
+    path: join(tmpdir(), `levi-ui-e2e/${info.project.name}-lista.png`),
     fullPage: false,
   });
 });
@@ -761,4 +795,288 @@ test("membros: edição com vínculo revogado é negada e remove o rascunho prot
   ).rows[0]!;
   expect(stored.name).toBe("Pessoa preservada após revogação");
   expect(stored.version).toBe(1);
+});
+
+test("interface: contraste da ficha, nomes longos, tablets e texto a 200%", async ({
+  page,
+}) => {
+  const account = await openMembers(page);
+  await observer.client.query("UPDATE tenants SET name=$1 WHERE id=$2", [
+    "Organização de comunidades com um nome institucional muito longo para navegação em tablets",
+    account.organizationId,
+  ]);
+  await startCreate(
+    page,
+    "Pessoa sintética com nome muito longo para consulta em telas pequenas",
+  );
+  await page
+    .getByRole("button", { name: "Salvar membro", exact: true })
+    .click();
+  await page
+    .getByRole("link", { name: "Voltar aos membros", exact: true })
+    .click();
+  const ficha = page.getByRole("link", {
+    name: /^Consultar ficha de Pessoa sintética com nome/,
+  });
+  await expect(ficha).toBeVisible();
+  for (const state of ["normal", "hover", "focus"]) {
+    if (state === "hover") await ficha.hover();
+    if (state === "focus") await ficha.focus();
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  }
+  for (const width of [320, 375, 760, 768, 1024, 1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const fontSize of ["100%", "200%"]) {
+      await page.evaluate((size) => {
+        document.documentElement.style.fontSize = size;
+      }, fontSize);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+        `${width}px / ${fontSize}`,
+      ).toBe(true);
+      const bounds = await page.locator(".admin-nav").boundingBox();
+      const main = await page.locator("main").boundingBox();
+      expect(
+        bounds!.x + bounds!.width <= main!.x ||
+          bounds!.y + bounds!.height <= main!.y,
+        `navegação sem sobreposição: ${width}px / ${fontSize}`,
+      ).toBe(true);
+      for (const button of await page.locator(".admin-nav a").all()) {
+        expect(
+          await button.evaluate(
+            (element) => element.scrollWidth <= element.clientWidth,
+          ),
+        ).toBe(true);
+      }
+    }
+  }
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = "";
+  });
+});
+
+test("igreja: atalho filtra membros, reload mantém ID e vazio permite limpar recorte", async ({
+  page,
+  context,
+}) => {
+  const who = await openMembers(page);
+  const other = (
+    await observer.client.query<{ id: string }>(
+      "INSERT INTO churches(tenant_id,name) VALUES($1,'Outra igreja sintética') RETURNING id",
+      [who.organizationId],
+    )
+  ).rows[0]!;
+  const created = await page.request.post("/api/members", {
+    headers: {
+      Origin: new URL(page.url()).origin,
+      "Idempotency-Key": randomUUID(),
+    },
+    data: {
+      name: "Pessoa da outra igreja",
+      churchId: other.id,
+      status: "Ativo",
+    },
+  });
+  expect(created.status()).toBe(201);
+  await page.getByRole("link", { name: "Igrejas", exact: true }).click();
+  const shortcut = page.getByRole("link", {
+    name: "Consultar membros de Primeira igreja sintética",
+    exact: true,
+  });
+  await expect(shortcut).toHaveAttribute(
+    "href",
+    `/membros?igreja=${who.churchId}`,
+  );
+  const newTabPromise = context.waitForEvent("page");
+  await shortcut.click({ modifiers: ["ControlOrMeta"] });
+  const newTab = await newTabPromise;
+  await expect(
+    newTab.getByRole("heading", { name: "Membros", exact: true }),
+  ).toBeVisible();
+  await expect(
+    newTab.getByRole("heading", {
+      name: "Nenhum membro neste recorte.",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await newTab.close();
+  await shortcut.click();
+  await page.reload();
+  await expect(page).toHaveURL(new RegExp(`igreja=${who.churchId}$`));
+  await expect(
+    page.getByRole("heading", {
+      name: "Nenhum membro neste recorte.",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Pessoa da outra igreja", { exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Limpar filtros", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/membros$/);
+  await expect(
+    page.getByRole("link", {
+      name: "Consultar ficha de Pessoa da outra igreja",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page
+    .getByLabel("Nome", { exact: true })
+    .fill("Busca pessoal inexistente");
+  await page
+    .getByRole("button", { name: "Filtrar membros", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Nenhum membro neste recorte.",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Limpar filtros", exact: true })
+    .click();
+  await expect(page.getByLabel("Nome", { exact: true })).toHaveValue("");
+  expect(
+    await page.evaluate(() =>
+      JSON.stringify([
+        location.href,
+        history.state,
+        Object.entries(localStorage),
+        Object.entries(sessionStorage),
+      ]),
+    ),
+  ).not.toContain("Busca pessoal");
+});
+
+test("sessão: duas contas no mesmo tenant descartam rascunho e filtro da conta anterior", async ({
+  page,
+  context,
+  browser,
+}) => {
+  const who = await openMembers(page);
+  await page
+    .getByLabel("Nome", { exact: true })
+    .fill("Filtro privado da primeira conta");
+  await page
+    .getByRole("button", { name: "Filtrar membros", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Nenhum membro neste recorte.",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await startCreate(page, "Rascunho privado da primeira conta");
+  const otherContext = await browser.newContext({
+    baseURL: new URL(page.url()).origin,
+  });
+  const otherPage = await otherContext.newPage();
+  try {
+    const email = await readyAccount(otherPage);
+    const user = (
+      await observer.client.query<{ id: string }>(
+        'SELECT id FROM "user" WHERE email=$1',
+        [email],
+      )
+    ).rows[0];
+    if (!user) throw new Error("Conta sintética ausente.");
+    await observer.client.query(
+      "INSERT INTO tenant_memberships(tenant_id,user_id,role) VALUES($1,$2,'admin')",
+      [who.organizationId, user.id],
+    );
+    const cookies = await otherContext.cookies();
+    await context.clearCookies();
+    await context.addCookies(cookies);
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(
+      page.getByRole("heading", { name: "Suas organizações", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("form", { name: "Cadastrar membro", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText("Rascunho privado da primeira conta", { exact: true }),
+    ).toHaveCount(0);
+    await page
+      .getByRole("button", {
+        name: "Acessar organização Organização sintética de pessoas",
+        exact: true,
+      })
+      .click();
+    await page.getByRole("link", { name: "Membros", exact: true }).click();
+    await expect(page.getByLabel("Nome", { exact: true })).toHaveValue("");
+    await expect(
+      page.getByText("Nenhum membro cadastrado.", { exact: true }),
+    ).toBeVisible();
+    const saved = await page.evaluate(() =>
+      JSON.stringify([
+        location.href,
+        history.state,
+        Object.entries(localStorage),
+        Object.entries(sessionStorage),
+      ]),
+    );
+    expect(saved).not.toContain("privado");
+  } finally {
+    await otherContext.close();
+  }
+});
+
+test("sessão: resposta atrasada da mesma conta em sessão anterior não restaura membros nem filtros", async ({
+  page,
+}) => {
+  const who = await openMembers(page);
+  await startCreate(page, "Pessoa de resposta da sessão anterior");
+  await page
+    .getByRole("button", { name: "Salvar membro", exact: true })
+    .click();
+  await page
+    .getByRole("link", { name: "Voltar aos membros", exact: true })
+    .click();
+  const gate = { release: () => {}, entered: () => {} };
+  const waiting = new Promise<void>((resolve) => {
+    gate.release = resolve;
+  });
+  const entered = new Promise<void>((resolve) => {
+    gate.entered = resolve;
+  });
+  await page.route("**/api/members?*", async (route) => {
+    const response = await route.fetch();
+    gate.entered();
+    await waiting;
+    await route.fulfill({ response });
+  });
+  await page.getByLabel("Nome", { exact: true }).fill("Pessoa de resposta");
+  await page
+    .getByRole("button", { name: "Filtrar membros", exact: true })
+    .click();
+  await entered;
+  const login = await page.request.post("/api/auth/sign-in/email", {
+    headers: { Origin: new URL(page.url()).origin },
+    data: { email: who.email, password: "synthetic-browser-password" },
+  });
+  expect(login.status()).toBe(200);
+  gate.release();
+  await expect(
+    page.getByRole("heading", { name: "Suas organizações", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", {
+      name: "Consultar ficha de Pessoa de resposta da sessão anterior",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await page.unroute("**/api/members?*");
+  await page
+    .getByRole("button", {
+      name: "Acessar organização Organização sintética de pessoas",
+      exact: true,
+    })
+    .click();
+  await page.getByRole("link", { name: "Membros", exact: true }).click();
+  await expect(page.getByLabel("Nome", { exact: true })).toHaveValue("");
 });

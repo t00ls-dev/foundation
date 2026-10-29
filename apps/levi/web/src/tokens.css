@@ -10,5 +10,23 @@
   --line: #e2e5ed;
   --input-line: #8991a2;
   --error: #a3293e;
+  --success: #226343;
+  --success-surface: #effaf5;
+  --success-line: #a8d2bd;
+  --error-surface: #fff3f5;
+  --error-line: #e9b5be;
+  --info-surface: #f5f2ff;
+  --info-line: #cbc4e6;
   --radius: 12px;
+  --radius-control: 8px;
+  --radius-panel: 16px;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --text-small: 0.875rem;
+  --text-body: 1rem;
 }

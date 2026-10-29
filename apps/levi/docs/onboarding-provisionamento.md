@@ -15,12 +15,12 @@ Docker só é necessário para a suíte descartável ou para iniciar o banco loc
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm typecheck
-pnpm test
-ppnpm test:integration
-pnpm build
-ppnpm test:e2e
-pnpm format:check
+pnpm --filter levi typecheck
+pnpm --filter levi test
+pnpm --filter levi test:integration
+pnpm --filter levi build
+pnpm --filter levi test:e2e
+pnpm --filter levi format:check
 ```
 
 A integração cria um container exclusivo, com imagem PostgreSQL fixada por digest,
@@ -48,7 +48,7 @@ pnpm dev
 
 `pnpm dev` inicia Vite em `http://localhost:5173` e a API em
 `127.0.0.1:3000`. O proxy preserva cookies e a origem de navegador.
-`pnpm start` executa o build já produzido e serve SPA/API juntos em
+`pnpm --filter levi start` executa o build já produzido e serve SPA/API juntos em
 `http://localhost:3000`, com o servidor ligado somente a `127.0.0.1`.
 `LEVI_PORT` altera a porta da API; `LEVI_PUBLIC_ORIGIN` permite somente origem HTTP
 local e é configurada pelo comando de desenvolvimento. Banco remoto é recusado
@@ -76,22 +76,23 @@ build local) e preserve os cookies nativos, inclusive cada
 `Set-Cookie`. Escritas autenticadas sem origem confiável são recusadas. Respostas
 são privadas e não armazenáveis em cache; links não são enviados em `Referer`.
 
-| Método e caminho                      | Entrada e comportamento                                                                                                                                                                                                                        |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /api/onboarding/email`          | `{ "email": "pessoa@example.test" }`. Solicita Magic Link pelo handler público do Foundation. Não exige nem aceita senha/nome/ID.                                                                                                              |
-| `GET /api/auth/magic-link/verify`     | Link enviado pelo Better Auth; verifica posse do e-mail e cria sessão. Callback fixado pela composição: `/onboarding` na web local, `/api/onboarding` por padrão na API.                                                                       |
-| `GET /api/onboarding`                 | Etapa autoritativa: `email`, `verificar-email`, `senha`, `organizacao` ou `concluido`. Link inválido/expirado/usado informa erro em português.                                                                                                 |
-| `POST /api/onboarding/password-email` | Compatibilidade legada: `{}` e sessão verificada. Solicita ao Better Auth o link para senha/recuperação, para o e-mail da própria sessão.                                                                                                      |
-| `GET /api/auth/reset-password/:token` | Callback público nativo do link; redireciona à etapa com token. Não define senha.                                                                                                                                                              |
-| `POST /api/onboarding/password`       | `{ "newPassword": "..." }` e sessão verificada recente para a primeira senha. `token` opcional preserva reset legado, associado à sessão e consumido pelo Better Auth.                                                                         |
-| `POST /api/auth/sign-in/email`        | `{ "email": "...", "password": "..." }`. Login nativo de conta existente.                                                                                                                                                                      |
-| `POST /api/auth/sign-out`             | `{}`. Logout nativo, com confirmação de revogação pelo Foundation.                                                                                                                                                                             |
-| `POST /api/organizations`             | `{ "organizationName": "Organização", "churchName": "Primeira igreja" }`, sessão pronta e header `Idempotency-Key` de 16–128 caracteres alfanuméricos, `_` ou `-`. Retorna `201` com `organizationId` e `churchId`, também em replay idêntico. |
-| `GET /api/organizations`              | Lista somente organizações com vínculo administrativo atual da conta pronta, para retomar em outra sessão.                                                                                                                                     |
-| `POST /api/tenant`                    | `{ "organizationId": "UUID" }`. Valida vínculo administrativo antes de associar a organização à sessão.                                                                                                                                        |
-| `GET /api/context`                    | Organização ativa e role `admin`, após resolver sessão pronta e vínculo atual.                                                                                                                                                                 |
-| `GET /api/churches`                   | `{ organizationId, churches: [{ id, nome, address, phone, email }] }`, com o contexto autorizado usado na própria consulta. A interface confere esse ID para evitar associação incorreta se outra aba trocar o tenant.                         |
-| `GET /api/churches/:id`               | Igreja consultada por ID **e** organização ativa autorizada. Outra organização retorna `404`.                                                                                                                                                  |
+| Método e caminho                      | Entrada e comportamento                                                                                                                                                                                                                                  |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/onboarding/email`          | `{ "email": "pessoa@example.test" }`. Solicita Magic Link pelo handler público do Foundation. Não exige nem aceita senha/nome/ID.                                                                                                                        |
+| `GET /api/auth/magic-link/verify`     | Link enviado pelo Better Auth; verifica posse do e-mail e cria sessão. Callback fixado pela composição: `/onboarding` na web local, `/api/onboarding` por padrão na API.                                                                                 |
+| `GET /api/session-context`            | Sessão autenticada, inclusive antes do provisionamento: somente `{ userId, sessionId }`, IDs internos sem valor de credencial. Sem sessão válida retorna `401`; a resposta usa `private, no-store` e não aceita IDs do cliente para escolher identidade. |
+| `GET /api/onboarding`                 | Etapa autoritativa: `email`, `verificar-email`, `senha`, `organizacao`, `concluido` ou `sem-acesso`. Link inválido/expirado/usado informa erro em português.                                                                                             |
+| `POST /api/onboarding/password-email` | Compatibilidade legada: `{}` e sessão verificada. Solicita ao Better Auth o link para senha/recuperação, para o e-mail da própria sessão.                                                                                                                |
+| `GET /api/auth/reset-password/:token` | Callback público nativo do link; redireciona à etapa com token. Não define senha.                                                                                                                                                                        |
+| `POST /api/onboarding/password`       | `{ "newPassword": "..." }` e sessão verificada recente para a primeira senha. `token` opcional preserva reset legado, associado à sessão e consumido pelo Better Auth.                                                                                   |
+| `POST /api/auth/sign-in/email`        | `{ "email": "...", "password": "..." }`. Login nativo de conta existente.                                                                                                                                                                                |
+| `POST /api/auth/sign-out`             | `{}`. Logout nativo, com confirmação de revogação pelo Foundation.                                                                                                                                                                                       |
+| `POST /api/organizations`             | `{ "organizationName": "Organização", "churchName": "Primeira igreja" }`, sessão pronta e header `Idempotency-Key` de 16–128 caracteres alfanuméricos, `_` ou `-`. Retorna `201` com `organizationId` e `churchId`, também em replay idêntico.           |
+| `GET /api/organizations`              | Lista somente organizações com vínculo administrativo atual da conta pronta, para retomar em outra sessão.                                                                                                                                               |
+| `POST /api/tenant`                    | `{ "organizationId": "UUID" }`. Valida vínculo administrativo antes de associar a organização à sessão.                                                                                                                                                  |
+| `GET /api/context`                    | Organização ativa e role `admin`, após resolver sessão pronta e vínculo atual.                                                                                                                                                                           |
+| `GET /api/churches`                   | `{ organizationId, churches: [{ id, nome, address, phone, email }] }`, com o contexto autorizado usado na própria consulta. A interface confere esse ID para evitar associação incorreta se outra aba trocar o tenant.                                   |
+| `GET /api/churches/:id`               | Igreja consultada por ID **e** organização ativa autorizada. Outra organização retorna `404`.                                                                                                                                                            |
 
 O provisionamento também aceita `churchAddress` (até 500 caracteres),
 `churchPhone` (até 40) e `churchEmail` (até 254, com sintaxe válida), todos opcionais.
@@ -119,18 +120,28 @@ Magic Link. Conta existente não é duplicada. Em outro dispositivo é necessár
 restabelecer sessão verificada antes de aplicar o link de senha. Não há senha
 provisória. O primeiro provisionamento não cria ficha eclesiástica.
 
+A etapa `organizacao` indica conta pronta sem vínculo administrativo e sem
+recibo de primeiro provisionamento. Havendo vínculo administrativo atual,
+`concluido` permite consultar as organizações autorizadas, inclusive múltiplos
+vínculos. Sem vínculo e com recibo da própria conta, `sem-acesso` orienta procurar
+o responsável e não oferece outro provisionamento. A leitura é restrita ao ID da
+identidade autenticada; o recibo não concede autoridade nem restaura memberships.
+A etapa é uma orientação de jornada: todas as operações continuam revalidando
+sessão e vínculo, inclusive após mudanças concorrentes.
+
 ## Persistência e transação
 
-Um projeto TypeScript estrito, sem workspaces. `src/app.ts` compõe Hono e os
+Aplicação TypeScript estrita em `apps/levi` no workspace pnpm do Foundation. `src/app.ts` compõe Hono e os
 contratos; `src/auth.ts` compõe identidade; `src/organizations.ts` contém as regras
 de provisionamento/autorização; `src/data/schema.ts` define o schema do consumidor.
 `tools/` contém ações explícitas fora da inicialização.
 
-As quatro versões Foundation da entrega são fixas: auth `0.3.0`, db/tenant/audit
-`1.0.0`. `access@0.1.2` fornece o mapa estático e `security@0.2.0` fornece CSRF e
-headers. O Node captura e-mails localmente; o Worker usa o adapter Resend público,
+Os pacotes Foundation são consumidos por `workspace:*`, com seus contratos
+públicos de autenticação, dados, tenant, auditoria, acesso, segurança e e-mail.
+O Node captura e-mails localmente; o Worker usa o adapter Resend público,
 com configuração e limites descritos no [guia Workers](cloudflare-workers.md).
-Better Auth `1.7.7`, Drizzle `0.45.4` e Hono são imports diretos, com lockfile próprio.
+Better Auth, Drizzle e Hono são imports diretos, com versões no manifest do Levi
+e lockfile da raiz.
 `@types/pg` é dependência de desenvolvimento para os tipos públicos do executor;
 não há cliente/pool paralelo do Levi.
 

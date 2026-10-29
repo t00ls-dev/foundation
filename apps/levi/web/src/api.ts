@@ -1,3 +1,5 @@
+import type { SessionContext } from "../../src/session-types.js";
+export type { SessionContext } from "../../src/session-types.js";
 import {
   isCivilDate,
   memberTextLimits,
@@ -8,7 +10,12 @@ import {
   type MemberEditInput,
 } from "../../src/member-types.js";
 export type Stage =
-  "email" | "verificar-email" | "senha" | "organizacao" | "concluido";
+  | "email"
+  | "verificar-email"
+  | "senha"
+  | "organizacao"
+  | "concluido"
+  | "sem-acesso";
 export interface NamedItem {
   id: string;
   nome: string;
@@ -39,7 +46,12 @@ export class ApiError extends Error {
 // Somente espera de UX em memória; o servidor continua impondo todas as quotas.
 const cooldowns = new Map<string, number>();
 let identityGeneration = 0;
+export function resetClientIdentity() {
+  identityGeneration++;
+  cooldowns.clear();
+}
 function category(path: string, method: string): string {
+  if (path === "/api/session-context") return "session";
   if (
     path === "/api/onboarding/email" ||
     path === "/api/onboarding/password-email"
@@ -151,8 +163,7 @@ async function request(
       "/api/onboarding/password",
     ].includes(path)
   ) {
-    identityGeneration++;
-    cooldowns.clear();
+    resetClientIdentity();
   }
   const value: unknown = await response.json().catch(() => null);
   if (!response.ok) {
@@ -184,6 +195,15 @@ function namedItems(list: unknown): NamedItem[] {
   });
 }
 export const api = {
+  async sessionContext(): Promise<SessionContext | null> {
+    try {
+      const value = record(await request("/api/session-context"));
+      return { userId: id(value.userId), sessionId: id(value.sessionId) };
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) return null;
+      throw error;
+    }
+  },
   async stage(): Promise<Stage> {
     const { etapa } = record(await request("/api/onboarding"));
     if (
@@ -191,6 +211,7 @@ export const api = {
       etapa !== "verificar-email" &&
       etapa !== "senha" &&
       etapa !== "organizacao" &&
+      etapa !== "sem-acesso" &&
       etapa !== "concluido"
     )
       return contractError();
