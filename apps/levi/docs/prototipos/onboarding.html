@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <title>Comece pela sua conta. · Levi</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="demo.js" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#conteudo">Pular para o conteúdo</a>
+    <div class="demo" role="region" aria-label="Aviso do protótipo">
+      Protótipo de avaliação · dados fictícios · nada é salvo
+    </div>
+    <header>
+      <a class="brand" href="painel.html"><b>L</b>levi</a
+      ><small>Gestão de igrejas</small>
+    </header>
+    <div class="layout">
+      <main id="conteudo" class="auth">
+        <div class="eyebrow">Primeiros passos</div>
+        <h1 tabindex="-1">Comece pela sua conta.</h1>
+        <p class="muted">Um espaço organizado para cuidar da sua comunidade.</p>
+        <div class="steps" aria-label="Etapas">
+          <span class="active">1 · E-mail</span><span>2 · Senha</span
+          ><span>3 · Organização</span>
+        </div>
+        <section class="card">
+          <h2>Confirme seu e-mail</h2>
+          <p>Enviaremos um link para você continuar com segurança.</p>
+          <form class="simulate">
+            <div class="field">
+              <label
+                >Seu e-mail<input type="email" required autocomplete="off"
+              /></label>
+            </div>
+            <button class="primary">Receber link de acesso</button>
+            <p role="status" class="feedback"></p>
+          </form>
+        </section>
+        <details class="card">
+          <summary>Prévia: organização após verificação e senha</summary>
+          <p>Etapa ilustrativa posterior. Este protótipo não autentica.</p>
+          <form class="simulate">
+            <div class="field">
+              <label
+                >Nome da organização<input
+                  type="text"
+                  required
+                  autocomplete="off"
+              /></label>
+            </div>
+            <div class="field">
+              <label
+                >Nome da primeira igreja<input
+                  type="text"
+                  required
+                  autocomplete="off"
+              /></label>
+            </div>
+            <details>
+              <summary>Contato da igreja (opcional)</summary>
+              <div class="field">
+                <label>Endereço<input type="text" autocomplete="off" /></label>
+              </div>
+              <div class="field">
+                <label>Telefone<input type="tel" autocomplete="off" /></label>
+              </div>
+              <div class="field">
+                <label>E-mail<input type="email" autocomplete="off" /></label>
+              </div>
+            </details>
+            <button class="primary">Criar organização — simulação</button>
+            <p role="status" class="feedback"></p>
+          </form>
+        </details>
+        <a class="button" href="entrar.html">Já tenho conta</a>
+        <footer>Levi · cuidado com pessoas, clareza na gestão.</footer>
+      </main>
+    </div>
+  </body>
+</html>

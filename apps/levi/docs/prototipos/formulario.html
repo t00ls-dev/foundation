@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <title>Cadastrar membro · Levi</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="demo.js" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#conteudo">Pular para o conteúdo</a>
+    <div class="demo" role="region" aria-label="Aviso do protótipo">
+      Protótipo de avaliação · dados fictícios · nada é salvo
+    </div>
+    <header>
+      <a class="brand" href="painel.html"><b>L</b>levi</a
+      ><small>Comunidade Horizonte<br />Organização ativa</small>
+    </header>
+    <div class="layout">
+      <nav aria-label="Navegação principal">
+        <a href="painel.html">Início</a
+        ><a href="membros.html" aria-current="page">Membros</a
+        ><a href="igrejas.html">Igrejas</a><a href="mais.html">Mais</a>
+      </nav>
+      <main id="conteudo" class="">
+        <div class="eyebrow">Comunidade Horizonte</div>
+        <h1 tabindex="-1">Cadastrar membro</h1>
+        <p class="muted">
+          Preencha apenas o que você conhece. Os campos opcionais podem ficar em
+          branco.
+        </p>
+        <form class="simulate">
+          <fieldset>
+            <legend>Identificação</legend>
+            <div class="field">
+              <label
+                >Nome (obrigatório)<input
+                  type="text"
+                  required
+                  autocomplete="off"
+              /></label>
+            </div>
+            <div class="formgrid">
+              <div class="field">
+                <label for="church">Igreja (obrigatória)</label
+                ><select id="church">
+                  <option>Igreja Esperança</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="status">Situação (obrigatória)</label
+                ><select id="status">
+                  <option>Ativo</option>
+                  <option>Inativo</option>
+                </select>
+              </div>
+              <div class="field">
+                <label
+                  >Nascimento (opcional)<input type="date" autocomplete="off"
+                /></label>
+              </div>
+              <div class="field">
+                <label
+                  >Função na igreja (opcional)<input
+                    type="text"
+                    autocomplete="off"
+                /></label>
+              </div>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Contato</legend>
+            <p class="muted">Estes dados não criam uma conta de acesso.</p>
+            <div class="formgrid">
+              <div class="field">
+                <label
+                  >Telefone (opcional)<input type="tel" autocomplete="off"
+                /></label>
+              </div>
+              <div class="field">
+                <label
+                  >E-mail de contato (opcional)<input
+                    type="email"
+                    autocomplete="off"
+                /></label>
+              </div>
+            </div>
+            <div class="field">
+              <label
+                >Endereço (opcional)<input type="text" autocomplete="off"
+              /></label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Datas conhecidas</legend>
+            <div class="formgrid">
+              <div class="field">
+                <label
+                  >Ingresso conhecido (opcional)<input
+                    type="date"
+                    autocomplete="off"
+                /></label>
+              </div>
+              <div class="field">
+                <label
+                  >Batismo (opcional)<input type="date" autocomplete="off"
+                /></label>
+              </div>
+            </div>
+          </fieldset>
+          <div class="actions">
+            <button class="primary">Salvar membro — simulação</button
+            ><a class="button" href="membros.html">Cancelar</a>
+          </div>
+          <p role="status" class="feedback"></p>
+        </form>
+        <footer>Levi · cuidado com pessoas, clareza na gestão.</footer>
+      </main>
+    </div>
+  </body>
+</html>

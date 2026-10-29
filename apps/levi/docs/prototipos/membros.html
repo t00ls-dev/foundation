@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <title>Membros · Levi</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="demo.js" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#conteudo">Pular para o conteúdo</a>
+    <div class="demo" role="region" aria-label="Aviso do protótipo">
+      Protótipo de avaliação · dados fictícios · nada é salvo
+    </div>
+    <header>
+      <a class="brand" href="painel.html"><b>L</b>levi</a
+      ><small>Comunidade Horizonte<br />Organização ativa</small>
+    </header>
+    <div class="layout">
+      <nav aria-label="Navegação principal">
+        <a href="painel.html">Início</a
+        ><a href="membros.html" aria-current="page">Membros</a
+        ><a href="igrejas.html">Igrejas</a><a href="mais.html">Mais</a>
+      </nav>
+      <main id="conteudo" class="">
+        <div class="eyebrow">Comunidade Horizonte</div>
+        <h1 tabindex="-1">Membros</h1>
+        <div class="heading">
+          <p class="muted">Pessoas da sua organização.</p>
+          <a class="button primary" href="formulario.html"
+            >＋ Cadastrar membro</a
+          >
+        </div>
+        <section class="card">
+          <form id="search">
+            <label for="busca">Buscar por nome</label
+            ><input
+              id="busca"
+              type="search"
+              placeholder="Digite o nome da pessoa"
+            />
+            <details>
+              <summary>Filtros de igreja e situação</summary>
+              <div class="formgrid">
+                <div class="field">
+                  <label for="igreja">Igreja</label
+                  ><select id="igreja">
+                    <option>Todas as igrejas</option>
+                    <option>Igreja Esperança</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="situacao">Situação</label
+                  ><select id="situacao">
+                    <option value="">Todas as situações</option>
+                    <option>Ativo</option>
+                    <option>Inativo</option>
+                  </select>
+                </div>
+              </div>
+            </details>
+            <button>Aplicar busca</button>
+          </form>
+          <p id="resultado" role="status">3 registros fictícios nesta página</p>
+          <div class="row desktop muted">
+            <span>Nome</span><span>Igreja</span><span>Situação</span>
+          </div>
+          <div class="row" data-member="ana exemplo" data-status="Ativo">
+            <a class="person" href="detalhe.html"
+              ><span class="avatar" aria-hidden="true">AE</span>Ana Exemplo</a
+            ><span class="muted">Igreja Esperança</span
+            ><span><span class="badge">Ativo</span></span>
+          </div>
+          <div class="row" data-member="bruno modelo" data-status="Ativo">
+            <a class="person" href="detalhe.html"
+              ><span class="avatar" aria-hidden="true">BM</span>Bruno Modelo</a
+            ><span class="muted">Igreja Esperança</span
+            ><span><span class="badge">Ativo</span></span>
+          </div>
+          <div class="row" data-member="clara fictícia" data-status="Inativo">
+            <a class="person" href="detalhe.html"
+              ><span class="avatar" aria-hidden="true">CF</span>Clara
+              Fictícia</a
+            ><span class="muted">Igreja Esperança</span
+            ><span><span class="badge neutral">Inativo</span></span>
+          </div>
+          <p id="empty" hidden>
+            Nenhum membro encontrado. Ajuste a busca ou os filtros.
+          </p>
+          <p class="muted">Página 1 de 1</p>
+        </section>
+        <details>
+          <summary>Demonstrar falha de consulta</summary>
+          <div class="notice">
+            Não foi possível consultar os membros. Nenhuma ausência foi
+            confirmada.
+            <button onclick="this.closest('details').open = false">
+              Tentar novamente
+            </button>
+          </div>
+        </details>
+        <footer>Levi · cuidado com pessoas, clareza na gestão.</footer>
+      </main>
+    </div>
+  </body>
+</html>
