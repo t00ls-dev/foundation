@@ -1,3 +1,4 @@
+import { Skeleton } from "@t00ls-dev/ui/components/skeleton";
 import {
   EmptyState,
   Icon,
@@ -629,6 +630,39 @@ export function App({
       false,
     );
   }
+  const logoutButton = (
+    <button
+      className="text-button"
+      disabled={busy}
+      onClick={() =>
+        void perform(
+          async (isCurrent) => {
+            if (
+              document.querySelector('form[data-dirty="true"]') &&
+              !window.confirm(
+                "Sair da conta? Os dados ainda não salvos serão descartados.",
+              )
+            )
+              return;
+            setScreen({ kind: "loading", layout: "access" });
+            await api.logout();
+            if (!isCurrent()) return;
+            setToken(null);
+            clearProvisionKey(requestStorage());
+            attempt.current = null;
+            denied.current = false;
+            setEmailJourney({ kind: "entry", email: "" });
+            navigate("/");
+            await refresh(false);
+          },
+          false,
+          false,
+        )
+      }
+    >
+      Sair
+    </button>
+  );
   const navigation = currentOrganization && (
     <nav aria-label="Navegação da organização" className="admin-nav">
       {(
@@ -657,14 +691,22 @@ export function App({
           {item.label}
         </NavigationLink>
       ))}
-      <NavigationLink
-        href="/organizacoes"
-        navigate={go}
-        className="organization-switch"
-        disabled={busy}
-      >
-        <span aria-hidden="true">⇄</span>Trocar organização
-      </NavigationLink>
+      <details key={screen.kind} className="navigation-more">
+        <summary>
+          <span aria-hidden="true">•••</span>Mais
+        </summary>
+        <div className="navigation-actions">
+          <NavigationLink
+            href="/organizacoes"
+            navigate={go}
+            className="organization-switch"
+            disabled={busy}
+          >
+            <span aria-hidden="true">⇄</span>Trocar organização
+          </NavigationLink>
+          {logoutButton}
+        </div>
+      </details>
     </nav>
   );
   return (
@@ -697,7 +739,7 @@ export function App({
           </span>
         </a>
         {managementLoading && (
-          <div className="loading-context placeholder" aria-hidden="true" />
+          <Skeleton className="loading-context placeholder" />
         )}
         {currentOrganization && (
           <div className="context-label">
@@ -706,46 +748,14 @@ export function App({
             <span className="context-role">Administração</span>
           </div>
         )}
-        {hasSession && (
-          <button
-            className="text-button"
-            disabled={busy}
-            onClick={() =>
-              void perform(
-                async (isCurrent) => {
-                  if (
-                    document.querySelector('form[data-dirty="true"]') &&
-                    !window.confirm(
-                      "Sair da conta? Os dados ainda não salvos serão descartados.",
-                    )
-                  )
-                    return;
-                  setScreen({ kind: "loading", layout: "access" });
-                  await api.logout();
-                  if (!isCurrent()) return;
-                  setToken(null);
-                  clearProvisionKey(requestStorage());
-                  attempt.current = null;
-                  denied.current = false;
-                  setEmailJourney({ kind: "entry", email: "" });
-                  navigate("/");
-                  await refresh(false);
-                },
-                false,
-                false,
-              )
-            }
-          >
-            Sair
-          </button>
-        )}
+        {hasSession && !currentOrganization && logoutButton}
       </header>
       {managementLoading && (
         <aside className="sidebar loading-sidebar" aria-hidden="true">
-          <div className="placeholder" />
-          <div className="placeholder" />
-          <div className="placeholder" />
-          <div className="placeholder" />
+          <Skeleton className="placeholder" />
+          <Skeleton className="placeholder" />
+          <Skeleton className="placeholder" />
+          <Skeleton className="placeholder" />
         </aside>
       )}
       {administrative && currentOrganization && (

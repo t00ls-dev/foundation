@@ -21,7 +21,7 @@ const files = (directory) =>
     return entry.isDirectory() ? files(file) : [file];
   });
 
-test("Levi privado resolve os sete pacotes locais com todos os workspaces privados", () => {
+test("Levi privado resolve os pacotes locais com todos os workspaces privados", () => {
   const manifests = workspaceManifests(root);
   assert.deepEqual(
     manifests
@@ -42,9 +42,9 @@ test("Levi privado resolve os sete pacotes locais com todos os workspaces privad
     Object.keys(pkg.dependencies)
       .filter((name) => name.startsWith("@t00ls-dev/"))
       .sort(),
-    shared.map((name) => `@t00ls-dev/${name}`).sort(),
+    [...shared, "ui"].map((name) => `@t00ls-dev/${name}`).sort(),
   );
-  for (const name of shared) {
+  for (const name of [...shared, "ui"]) {
     assert.equal(pkg.dependencies[`@t00ls-dev/${name}`], "workspace:*");
     assert.equal(
       realpathSync(join(application, "node_modules/@t00ls-dev", name)),
@@ -126,12 +126,16 @@ test("imports de runtime do Levi ficam na aplicação ou nos exports públicos",
         );
       } else if (specifier.startsWith("@t00ls-dev/")) {
         const [, name, ...parts] = specifier.split("/");
-        assert(shared.includes(name));
+        assert([...shared, "ui"].includes(name));
         const manifest = json(join(root, "packages", name, "package.json"));
         assert(
           Object.hasOwn(
             manifest.exports,
-            parts.length ? `./${parts.join("/")}` : ".",
+            name === "ui" && parts[0] === "components" && parts.length === 2
+              ? "./components/*"
+              : parts.length
+                ? `./${parts.join("/")}`
+                : ".",
           ),
         );
       }

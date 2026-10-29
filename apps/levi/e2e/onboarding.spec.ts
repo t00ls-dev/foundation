@@ -56,6 +56,10 @@ test("429 de navegação mostra espera, evita novas chamadas e permite sair", as
   await expect(
     page.getByRole("button", { name: "Sair", exact: true }),
   ).toBeEnabled();
+  if (
+    !(await page.getByRole("button", { name: "Sair", exact: true }).isVisible())
+  )
+    await page.locator(".navigation-more summary").click();
   await page.getByRole("button", { name: "Sair", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Comece pelo seu e-mail" }),
@@ -168,6 +172,10 @@ test("fluxo real completo, login, seleção e retomada por refresh", async ({
   }));
   expect(storage.local).toEqual([]);
   expect(storage.session).toEqual([]);
+  if (
+    !(await page.getByRole("button", { name: "Sair", exact: true }).isVisible())
+  )
+    await page.locator(".navigation-more summary").click();
   await page.getByRole("button", { name: "Sair", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Comece pelo seu e-mail" }),
@@ -405,6 +413,7 @@ test("troca real entre organizações não conserva igrejas anteriores e revoga�
   await expect(
     page.getByText("Primeira igreja sintética", { exact: true }),
   ).toBeVisible();
+  await page.locator(".navigation-more summary").click();
   await page
     .getByRole("link", { name: "Trocar organização", exact: true })
     .click();
@@ -849,6 +858,10 @@ test("acesso revogado permanece sem acesso após reload e novo login, sem criar 
       .getByRole("button", { name: "Atualizar acesso", exact: true })
       .click();
   }
+  if (
+    !(await page.getByRole("button", { name: "Sair", exact: true }).isVisible())
+  )
+    await page.locator(".navigation-more summary").click();
   await page.getByRole("button", { name: "Sair", exact: true }).click();
   await page
     .getByRole("link", { name: "Entrar na minha conta", exact: true })
@@ -1025,4 +1038,39 @@ test("resposta de provisionamento da sessão anterior não restaura nomes no nov
     gate.release();
     await otherContext.close();
   }
+});
+
+test("shell mantém navegação e reflow nas cinco larguras aprovadas", async ({
+  page,
+}) => {
+  await readyAccount(page);
+  await provision(page);
+  for (const width of [360, 390, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const nav = page.getByRole("navigation", {
+      name: "Navegação da organização",
+    });
+    await expect(nav).toBeVisible();
+    await expect(
+      nav.getByRole("link", { name: "Início", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+    await nav.getByRole("link", { name: "Igrejas", exact: true }).click();
+    await expect(
+      nav.getByRole("link", { name: "Igrejas", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
+    await nav.getByRole("link", { name: "Início", exact: true }).click();
+    await nav.locator("summary").focus();
+    await page.keyboard.press("Enter");
+    await expect(
+      nav.getByRole("link", { name: "Trocar organização", exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("Enter");
+  }
+  const accessibility = await new AxeBuilder({ page }).analyze();
+  expect(accessibility.violations).toEqual([]);
 });

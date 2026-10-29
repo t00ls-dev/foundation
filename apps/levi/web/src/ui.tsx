@@ -150,6 +150,15 @@ export function useFormFocusVisibility() {
           ?.getBoundingClientRect();
         if (header && header.bottom > top && header.bottom < bottom)
           top = header.bottom + 12;
+        const navigation = document.querySelector(".sidebar");
+        if (
+          navigation instanceof HTMLElement &&
+          getComputedStyle(navigation).position === "fixed"
+        ) {
+          const bounds = navigation.getBoundingClientRect();
+          if (bounds.top < top && bounds.bottom < bottom)
+            top = bounds.bottom + 12;
+        }
         const rect = target.getBoundingClientRect();
         if (rect.bottom > bottom) window.scrollBy(0, rect.bottom - bottom);
         else if (rect.top < top) window.scrollBy(0, rect.top - top);

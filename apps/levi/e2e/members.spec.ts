@@ -305,6 +305,7 @@ test("membros: troca organizacional e revogação removem ficha e listagem anter
     "INSERT INTO tenant_memberships(tenant_id,user_id,role) VALUES($1,$2,'admin')",
     [tenant.id, who.userId],
   );
+  await page.locator(".navigation-more summary").click();
   await page
     .getByRole("link", { name: "Trocar organização", exact: true })
     .click();
@@ -426,6 +427,7 @@ test("membros: capacidade desabilitada remove dados e navegação e impede abert
       exact: true,
     })
     .click();
+  await page.locator(".navigation-more summary").click();
   await expect(
     page.getByRole("link", { name: "Trocar organização", exact: true }),
   ).toBeVisible();
@@ -846,14 +848,22 @@ test("interface: contraste da ficha, nomes longos, tablets e texto a 200%", asyn
         const main = await page.locator("main").boundingBox();
         expect(
           bounds!.x + bounds!.width <= main!.x ||
-            bounds!.y + bounds!.height <= main!.y,
+            bounds!.y + bounds!.height <= main!.y ||
+            ((await page
+              .locator(".sidebar")
+              .evaluate(
+                (element) => getComputedStyle(element).position === "fixed",
+              )) &&
+              bounds!.y >= 0 &&
+              bounds!.y + bounds!.height <= 900),
           `navegação sem sobreposição: ${width}px / ${fontSize}`,
         ).toBe(true);
-        for (const button of await page.locator(".admin-nav a").all()) {
+        for (const button of await page.locator(".admin-nav a:visible").all()) {
           expect(
             await button.evaluate(
               (element) => element.scrollWidth <= element.clientWidth,
             ),
+            `link ${await button.textContent()} / ${width} / ${fontSize}`,
           ).toBe(true);
         }
       }

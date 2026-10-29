@@ -79,6 +79,7 @@ export async function provision(page: Page, name = "Comunidade sintética") {
 }
 
 export async function showOrganizations(page: Page) {
+  await page.locator(".navigation-more summary").click();
   await page
     .getByRole("link", { name: "Trocar organização", exact: true })
     .click();

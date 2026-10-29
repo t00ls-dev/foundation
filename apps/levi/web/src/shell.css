@@ -1,0 +1,132 @@
+/* Shared organizational shell. Screen layouts remain in style.css. */
+.navigation-more {
+  position: relative;
+  min-width: 0;
+}
+.navigation-more summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 46px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-control);
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+  font-size: var(--text-small);
+  font-weight: 620;
+}
+.navigation-more summary::-webkit-details-marker {
+  display: none;
+}
+.navigation-more summary:hover,
+.navigation-more[open] summary {
+  background: var(--tint);
+  color: var(--brand);
+}
+.navigation-actions {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: var(--space-2);
+  box-shadow: var(--shadow-panel);
+}
+.admin-nav .navigation-actions .organization-switch {
+  margin: 0;
+  border: 0;
+  padding: var(--space-3);
+}
+.navigation-actions button {
+  width: 100%;
+  justify-content: flex-start;
+}
+@media (min-width: 48rem) {
+  .admin-app:has(.sidebar) {
+    display: grid;
+    grid-template-columns: 184px minmax(0, 1fr);
+  }
+  .admin-app .sidebar {
+    position: sticky;
+    top: 0;
+    width: auto;
+    padding: var(--space-6) var(--space-3);
+    border-right: 1px solid var(--line);
+    border-top: 0;
+  }
+  .admin-app .admin-nav {
+    display: flex;
+    flex-direction: column;
+  }
+  .admin-app .admin-nav > .button-link {
+    justify-content: flex-start;
+    padding: var(--space-3);
+    gap: var(--space-2);
+  }
+}
+@media (min-width: 75rem) {
+  .admin-app:has(.sidebar) {
+    grid-template-columns: 232px minmax(0, 1fr);
+  }
+  .admin-app .workspace {
+    padding: var(--space-7);
+  }
+}
+@media (max-width: 47.999rem) {
+  .admin-app:has(.sidebar) {
+    padding-bottom: calc(92px + env(safe-area-inset-bottom));
+  }
+  .admin-app .topbar {
+    position: static;
+    padding-top: max(var(--space-4), env(safe-area-inset-top));
+  }
+  .admin-app .sidebar {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 5;
+    padding: var(--space-2) max(var(--space-2), env(safe-area-inset-right))
+      max(var(--space-2), env(safe-area-inset-bottom))
+      max(var(--space-2), env(safe-area-inset-left));
+  }
+  .admin-app .admin-nav {
+    display: flex;
+    flex-direction: row;
+    gap: var(--space-1);
+  }
+  .admin-nav > .button-link,
+  .admin-nav > .navigation-more {
+    flex: 1;
+    min-width: 0;
+  }
+  .admin-app .admin-nav > .button-link,
+  .navigation-more summary {
+    flex-direction: column;
+    justify-content: center;
+    min-height: 60px;
+    padding: var(--space-1);
+    gap: var(--space-1);
+  }
+  .admin-nav > a[href="/membros"] {
+    order: 1;
+  }
+  .admin-nav > a[href="/igrejas"] {
+    order: 2;
+  }
+  .navigation-more {
+    order: 3;
+  }
+  .navigation-actions {
+    position: absolute;
+    bottom: calc(100% + var(--space-4));
+    right: 0;
+    width: min(260px, 85vw);
+  }
+  /* Keep navigation above the virtual keyboard without shifting the form. */
+  .admin-app:has(form :focus) .sidebar {
+    top: 0;
+    bottom: auto;
+  }
+  .admin-app:has(form :focus) .navigation-actions {
+    bottom: auto;
+    top: 100%;
+  }
+}

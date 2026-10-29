@@ -3,6 +3,7 @@ import { Admin } from "./admin.js";
 import { App } from "./app.js";
 import { takeLinkReturn } from "./session.js";
 import "./style.css";
+import "./shell.css";
 
 const link = takeLinkReturn(window.location, window.history);
 const root = document.getElementById("root");
