@@ -504,6 +504,7 @@ async function simulatedDeploy(
     fetch: request,
     URL,
     AbortSignal,
+    setTimeout: (callback: () => void) => callback(),
     console: {
       info: (message: string) => {
         if (options.failProgress && message.startsWith("Deploy DEV:"))
@@ -661,6 +662,20 @@ void test("diagnóstico: formato inválido e tráfego divergente mantêm HTTP se
       {
         deployments: [
           { versions: [{ version_id: versionId, percentage: 50 }] },
+        ],
+      },
+      "divergência de configuração",
+      "versão única com 100% do tráfego",
+    ],
+    [
+      {
+        deployments: [
+          {
+            versions: [
+              { version_id: versionId, percentage: 50 },
+              { version_id: previousVersionId, percentage: 50 },
+            ],
+          },
         ],
       },
       "divergência de configuração",
@@ -1201,8 +1216,85 @@ void test("transferência não herda secrets de versão enviada sem tráfego", a
   assert.equal(result.uploads, 0);
   assert.equal(result.writes.length, 0);
   assert.ok(
-    result.output.includes("última versão enviada igual à versão ativa"),
+    result.output.includes("versão de origem dos secrets igual à ativa"),
   );
+});
+
+void test("verificação pós-publicação aguarda convergência sem republicar", async () => {
+  for (const stale of ["deployment", "versions"] as const) {
+    let reads = 0;
+    const result = await simulatedDeploy({
+      respond: (url, published) => {
+        if (!published) return undefined;
+        if (url.endsWith("/deployments")) {
+          reads++;
+          if (stale === "deployment" && reads === 1)
+            return Response.json({
+              success: true,
+              result: {
+                deployments: [
+                  {
+                    versions: [
+                      { version_id: previousVersionId, percentage: 100 },
+                    ],
+                  },
+                ],
+              },
+            });
+        }
+        if (stale === "versions" && url.endsWith("/versions") && reads === 1)
+          return Response.json({
+            success: true,
+            result: { items: [{ id: previousVersionId }] },
+          });
+        if (
+          stale === "deployment" &&
+          url.endsWith(`/versions/${previousVersionId}`)
+        )
+          return Response.json({
+            success: true,
+            result: {
+              annotations: { "workers/tag": "e".repeat(40) },
+              resources: { bindings: baseBindings },
+            },
+          });
+        return undefined;
+      },
+    });
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.uploads, 1);
+    assert.equal(reads, stale === "deployment" ? 3 : 2);
+  }
+});
+
+void test("divergência persistente e SHA incorreto falham sem republicação", async () => {
+  for (const mismatch of ["list", "sha"] as const) {
+    let reads = 0;
+    const result = await simulatedDeploy({
+      respond: (url, published) => {
+        if (!published) return undefined;
+        if (url.endsWith("/deployments")) reads++;
+        if (mismatch === "list" && url.endsWith("/versions"))
+          return Response.json({
+            success: true,
+            result: { items: [{ id: previousVersionId }] },
+          });
+        if (mismatch === "sha" && url.includes("/versions/"))
+          return Response.json({
+            success: true,
+            result: {
+              annotations: { "workers/tag": "e".repeat(40) },
+              resources: { bindings: baseBindings },
+            },
+          });
+        return undefined;
+      },
+    });
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.uploads, 1);
+    assert.equal(reads, 7);
+    assert.ok(!result.output.includes("private-"));
+  }
 });
 
 void test("transferência interrompe se versão ativa mudar entre preflight e upload", async () => {

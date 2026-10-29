@@ -172,63 +172,128 @@ try {
   }
   await protections();
   async function activeVersion(phase: "previous" | "published") {
-    const deployments = asRecord(
-      await cloudflare(
-        "deployments-read",
-        `${account}/workers/scripts/${deployWorker}/deployments`,
-      ),
-    );
-    diagnostics.inspect("deployment-shape", "resposta inesperada");
-    const deployment = asRecordArray(deployments.deployments)[0];
-    assert.ok(deployment);
-    const versions = asRecordArray(deployment.versions);
-    diagnostics.inspect("deployment-traffic");
-    assert.equal(versions.length, 1);
-    const versionEntry = versions[0];
-    assert.ok(versionEntry);
-    assert.equal(versionEntry.percentage, 100);
-    const versionId = versionEntry.version_id;
-    assert.ok(typeof versionId === "string");
-    assert.match(
-      versionId,
-      /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i,
-    );
-    // Wrangler herda secrets da última versão enviada, que pode não ter tráfego.
-    const uploaded = asRecord(
-      await cloudflare(
-        "versions-read",
-        `${account}/workers/scripts/${deployWorker}/versions`,
-      ),
-    );
-    diagnostics.inspect("version-latest");
-    const uploadedItems = asRecordArray(uploaded.items);
-    assert.equal(uploadedItems[0]?.id, versionId);
-    const version = asRecord(
-      await cloudflare(
-        "version-read",
-        `${account}/workers/scripts/${deployWorker}/versions/${versionId}`,
-      ),
-    );
-    diagnostics.inspect("version-tag");
-    const sha = asRecord(version.annotations)["workers/tag"];
-    assert.ok(typeof sha === "string");
-    assert.match(sha, /^[a-f0-9]{40}$/);
-    const sender = diagnostics.verify("version-binding", () => {
-      if (phase === "previous")
-        return verifyPreviousWorkerBindings(version, env, { versionId, sha });
-      verifyWorkerBindings(version, env);
-      if (phase === "published") {
-        const matches = asRecordArray(
-          asRecord(version.resources).bindings,
-        ).filter((binding) => binding.name === "LEVI_ADMIN_EMAIL");
-        assert.equal(matches.length, 1);
-        const match = matches[0];
-        assert.ok(match);
-        assert.equal(match.type, "secret_text");
+    type Snapshot = {
+      versionId: string;
+      sha: string;
+      listed: boolean;
+      version: Record<string, unknown>;
+    };
+    async function read(): Promise<Snapshot> {
+      const deployments = asRecord(
+        await cloudflare(
+          "deployments-read",
+          `${account}/workers/scripts/${deployWorker}/deployments`,
+        ),
+      );
+      diagnostics.inspect("deployment-shape", "resposta inesperada");
+      const deployment = asRecordArray(deployments.deployments)[0];
+      assert.ok(deployment);
+      const versions = asRecordArray(deployment.versions);
+      diagnostics.inspect("deployment-traffic");
+      assert.equal(versions.length, 1);
+      const versionEntry = versions[0];
+      assert.ok(versionEntry);
+      assert.equal(versionEntry.percentage, 100);
+      const versionId = versionEntry.version_id;
+      assert.ok(typeof versionId === "string");
+      assert.match(
+        versionId,
+        /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i,
+      );
+      // A lista confirma a presença da versão ativa pelo ID; ordem e posição
+      // não provam identidade nem um estado atômico entre endpoints.
+      const uploaded = asRecord(
+        await cloudflare(
+          "versions-read",
+          `${account}/workers/scripts/${deployWorker}/versions`,
+        ),
+      );
+      // Wrangler herda secrets da última versão enviada no preflight.
+      // Preserve essa proteção separada da identificação da versão ativa.
+      if (phase === "previous") {
+        diagnostics.inspect("version-inheritance");
+        assert.equal(asRecordArray(uploaded.items)[0]?.id, versionId);
       }
-      return "current";
-    });
-    return { versionId, sha, sender };
+      diagnostics.inspect("version-latest");
+      const listed = asRecordArray(uploaded.items).some(
+        (item) => item.id === versionId,
+      );
+      const version = asRecord(
+        await cloudflare(
+          "version-read",
+          `${account}/workers/scripts/${deployWorker}/versions/${versionId}`,
+        ),
+      );
+      diagnostics.inspect("version-tag");
+      const sha = asRecord(version.annotations)["workers/tag"];
+      assert.ok(typeof sha === "string");
+      assert.match(sha, /^[a-f0-9]{40}$/);
+      return { versionId, sha, listed, version };
+    }
+    function confirm(snapshot: Snapshot) {
+      return diagnostics.verify("version-binding", () => {
+        if (phase === "previous")
+          return verifyPreviousWorkerBindings(snapshot.version, env, {
+            versionId: snapshot.versionId,
+            sha: snapshot.sha,
+          });
+        verifyWorkerBindings(snapshot.version, env);
+        if (phase === "published") {
+          const matches = asRecordArray(
+            asRecord(snapshot.version.resources).bindings,
+          ).filter((binding) => binding.name === "LEVI_ADMIN_EMAIL");
+          assert.equal(matches.length, 1);
+          const match = matches[0];
+          assert.ok(match);
+          assert.equal(match.type, "secret_text");
+        }
+        return "current";
+      });
+    }
+    const expectedSha = phase === "published" ? settings.sha : undefined;
+    const converged = (snapshot: Snapshot) =>
+      snapshot.listed &&
+      (expectedSha === undefined || snapshot.sha === expectedSha);
+    const first = await read();
+    if (converged(first)) {
+      const sender = confirm(first);
+      return { versionId: first.versionId, sha: first.sha, sender };
+    }
+    // Divergência transitória entre endpoints: somente releituras limitadas,
+    // sem republicar, exigindo ID e tag estáveis em leituras consecutivas.
+    const attempts = 6;
+    const observed = [{ versionId: first.versionId, sha: first.sha }];
+    let previous = first;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 2_000));
+      const current = await read();
+      observed.push({ versionId: current.versionId, sha: current.sha });
+      if (
+        converged(current) &&
+        previous.versionId === current.versionId &&
+        previous.sha === current.sha
+      ) {
+        const sender = confirm(current);
+        return { versionId: current.versionId, sha: current.sha, sender };
+      }
+      previous = current;
+    }
+    const stableSha = observed.every((item) => item.sha === observed[0]?.sha);
+    if (
+      expectedSha !== undefined &&
+      stableSha &&
+      observed[0]?.sha !== expectedSha
+    )
+      diagnostics.start("version-tag", "divergência de configuração");
+    else
+      diagnostics.start("version-convergence", "divergência de configuração");
+    console.info(
+      JSON.stringify({
+        operacao: "versao-dev-divergente",
+        versoes: [...new Set(observed.map((item) => item.versionId))],
+      }),
+    );
+    throw new Error("Versão ativa não convergiu entre deployments e versions");
   }
   // Falha antes do upload se o alvo ou a continuidade não puderem ser comprovados.
   const previous = await activeVersion("previous");
