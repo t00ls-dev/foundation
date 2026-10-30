@@ -194,11 +194,6 @@ export async function sendInvitation(input: {
             expiresAt: row.expiresAt,
           });
         },
-        consume() {
-          return Promise.reject(
-            new Error("Use a aceitação transacional do Levi."),
-          );
-        },
       },
       audit: {
         async record(event) {

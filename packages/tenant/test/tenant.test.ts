@@ -74,7 +74,7 @@ describe("tenant invitations", () => {
       email: " Person@Example.COM ",
       expiresAt: new Date("2026-10-01T00:00:00.000Z"),
       id: "invitation-1",
-      repository: { create, consume: vi.fn() },
+      repository: { create },
       role: "member",
       tenantId: "tenant-1",
     });
@@ -115,7 +115,7 @@ describe("tenant invitations", () => {
         audit: { record },
         email: " Person@Example.com ",
         now,
-        repository: { consume, create: vi.fn() },
+        repository: { consume },
         token: "secret-token",
         userId: "user-2",
       }),
