@@ -5,6 +5,7 @@ import {
   NavigationLink,
   useFormFocusVisibility,
 } from "./ui.js";
+import { ChurchManagement } from "./church-management.js";
 import { Members } from "./members.js";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -13,6 +14,8 @@ import {
   ApiError,
   type NamedItem,
   type ChurchItem,
+  type ChurchLink,
+  type ChurchRole,
   type ProvisionInput,
   type SessionContext,
 } from "./api.js";
@@ -38,19 +41,18 @@ type Screen =
         | "password"
         | "organization";
     }
-  | { kind: "organizations"; items: NamedItem[] }
+  | { kind: "organizations"; items: ChurchLink[] }
   | {
       kind: "churches" | "dashboard";
-      organization: NamedItem;
+      organization: NamedItem & { role: ChurchRole };
       items: ChurchItem[];
       membersEnabled: boolean;
     }
   | {
       kind: "members";
-      organization: NamedItem;
+      organization: NamedItem & { role: ChurchRole };
       churches: NamedItem[];
       path: string;
-      churchFilter: string;
       identity: SessionContext;
       filters: MemberFilters;
     };
@@ -238,7 +240,9 @@ export function App({
         finishProvision ||
         (resumeChurches &&
           !sessionChanged &&
-          (["/igrejas", "/painel"].includes(window.location.pathname) ||
+          ((window.location.pathname.startsWith("/igrejas") &&
+            window.location.pathname !== "/igrejas/selecionar") ||
+            window.location.pathname === "/painel" ||
             window.location.pathname.startsWith("/membros")));
       const expectedOrganizationId =
         provisionResult && provisionResult !== "recover"
@@ -284,8 +288,16 @@ export function App({
         const organization = {
           id: context.churchId,
           nome: context.churchName,
+          role: context.role,
         };
         if (!(await confirmSession(currentIdentity, sequence))) return;
+        if (
+          ["/igrejas/editar", "/igrejas/acessos"].includes(
+            window.location.pathname,
+          ) &&
+          context.role !== "admin"
+        )
+          navigate("/igrejas");
         if (finishProvision) navigate("/painel");
         if (
           sequence === generation.current &&
@@ -303,14 +315,11 @@ export function App({
               "SESSAO_NECESSARIA",
               "Entre na sua conta para continuar.",
             );
-          const churchFilter =
-            new URLSearchParams(window.location.search).get("igreja") ?? "";
           const saved = memberList.current;
-          const filters: MemberFilters = churchFilter
-            ? { page: 1, pageSize: 20, churchId: churchFilter }
-            : saved &&
-                saved.churchId === organization.id &&
-                sameSession(saved.identity, currentIdentity)
+          const filters: MemberFilters =
+            saved &&
+            saved.churchId === organization.id &&
+            sameSession(saved.identity, currentIdentity)
               ? saved.filters
               : { page: 1, pageSize: 20 };
           setScreen({
@@ -318,7 +327,6 @@ export function App({
             organization,
             churches: churches.churches,
             path: window.location.pathname,
-            churchFilter,
             identity: currentIdentity,
             filters,
           });
@@ -423,12 +431,17 @@ export function App({
               await refresh(false);
               return;
             }
-            if (currentScreen.kind === "members") {
+            if (
+              currentScreen.kind === "members" ||
+              currentScreen.kind === "churches"
+            ) {
               const context = await api.context();
               if (sequence !== generation.current) return;
               if (
                 context.churchId !== currentScreen.organization.id ||
-                !context.membersEnabled
+                !context.membersEnabled ||
+                (currentScreen.kind === "churches" &&
+                  context.role !== currentScreen.organization.role)
               )
                 await refresh(false);
             }
@@ -449,9 +462,8 @@ export function App({
       }
       if (
         !active.current &&
-        (["/igrejas", "/painel", "/organizacoes"].includes(
-          window.location.pathname,
-        ) ||
+        (window.location.pathname.startsWith("/igrejas") ||
+          window.location.pathname === "/painel" ||
           window.location.pathname.startsWith("/membros"))
       )
         void refresh();
@@ -718,7 +730,7 @@ export function App({
         </summary>
         <div className="navigation-actions">
           <NavigationLink
-            href="/organizacoes"
+            href="/igrejas/selecionar"
             navigate={go}
             className="organization-switch"
             disabled={busy}
@@ -766,7 +778,11 @@ export function App({
           <div className="context-label">
             <span className="eyebrow">Igreja ativa</span>
             <strong>{currentOrganization.nome}</strong>
-            <span className="context-role">Administração</span>
+            <span className="context-role">
+              {currentOrganization.role === "admin"
+                ? "Administrador"
+                : "Colaborador"}
+            </span>
           </div>
         )}
         {hasSession && (
@@ -789,7 +805,11 @@ export function App({
           <p className="nav-caption">ESPAÇO DE GESTÃO</p>
           {navigation}
           <div className="sidebar-note">
-            <span className="context-role">Acesso administrativo</span>
+            <span className="context-role">
+              {currentOrganization.role === "admin"
+                ? "Administrador"
+                : "Colaborador"}
+            </span>
             <p>
               Um espaço para organizar
               <br />e cuidar das pessoas.
@@ -954,7 +974,7 @@ export function App({
                     await api.login(values.email!.trim(), values.password!);
                     if (!isCurrent()) return;
                     denied.current = false;
-                    navigate("/organizacoes");
+                    navigate("/igrejas/selecionar");
                     await refresh(false);
                   })
                 }
@@ -1106,6 +1126,11 @@ export function App({
                           O
                         </span>
                         <strong>{item.nome}</strong>
+                        <span>
+                          {item.role === "admin"
+                            ? "Administrador"
+                            : "Colaborador"}
+                        </span>
                       </div>
                       <button
                         className="primary compact"
@@ -1129,8 +1154,8 @@ export function App({
                 </ul>
               ) : (
                 <p>
-                  Nenhuma igreja está disponível com vínculo administrativo
-                  atual. Procure o responsável pela igreja.
+                  Nenhuma igreja está disponível com vínculo atual. Procure o
+                  responsável pela igreja.
                 </p>
               )}
               <button className="text-button" disabled={busy} onClick={update}>
@@ -1147,7 +1172,7 @@ export function App({
           )}
           {screen.kind === "members" && (
             <Members
-              key={`${screen.identity.sessionId}:${screen.organization.id}:${screen.path}:${screen.churchFilter}`}
+              key={`${screen.identity.sessionId}:${screen.organization.id}:${screen.path}`}
               organization={screen.organization}
               churches={screen.churches}
               path={screen.path}
@@ -1199,7 +1224,7 @@ export function App({
                   <span className="tile-icon">
                     <Icon name="church" />
                   </span>
-                  <p>Igrejas na igreja</p>
+                  <p>Igreja selecionada</p>
                   <strong className="metric">{screen.items.length}</strong>
                   <button
                     className="text-button"
@@ -1230,10 +1255,23 @@ export function App({
               </div>
             </>
           )}
+          {screen.kind === "churches" &&
+            screen.organization.role === "admin" && (
+              <ChurchManagement
+                key={`${identity.current?.sessionId}:${screen.organization.id}:${window.location.pathname}`}
+                church={screen.items[0]!}
+                identity={identity.current ?? null}
+                path={window.location.pathname}
+                navigate={go}
+                onAccessChanged={() => {
+                  void refresh();
+                }}
+              />
+            )}
           {screen.kind === "churches" && (
             <>
               <div className="page-intro">
-                <p>As igrejas que fazem parte da sua igreja.</p>
+                <p>Dados da igreja selecionada.</p>
                 <span className="count-label">
                   {screen.items.length}{" "}
                   {screen.items.length === 1 ? "igreja" : "igrejas"}
@@ -1260,12 +1298,16 @@ export function App({
                           <dd>{item.email || "Não informado"}</dd>
                         </dl>
                       ) : (
-                        <p className="hint">Contatos não informados.</p>
+                        <p className="hint">
+                          {screen.organization.role === "admin"
+                            ? "Contatos não informados."
+                            : "Contatos institucionais restritos aos administradores."}
+                        </p>
                       )}
                       {membersEnabled && (
                         <NavigationLink
                           className="secondary"
-                          href={`/membros?igreja=${item.id}`}
+                          href="/membros"
                           navigate={go}
                           aria-label={`Consultar membros de ${item.nome}`}
                         >

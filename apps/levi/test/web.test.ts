@@ -153,11 +153,20 @@ void test("consulta de igreja exige contexto capturado e identificador correspon
     );
   await api.context();
   globalThis.fetch = () =>
-    Promise.resolve(Response.json({ id: churchId, nome: "Igreja" }));
+    Promise.resolve(
+      Response.json({ id: churchId, nome: "Igreja", version: 1 }),
+    );
   assert.deepEqual(await api.churches(), {
     churchId,
     churches: [
-      { id: churchId, nome: "Igreja", address: null, phone: null, email: null },
+      {
+        id: churchId,
+        nome: "Igreja",
+        version: 1,
+        address: null,
+        phone: null,
+        email: null,
+      },
     ],
   });
   globalThis.fetch = () =>
@@ -356,7 +365,7 @@ void test("filtro institucional preserva apenas UUID de igreja e remove credenci
     [
       "/membros",
       `?igreja=${churchId}&token=secret&nome=Pessoa#fragmento`,
-      `/membros?igreja=${churchId}`,
+      "/membros",
     ],
     ["/membros", "?igreja=invalid&nome=Pessoa", "/membros"],
     ["/onboarding", `?igreja=${churchId}&token=secret`, "/onboarding"],
@@ -447,4 +456,94 @@ void test("política selecionada preservada na conversão pode não ter igrejas 
   assert.deepEqual(await adminApi.features(new AbortController().signal), [
     { key: "members", policy: "selected", version: 3, churchIds: [] },
   ]);
+});
+
+void test("igrejas e acessos preservam papel, versão e DELETE e recusam contratos inválidos", async () => {
+  const churchId = "11111111-1111-4111-8111-111111111111";
+  const accessId = "22222222-2222-4222-8222-222222222222";
+  globalThis.fetch = async () =>
+    await Promise.resolve(
+      Response.json({
+        churches: [
+          { id: churchId, nome: "Igreja A", role: "admin", version: 2 },
+        ],
+        next: null,
+      }),
+    );
+  assert.equal((await api.organizations())[0]?.role, "admin");
+  globalThis.fetch = async () =>
+    await Promise.resolve(
+      Response.json({
+        churches: [
+          { id: churchId, nome: "Igreja A", role: "owner", version: 2 },
+        ],
+        next: null,
+      }),
+    );
+  await assert.rejects(api.organizations());
+  const row = {
+    id: accessId,
+    churchId,
+    userId: accessId,
+    name: "Pessoa",
+    email: "pessoa@example.test",
+    role: "collaborator",
+    version: 1,
+    createdAt: "2026-01-01T00:00:00Z",
+  };
+  globalThis.fetch = async () =>
+    await Promise.resolve(Response.json({ accesses: [row], next: null }));
+  assert.equal((await api.accessList(churchId)).accesses[0]?.name, "Pessoa");
+  globalThis.fetch = async () =>
+    await Promise.resolve(
+      Response.json({ accesses: [{ ...row, version: 0 }], next: null }),
+    );
+  await assert.rejects(api.accessList(churchId));
+  globalThis.fetch = async (_url, options) => {
+    assert.equal(options?.method, "DELETE");
+    assert.deepEqual(
+      JSON.parse(typeof options?.body === "string" ? options.body : "null"),
+      { version: 1 },
+    );
+    return await Promise.resolve(Response.json({ churchId }));
+  };
+  await api.changeAccess(churchId, accessId, 1, null);
+});
+
+void test("acessos atrasados são descartados após mudança de igreja ou papel", async () => {
+  const churchId = "11111111-1111-4111-8111-111111111111";
+  globalThis.fetch = async () =>
+    await Promise.resolve(
+      Response.json({
+        churchId,
+        churchName: "A",
+        role: "admin",
+        membersEnabled: true,
+      }),
+    );
+  await api.context();
+  let respond: (value: Response) => void = () => {
+    throw new Error("Consulta não iniciada");
+  };
+  globalThis.fetch = () =>
+    new Promise<Response>((resolve) => {
+      respond = resolve;
+    });
+  const pending = api.accessList(churchId);
+  globalThis.fetch = async () =>
+    await Promise.resolve(
+      Response.json({
+        churchId,
+        churchName: "A",
+        role: "collaborator",
+        membersEnabled: true,
+      }),
+    );
+  await api.context();
+  respond(Response.json({ accesses: [], next: null }));
+  await assert.rejects(
+    pending,
+    (error: unknown) =>
+      error instanceof ApiError && error.code === "CONTEXTO_ALTERADO",
+  );
 });

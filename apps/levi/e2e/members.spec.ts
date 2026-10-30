@@ -75,7 +75,7 @@ test("membros: cadastro completo, ficha com datas civis, filtros e acessibilidad
   await page.getByLabel("Nome (obrigatório)", { exact: true }).focus();
   await page.keyboard.press("Tab");
   await expect(
-    page.getByLabel("Igreja (obrigatória)", { exact: true }),
+    page.getByLabel("Situação (obrigatória)", { exact: true }),
   ).toBeFocused();
   await page
     .getByLabel("Situação (obrigatória)", { exact: true })
@@ -865,7 +865,7 @@ test("interface: contraste da ficha, nomes longos, tablets e texto a 200%", asyn
   });
 });
 
-test("igreja: atalho filtra membros, reload mantém ID e vazio permite limpar recorte", async ({
+test("igreja: atalho e reload mantêm membros exclusivamente na igreja ativa", async ({
   page,
   context,
 }) => {
@@ -899,10 +899,7 @@ test("igreja: atalho filtra membros, reload mantém ID e vazio permite limpar re
     name: "Consultar membros de Igreja sintética de pessoas",
     exact: true,
   });
-  await expect(shortcut).toHaveAttribute(
-    "href",
-    `/membros?igreja=${who.churchId}`,
-  );
+  await expect(shortcut).toHaveAttribute("href", "/membros");
   const newTabPromise = context.waitForEvent("page");
   await shortcut.click({ modifiers: ["ControlOrMeta"] });
   const newTab = await newTabPromise;
@@ -911,26 +908,23 @@ test("igreja: atalho filtra membros, reload mantém ID e vazio permite limpar re
   ).toBeVisible();
   await expect(
     newTab.getByRole("heading", {
-      name: "Nenhum membro neste recorte.",
+      name: "Nenhum membro cadastrado.",
       exact: true,
     }),
   ).toBeVisible();
   await newTab.close();
   await shortcut.click();
   await page.reload();
-  await expect(page).toHaveURL(new RegExp(`igreja=${who.churchId}$`));
+  await expect(page).toHaveURL(/\/membros$/);
   await expect(
     page.getByRole("heading", {
-      name: "Nenhum membro neste recorte.",
+      name: "Nenhum membro cadastrado.",
       exact: true,
     }),
   ).toBeVisible();
   await expect(
     page.getByText("Pessoa da outra igreja", { exact: true }),
   ).toHaveCount(0);
-  await page
-    .getByRole("button", { name: "Limpar filtros", exact: true })
-    .click();
   await expect(page).toHaveURL(/\/membros$/);
   await expect(
     page.getByText("Pessoa da outra igreja", { exact: true }),
@@ -1104,4 +1098,108 @@ test("sessão: resposta atrasada da mesma conta em sessão anterior não restaur
     .click();
   await page.getByRole("link", { name: "Membros", exact: true }).click();
   await expect(page.getByLabel("Nome", { exact: true })).toHaveValue("");
+});
+
+test("igreja: edição por versão, último administrador e acesso direto de colaborador", async ({
+  page,
+}) => {
+  const who = await openMembers(page);
+  await page.goto("/igrejas/editar");
+  await page
+    .getByLabel("Nome da igreja", { exact: true })
+    .fill("Igreja atualizada na interface");
+  await observer.client.query(
+    "UPDATE churches SET version=version+1 WHERE id=$1",
+    [who.churchId],
+  );
+  await page
+    .getByRole("button", { name: "Salvar igreja", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.getByLabel("Nome da igreja", { exact: true })).toHaveValue(
+    "Igreja atualizada na interface",
+  );
+  page.once("dialog", (dialog) => dialog.accept());
+  await page
+    .getByRole("button", { name: "Recarregar dados atuais", exact: true })
+    .click();
+  await page
+    .getByLabel("Nome da igreja", { exact: true })
+    .fill("Igreja atualizada na interface");
+  await page
+    .getByRole("button", { name: "Salvar igreja", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/igrejas$/);
+  await expect(
+    page.getByRole("heading", {
+      name: "Igreja atualizada na interface",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.goto("/igrejas/acessos");
+  await expect(
+    page.getByRole("heading", { name: "Pessoas com acesso ao Levi" }),
+  ).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  page.on("dialog", (dialog) => dialog.accept());
+  await page
+    .getByRole("button", { name: "Revogar acesso", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Atualizar acessos", exact: true })
+    .click();
+  await observer.client.query(
+    `INSERT INTO "user"(id,name,email,email_verified) VALUES($1,'Admin reserva',$2,true)`,
+    [who.churchId, `${who.churchId}@example.test`],
+  );
+  await observer.client.query(
+    `INSERT INTO church_memberships(church_id,user_id,role) VALUES($1,$2,'collaborator')`,
+    [who.churchId, who.churchId],
+  );
+  await page
+    .getByRole("button", { name: "Atualizar acessos", exact: true })
+    .click();
+  const backup = page
+    .getByRole("listitem")
+    .filter({ hasText: `${who.churchId}@example.test` });
+  await backup
+    .getByRole("button", { name: "Promover a administrador", exact: true })
+    .click();
+  await expect(
+    backup.getByRole("button", { name: "Rebaixar a colaborador", exact: true }),
+  ).toBeVisible();
+  await backup
+    .getByRole("button", { name: "Rebaixar a colaborador", exact: true })
+    .click();
+  await expect(
+    backup.getByRole("button", {
+      name: "Promover a administrador",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await backup
+    .getByRole("button", { name: "Revogar acesso", exact: true })
+    .click();
+  await expect(backup).toHaveCount(0);
+  await observer.client.query(
+    `INSERT INTO church_memberships(church_id,user_id,role) VALUES($1,$2,'admin')`,
+    [who.churchId, who.churchId],
+  );
+  await page
+    .getByRole("button", { name: "Atualizar acessos", exact: true })
+    .click();
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: who.email })
+    .getByRole("button", { name: "Rebaixar a colaborador", exact: true })
+    .click();
+  await expect(
+    page.getByRole("link", { name: "Gerenciar acessos", exact: true }),
+  ).toHaveCount(0);
+  await page.goto("/igrejas/editar");
+  await expect(page).toHaveURL(/\/igrejas$/);
+  await expect(
+    page.getByRole("button", { name: "Salvar igreja", exact: true }),
+  ).toHaveCount(0);
 });

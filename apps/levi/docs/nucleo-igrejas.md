@@ -1,11 +1,11 @@
-# Núcleo de igrejas — etapa 3
+# Núcleo de igrejas — etapas 3 e 4
 
 Igreja é a única raiz operacional do Levi. A conta pode criar e selecionar várias
 igrejas independentes, sem limite comercial inicial. `admin` gerencia a igreja e
 seus acessos; `collaborator` consulta, cadastra e edita membros. Administração
 global não concede acesso a igrejas. Conta, vínculo de acesso e membro da
 congregação permanecem entidades distintas. Não existe exclusão de igreja nem
-convites nesta etapa. A experiência completa de gestão pertence à etapa 4.
+convites nesta etapa. A SPA oferece seleção, edição institucional e gestão de vínculos existentes.
 
 ## Contratos
 
@@ -19,7 +19,7 @@ convites nesta etapa. A experiência completa de gestão pertence à etapa 4.
   recebe apenas identificação mínima, sem contatos institucionais.
 - `POST /api/context/church` recebe `churchId`; `GET /api/context` resolve seleção,
   papel e capacidades atuais. IDs do cliente não concedem autoridade.
-- `GET /api/churches/:id/accesses?after=<uuid>` pagina vínculos (100 por consulta).
+- `GET /api/churches/:id/accesses?after=<uuid>` pagina vínculos (100 por consulta), com `next` (UUID ou null). Inclui `name`, `email`, papel, versão e data do vínculo somente para administradores autorizados daquela igreja.
   `PATCH/DELETE /api/churches/:id/accesses/:accessId` exige `version`; PATCH também
   recebe `role`. Não há endpoint para conceder acesso a contas novas nesta fase.
 - Operações de membros exigem `X-Levi-Church` com a igreja esperada. Divergência
@@ -104,3 +104,20 @@ O ensaio específico também pode ser executado com
 `pnpm --filter levi exec tsx tools/test-integration.ts --churches --runtime-acls`.
 Os scripts existentes de build, workerd e Playwright validam as adaptações mínimas
 de interface. Nenhum harness usa credenciais operacionais.
+
+## Interface de igrejas e acessos
+
+`/igrejas/selecionar` apresenta as igrejas e os papéis Administrador e Colaborador.
+A criação em `/criar-igreja` permanece disponível com ou sem vínculos existentes.
+`/igrejas` apresenta a ficha ativa; contatos institucionais são restritos a admin.
+`/igrejas/editar` permite edição por versão e preserva o rascunho em conflitos.
+O usuário pode descartar explicitamente o rascunho e recarregar os dados atuais.
+
+`/igrejas/acessos` lista pessoas com paginação, permite promoção, rebaixamento e
+revogação com confirmação e versão. O servidor protege o último administrador.
+Alteração do próprio acesso reconsulta o contexto imediatamente. Não há convites,
+busca global, criação de vínculos nem exclusão de igreja. Dados pessoais ficam
+somente em memória; identidade, papel e igreja são revalidados nas operações.
+
+Membros usam exclusivamente a igreja ativa, sem seletor ou parâmetro `?igreja=`.
+O servidor preserva o filtro legado divergente como lista vazia, sem ampliar escopo.

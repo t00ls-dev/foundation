@@ -7,20 +7,20 @@ aniversariantes, indicadores, convites ou associação automática a contas.
 
 ## Habilitação e limites
 
-O módulo está disponível para todas as organizações, sem lista de UUIDs,
+O módulo está disponível para todas as igrejas, sem lista de UUIDs,
 booleano de habilitação local ou restrição por origem DEV. Não há avaliação de
 Feature Flags persistidas neste fluxo; sua integração será tratada separadamente.
 
 `/api/context` informa `membersEnabled: true` após validar sessão pronta,
-organização ativa e vínculo atual. Essa capacidade não concede permissões: as
-operações de membros continuam exigindo role administrativa e a permissão
+igreja ativa e vínculo atual. Essa capacidade não concede permissões: as
+operações de membros continuam exigindo papel admin ou collaborator e a permissão
 correspondente. Usuário deslogado recebe `401`; sessão não pronta, vínculo
-revogado ou role sem permissão são recusados. Registros de outra organização
+revogado ou role sem permissão são recusados. Registros de outra igreja
 retornam `404`, e identificadores enviados pelo cliente não alteram o tenant ativo.
 
-As mutações revalidam sessão, vínculo, organização e versão na transação, mantendo
+As mutações revalidam sessão, vínculo, igreja e versão na transação, mantendo
 auditoria, idempotência e isolamento. A SPA conserva o contrato de contexto e
-limpa os dados após troca de organização ou perda de acesso. Todas as migrations
+limpa os dados após troca de igreja ou perda de acesso. Todas as migrations
 e ACLs do módulo precisam estar disponíveis antes da publicação: schema ausente
 falha com erro sanitizado, sem aplicar migrations automaticamente.
 
@@ -43,12 +43,12 @@ falha com erro sanitizado, sem aplicar migrations automaticamente.
   podem se repetir; função não concede permissão. Metadados não são aceitos do
   cliente. Cadastro não cria login, membership ou convite.
 
-| Método/caminho                   | Contrato                                                                                                                                                                                                        |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /api/members`              | JSON com os campos acima e header `Idempotency-Key` de 16 a 128 caracteres alfanuméricos, `_` ou `-`. Responde `201` com `{ organizationId, memberId }`, inclusive no replay idêntico.                          |
-| `GET /api/members`               | Filtros opcionais `name`, `churchId`, `status`, `page`, `pageSize`. Responde `{ organizationId, members, page, pageSize, hasNext }`. Lista somente ID, nome, igreja e situação, sem contatos ou ficha completa. |
-| `GET /api/members/:id`           | Ficha, com `{ organizationId, member }`. Outra organização e UUID inexistente recebem o mesmo `404`.                                                                                                            |
-| `GET /api/members/requests/:key` | Recupera `{ organizationId, memberId }` da tentativa do próprio ator na organização atual. Sem recibo, outra organização ou outro ator recebem `404`. Não recebe nem devolve perfil pessoal.                    |
+| Método/caminho                   | Contrato                                                                                                                                                                                                  |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/members`              | JSON com os campos acima e header `Idempotency-Key` de 16 a 128 caracteres alfanuméricos, `_` ou `-`. Responde `201` com `{ churchId, memberId }`, inclusive no replay idêntico.                          |
+| `GET /api/members`               | Filtros opcionais `name`, `churchId`, `status`, `page`, `pageSize`. Responde `{ churchId, members, page, pageSize, hasNext }`. Lista somente ID, nome, igreja e situação, sem contatos ou ficha completa. |
+| `GET /api/members/:id`           | Ficha, com `{ churchId, member }`. Outra igreja e UUID inexistente recebem o mesmo `404`.                                                                                                                 |
+| `GET /api/members/requests/:key` | Recupera `{ churchId, memberId }` da tentativa do próprio ator na igreja atual. Sem recibo, outra igreja ou outro ator recebem `404`. Não recebe nem devolve perfil pessoal.                              |
 
 Todas exigem sessão pronta e vínculo administrativo atual. Permissões estáticas
 `members:read`, `members:create` e `members:update` usam `@t00ls-dev/access`; contexto usa o contrato
@@ -57,7 +57,7 @@ privados, CSRF e limites de corpo existentes. Nenhuma resposta é cacheável.
 
 Busca de nome é por trecho literal sem distinção de caixa (`ILIKE`), preservando
 acentos; `%`, `_` e barra invertida não viram curingas do usuário. Igreja e situação
-combinam-se com nome por AND. Filtros nunca atravessam a organização; igreja
+combinam-se com nome por AND. Filtros nunca atravessam a igreja; igreja
 inexistente ou externa produz lista vazia, sem exposição de existência.
 
 Paginação: página padrão 1, tamanho padrão 20, máximo 100 e página máxima 10000.
@@ -71,8 +71,8 @@ em escala; não há dependência de extensão ou serviço de busca.
 ## Integridade, histórico e reenvio
 
 A migration `0002_membros.sql` cria `members`, `member_history` e
-`member_creation_requests`. A FK composta `(tenant_id, church_id)` exige igreja
-da mesma organização. O histórico inicial contém somente fato de criação,
+`member_creation_requests`. O núcleo atual isola membros e históricos por `church_id`; a conversão e o
+contract estão documentados em [Núcleo de igrejas](nucleo-igrejas.md). O histórico inicial contém somente fato de criação,
 ator, instante, nome institucional da igreja e situação inicial, sem copiar a
 ficha em JSON ou propor um histórico genérico. Seu nome de igreja é um snapshot
 para sobreviver à evolução institucional. Novos tipos de histórico exigirão
@@ -85,7 +85,7 @@ ficha; isso prepara futura eliminação, sem oferecer API de exclusão agora.
 Auditoria técnica permanece separada, mínima e append-only, com identificadores
 sujeitos à política de retenção ainda pendente.
 
-Idempotência é escopada por organização, ator e chave aleatória. Um advisory lock
+Idempotência é escopada por igreja, ator e chave aleatória. Um advisory lock
 transacional por tentativa serializa reenvios; sessão, tenant ativo e membership
 são revalidados depois da espera, com locks compartilhados durante a criação.
 Recibo guarda hash SHA-256 da entrada normalizada e ID resultante, dentro da área
@@ -94,7 +94,7 @@ entrada divergente retorna `409`; chave nova permite cadastrar homônimo legíti
 Nenhum adapter Foundation foi alterado.
 
 A interface impede submissões simultâneas e conserva somente chave opaca por
-organização em `sessionStorage`, nunca nome, contato, ficha ou token. Após resultado
+igreja em `sessionStorage`, nunca nome, contato, ficha ou token. Após resultado
 incerto, oferece consulta do recibo e repetição explícita da mesma tentativa. Após
 refresh do formulário, tenta recuperar o resultado pela chave antes de permitir
 nova submissão. Se ainda não há recibo, conserva a chave para evitar duplicação
@@ -104,9 +104,9 @@ refresh nesse caso perde a chave e exige consultar os cadastros antes de uma nov
 tentativa. Recibos permanecem enquanto a ficha existir; não há rotina de expiração
 que permita reutilização silenciosa de chaves antigas nesta entrega.
 
-Ao navegar/trocar organização, a aplicação remove os dados anteriores antes de
+Ao navegar/trocar igreja, a aplicação remove os dados anteriores antes de
 reconsultar. Ao recuperar foco/página, revalida sessão/contexto. Respostas carregam
-organização e são comparadas ao contexto exibido; respostas atrasadas de uma
+igreja e são comparadas ao contexto exibido; respostas atrasadas de uma
 montagem anterior não repovoam a tela. Uma revogação externa só pode ser conhecida
 na próxima consulta/revalidação; não há canal de push ou promessa de atualização
 instantânea enquanto a página permanece sem interação.
@@ -118,15 +118,15 @@ inteiro positivo e o perfil completo: `name` obrigatório; `birthDate`, `phone`,
 `email`, `joinedOn`, `address`, `baptismDate` e `churchRole` opcionais, com as mesmas
 normalizações e limites do cadastro. Omitir um opcional o normaliza para `null`;
 a interface envia os valores atuais, permitindo limpar explicitamente um contato.
-A ficha acrescenta `version`; sucesso devolve `{ organizationId, memberId, version }`.
+A ficha acrescenta `version`; sucesso devolve `{ churchId, memberId, version }`.
 
 A allowlist rejeita qualquer outro campo, inclusive `tenant_id`, `churchId`,
 `status`, identificadores, autoria, histórico e auditoria. Igreja e situação são
 somente consulta neste fluxo; transferência e mudança de situação permanecem
 fora desta entrega. O servidor exige sessão pronta, capacidade habilitada,
-organização ativa e administrador atual com `members:update`. Revalida e mantém
+igreja ativa e vínculo atual com `members:update`. Revalida e mantém
 locks compartilhados de sessão/contexto/vínculo durante a transação, reutilizando
-o mecanismo do cadastro. O membro é consultado e bloqueado por ID e organização;
+o mecanismo do cadastro. O membro é consultado e bloqueado por ID e igreja;
 a escrita mantém também a igreja atual no predicado. Outro tenant e ID inexistente
 recebem o mesmo `404`.
 
@@ -151,7 +151,7 @@ aplicação administrativa posterior. Os privilégios exatos e a ordem operacion
 estão no [guia Workers](cloudflare-workers.md#roles-e-acls-mínimas-dev).
 Nenhum deles foi aplicado em DEV ou produção nesta tarefa. Sem a migration e as
 ACLs, a nova edição não está operacionalmente liberada. A capacidade de membros
-está disponível para todas as organizações; edição exige permissão administrativa.
+está disponível para todas as igrejas; edição exige `members:update`.
 
 ## Confirmação e uso móvel
 
@@ -195,7 +195,7 @@ ownership, CREATE no schema, TRIGGER, capacidade de assumir outra role ou altera
 o nome exato da role DEV é parte da política e renomeá-la exige revisão. Uma
 futura função SECURITY DEFINER que execute UPDATE com outra identidade também
 exigirá revisão, pois o bloqueio usa o usuário efetivo. Não é uma proteção RLS
-nem substitui a autorização por organização na aplicação.
+nem substitui a autorização por igreja na aplicação.
 
 O teste `test/runtime-update.integration.test.ts`, executado pelo harness de
 integração, cria outro banco no mesmo container descartável, com migradora owner
@@ -243,3 +243,8 @@ A imagem local fixada é PostgreSQL 17.11. Inspeção estrutural e conexão dire
 Neon PostgreSQL 18.6 não equivalem a homologação funcional nesse servidor ou
 pelo Hyperdrive. Nenhum desses testes autoriza habilitar o módulo, publicar
 dados reais ou executar alterações remotas.
+
+A SPA não oferece filtros ou seletores de igreja nem preserva `?igreja=`.
+O cadastro deriva `churchId` da igreja ativa e todas as consultas enviam
+`X-Levi-Church`. Nome, situação e paginação permanecem disponíveis. O filtro
+legado `churchId` da API nunca amplia o escopo: divergência produz lista vazia.

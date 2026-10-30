@@ -125,9 +125,15 @@ function Form({
               ) || undefined
             }
           >
-            <summary>Adicionar contatos da igreja (opcional)</summary>
+            <summary>
+              {label === "Editar igreja"
+                ? "Contatos da igreja (opcional)"
+                : "Adicionar contatos da igreja (opcional)"}
+            </summary>
             <p className="hint">
-              Você pode começar apenas com o nome da igreja.
+              {label === "Editar igreja"
+                ? "Revise os contatos institucionais. Campos em branco removem os dados anteriores."
+                : "Você pode começar apenas com o nome da igreja."}
             </p>
             {fields.filter((field) => field.optional).map(renderField)}
           </details>
@@ -151,19 +157,21 @@ export function AccessForm({
   onSubmit,
   initial,
   email,
+  editing = false,
 }: {
   mode: "email" | "login" | "password" | "organization";
   busy: boolean;
   initial?: ProvisionInput | undefined;
   email?: string;
+  editing?: boolean;
   onSubmit: (values: Values) => Promise<void>;
 }) {
   if (mode === "organization")
     return (
       <Form
         busy={busy}
-        label="Criar igreja"
-        submit="Criar igreja"
+        label={editing ? "Editar igreja" : "Criar igreja"}
+        submit={editing ? "Salvar igreja" : "Criar igreja"}
         fields={[
           {
             name: "churchName",

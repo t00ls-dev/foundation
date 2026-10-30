@@ -1,8 +1,8 @@
 # Interface de onboarding
 
 A SPA React permite verificar o e-mail, definir senha, entrar na conta,
-provisionar a organização com a primeira igreja, selecionar uma organização
-administrada, consultar suas igrejas e acessar um painel de atalhos. O escopo permanece em
+criar igrejas independentes, selecionar uma igreja
+autorizada, consultar a ficha ativa e acessar um painel de atalhos. O escopo permanece em
 [Decisões do MVP](decisoes-mvp.md); a API e a preparação do banco sintético estão em
 [Onboarding e provisionamento](onboarding-provisionamento.md).
 
@@ -36,7 +36,7 @@ pnpm --filter levi dev:web
 
 `pnpm --filter levi build` compila API e SPA em `dist/`. `pnpm --filter levi start` serve ambos pela origem
 local 3000. `src/web.ts` entrega HTML apenas nos caminhos conhecidos da SPA:
-`/`, `/onboarding`, `/entrar`, `/organizacoes`, `/painel`, `/igrejas` e as rotas de membros
+`/`, `/onboarding`, `/entrar`, `/igrejas/selecionar`, `/painel`, `/igrejas` e as rotas de membros
 listadas em `src/web-paths.ts`. Rotas desconhecidas da
 API continuam retornando JSON, sem fallback HTML. Migrations continuam explícitas
 e separadas da inicialização e do build. A publicação Worker DEV usa o
@@ -50,7 +50,7 @@ e separadas da inicialização e do build. A publicação Worker DEV usa o
 3. Defina e confirme a senha diretamente no formulário, sem outro e-mail. A conta
    pronta pode continuar com a sessão já estabelecida. A tela de login permite
    autenticar sessões posteriores.
-4. Informe os nomes da organização e da primeira igreja. Endereço, telefone e
+4. Informe o nome da igreja. Endereço, telefone e
    e-mail da igreja são opcionais, em uma seção expansível sem etapa adicional.
    Após o provisionamento confirmado, a SPA confere o vínculo e o contexto
    autorizado antes de abrir o painel, com confirmação e cadastro de membro
@@ -62,10 +62,9 @@ o endereço informado aparece para conferência e fica apenas em memória. Reenv
 não exige redigitação; alterar o e-mail é uma ação explícita. O reenvio aguarda
 60 segundos após sucesso e respeita o prazo retornado em `429`.
 
-Sem vínculo administrativo, o servidor distingue conta nova de conta já
-provisionada por seu recibo. `sem-acesso` mostra orientação e atualização do
-acesso, inclusive após reload ou novo login, sem oferecer criação de outra
-organização. Múltiplos vínculos continuam disponíveis no seletor autorizado.
+Sem vínculo, a conta pode criar uma igreja. Contas com vínculos também podem
+criar outras igrejas independentes. O seletor apresenta o papel atual em cada
+igreja. Edição institucional e gestão de acessos existentes exigem admin.
 
 A primeira leitura e cada retorno/atualização consultam `/api/onboarding`. Refresh
 retoma a etapa real do servidor; links inválidos, expirados ou reutilizados
@@ -88,8 +87,8 @@ conflitos. Botões e submissões concorrentes são bloqueados durante operaçõe
 ## Contratos e segurança
 
 O cliente usa somente os endpoints documentados da API: consulta/emissão de
-onboarding, senha, login/logout nativos, provisionamento/listagem de organizações,
-seleção de tenant, contexto e listagem de igrejas. Todas as chamadas são relativas,
+onboarding, senha, login/logout nativos, criação/listagem de igrejas,
+seleção de igreja, contexto e listagem de igrejas. Todas as chamadas são relativas,
 com cookies de mesma origem, sem cache e com limite de espera de 15 segundos.
 Respostas são validadas antes de abrir estados protegidos. `401`/`403` removem os
 dados exibidos e reconsultam a sessão/vínculos; `409` não concede acesso nem cria
@@ -106,16 +105,15 @@ A composição web utiliza contratos mínimos, preservando a política de autent
 - O callback de onboarding aceita uma opção estática `/onboarding` na composição
   local. O padrão `/api/onboarding` permanece para consumidores da API. Nenhum
   destino de redirecionamento é aceito do usuário.
-- `GET /api/churches` conserva `churches` e acrescenta `organizationId`, obtido do
-  mesmo contexto autorizado usado na consulta. Um teste reproduziu a troca de
-  tenant entre a leitura do contexto e a leitura das igrejas. Se os IDs diferirem,
-  a SPA retorna à seleção, impedindo mostrar igrejas sob o nome de outra organização.
+- `GET /api/churches` retorna vínculos com papel e versão, paginados por `next`.
+  `GET /api/context` informa a igreja e o papel atual. Respostas tardias são
+  descartadas após mudança de identidade ou geração de contexto.
 
-O backend mantém a allowlist de auth, CSRF/origem, validação de prontidão e vínculo
-atual. A SPA não concede autoridade por URL ou estado local. Não há UI para criar
-outras organizações, igrejas adicionais, convites ou permissões locais. A
-[interface de membros](gestao-membros.md) só aparece quando o servidor informa
-a capacidade da organização ativa; troca de contexto remove os dados anteriores.
+O backend mantém a allowlist de auth, CSRF/origem e autorização atual. A SPA
+não concede autoridade por URL ou estado local. A ficha, edição e gestão dos
+acessos estão descritas em [Núcleo de igrejas](nucleo-igrejas.md).
+A [interface de membros](gestao-membros.md) opera exclusivamente na igreja ativa.
+Não há convites, busca global de usuários ou exclusão de igrejas.
 
 ## Validação
 

@@ -296,7 +296,9 @@ void test("workerd: Static Assets reais, SPA, API e headers de segurança", asyn
     "/",
     "/onboarding",
     "/entrar",
-    "/organizacoes",
+    "/igrejas/selecionar",
+    "/igrejas/editar",
+    "/igrejas/acessos",
     "/igrejas",
   ]) {
     const response = await send(path);

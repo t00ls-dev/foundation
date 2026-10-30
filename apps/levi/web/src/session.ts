@@ -8,16 +8,7 @@ export function takeLinkReturn(
   const params = new URL(location.href).searchParams;
   const token = params.get("token");
   const invalid = params.has("error");
-  const churchId = params.get("igreja");
-  const churchQuery =
-    location.pathname === "/membros" &&
-    churchId &&
-    /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(
-      churchId,
-    )
-      ? `?igreja=${churchId}`
-      : "";
-  history.replaceState(null, "", location.pathname + churchQuery);
+  history.replaceState(null, "", location.pathname);
   return { token: token && token.length <= 512 ? token : null, invalid };
 }
 

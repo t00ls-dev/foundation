@@ -1841,3 +1841,43 @@ void test("HTTP de igrejas: edição validada, vínculos por papel, versão e ú
   assert.equal((await provision(owner.cookie)).status, 201);
   assert.equal((await mutate(path, "DELETE", {})).status, 404);
 });
+
+void test("acessos: paginação completa com identidade restrita à igreja administrada", async () => {
+  const owner = await provisionedAccount();
+  const outsider = await provisionedAccount();
+  await observer.client.query(
+    `WITH people AS (
+    INSERT INTO "user"(id,name,email,email_verified)
+    SELECT gen_random_uuid(), 'Pessoa sintética', gen_random_uuid()::text || '@example.test', true FROM generate_series(1,101)
+    RETURNING id
+  ) INSERT INTO church_memberships(church_id,user_id,role) SELECT $1,id,'collaborator' FROM people`,
+    [owner.churchId],
+  );
+  const path = `/api/churches/${owner.churchId}/accesses`;
+  assert.equal((await request(path, undefined, outsider.cookie)).status, 403);
+  const first = (await (
+    await request(path, undefined, owner.cookie)
+  ).json()) as {
+    accesses: { id: string; churchId: string; name: string; email: string }[];
+    next: string;
+  };
+  assert.equal(first.accesses.length, 100);
+  assert.equal(first.next, first.accesses.at(-1)?.id);
+  assert.ok(
+    first.accesses.every(
+      (row) =>
+        row.churchId === owner.churchId &&
+        typeof row.name === "string" &&
+        row.email,
+    ),
+  );
+  const second = (await (
+    await request(path + "?after=" + first.next, undefined, owner.cookie)
+  ).json()) as { accesses: { id: string }[]; next: null };
+  assert.equal(second.accesses.length, 2);
+  assert.equal(second.next, null);
+  assert.equal(
+    new Set([...first.accesses, ...second.accesses].map((row) => row.id)).size,
+    102,
+  );
+});

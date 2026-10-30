@@ -283,17 +283,13 @@ export function Members({
       page: 1,
       pageSize: 20,
       name: formText(data, "name"),
-      churchId: formText(data, "churchId"),
       ...(data.get("status")
         ? { status: data.get("status") as MemberStatus }
         : {}),
     });
   }
   const hasFilters = Boolean(
-    filters.name ||
-    filters.churchId ||
-    filters.status ||
-    (filters.page ?? 1) > 1,
+    filters.name || filters.status || (filters.page ?? 1) > 1,
   );
   return (
     <section aria-label="Gestão de membros" aria-busy={busy}>
@@ -317,7 +313,7 @@ export function Members({
       {mode === "list" && (
         <>
           <div className="page-intro">
-            <p>Cadastros e contatos da sua organização.</p>
+            <p>Cadastros e contatos da sua igreja.</p>
             <button
               className="primary"
               disabled={busy}
@@ -346,21 +342,6 @@ export function Members({
               >
                 <summary>Mais filtros</summary>
                 <div className="filter-options-grid">
-                  <div className="field">
-                    <label htmlFor="member-church-filter">Igreja</label>
-                    <select
-                      id="member-church-filter"
-                      name="churchId"
-                      defaultValue={filters.churchId ?? ""}
-                    >
-                      <option value="">Todas as igrejas</option>
-                      {churches.map((church) => (
-                        <option key={church.id} value={church.id}>
-                          {church.nome}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
                   <div className="field">
                     <label htmlFor="member-status-filter">Situação</label>
                     <select
@@ -439,7 +420,7 @@ export function Members({
                   ) : (
                     <p>
                       Use “Cadastrar membro” para registrar a primeira pessoa.
-                      Apenas nome, igreja e situação são obrigatórios.
+                      Apenas nome e situação são obrigatórios.
                     </p>
                   )}
                 </EmptyState>
@@ -642,7 +623,7 @@ function MemberForm({
     const form = event.currentTarget;
     const data = new FormData(form);
     const input: MemberInput = {
-      churchId: initial?.churchId ?? formText(data, "churchId"),
+      churchId: initial?.churchId ?? churches[0]?.id ?? "",
       name: formText(data, "name").trim(),
       status: initial?.status ?? (data.get("status") as MemberStatus),
     };
@@ -747,7 +728,7 @@ function MemberForm({
       <p className="form-description">
         {initial
           ? "Atualize os dados cadastrais. Igreja e situação são mantidas neste fluxo."
-          : "Nome, igreja e situação são obrigatórios. Preencha os demais dados apenas quando conhecidos."}
+          : "Nome e situação são obrigatórios. Preencha os demais dados apenas quando conhecidos."}
       </p>
       <fieldset disabled={busy} className="surface form-section">
         <legend>Identificação</legend>
@@ -774,31 +755,6 @@ function MemberForm({
           </div>
           {!initial && (
             <>
-              <div className="field">
-                <label htmlFor="member-church">Igreja (obrigatória)</label>
-                <select
-                  id="member-church"
-                  name="churchId"
-                  required
-                  defaultValue={churches.length === 1 ? churches[0]!.id : ""}
-                  aria-invalid={Boolean(errors.churchId)}
-                  aria-describedby={
-                    errors.churchId ? "error-churchId" : undefined
-                  }
-                >
-                  <option value="">Selecione uma igreja</option>
-                  {churches.map((church) => (
-                    <option key={church.id} value={church.id}>
-                      {church.nome}
-                    </option>
-                  ))}
-                </select>
-                {errors.churchId && (
-                  <p id="error-churchId" className="field-error">
-                    {errors.churchId}
-                  </p>
-                )}
-              </div>
               <div className="field">
                 <label htmlFor="member-status">Situação (obrigatória)</label>
                 <select

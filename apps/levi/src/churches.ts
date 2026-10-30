@@ -326,18 +326,31 @@ export async function listAccesses(
 ) {
   return database.db.transaction(async (tx) => {
     await lockChurch(tx, identity, churchId, "accesses:manage");
+    const rows = await tx
+      .select({
+        id: churchMemberships.id,
+        churchId: churchMemberships.churchId,
+        userId: churchMemberships.userId,
+        role: churchMemberships.role,
+        version: churchMemberships.version,
+        createdAt: churchMemberships.createdAt,
+        name: user.name,
+        email: user.email,
+      })
+      .from(churchMemberships)
+      .innerJoin(user, eq(user.id, churchMemberships.userId))
+      .where(
+        and(
+          eq(churchMemberships.churchId, churchId),
+          after ? gt(churchMemberships.id, after) : undefined,
+        ),
+      )
+      .orderBy(churchMemberships.id)
+      .limit(101);
+    const accesses = rows.slice(0, 100);
     return {
-      accesses: await tx
-        .select()
-        .from(churchMemberships)
-        .where(
-          and(
-            eq(churchMemberships.churchId, churchId),
-            after ? gt(churchMemberships.id, after) : undefined,
-          ),
-        )
-        .orderBy(churchMemberships.id)
-        .limit(100),
+      accesses,
+      next: rows.length > 100 ? (accesses.at(-1)?.id ?? null) : null,
     };
   });
 }

@@ -15,7 +15,13 @@ export interface NamedItem {
   id: string;
   nome: string;
 }
+export type ChurchRole = "admin" | "collaborator";
+export interface ChurchLink extends NamedItem {
+  role: ChurchRole;
+  version: number;
+}
 export interface ChurchItem extends NamedItem {
+  version: number;
   address: string | null;
   phone: string | null;
   email: string | null;
@@ -42,8 +48,11 @@ const cooldowns = new Map<string, number>();
 let identityGeneration = 0;
 let contextGeneration = 0;
 let activeChurchId: string | null = null;
+let activeRole: ChurchRole | null = null;
 export function resetClientIdentity() {
   identityGeneration++;
+  contextGeneration++;
+  activeRole = null;
   activeChurchId = null;
   cooldowns.clear();
 }
@@ -117,7 +126,7 @@ async function request(
   path: string,
   body?: object,
   key?: string,
-  method?: "PATCH",
+  method?: "PATCH" | "DELETE",
 ): Promise<unknown> {
   const requestMethod = method ?? (body ? "POST" : "GET");
   const generation = identityGeneration;
@@ -251,14 +260,27 @@ export const api = {
     request("/api/auth/sign-in/email", { email, password }),
   logout: () => request("/api/auth/sign-out", {}),
   async organizations() {
-    const items: NamedItem[] = [];
+    const items: ChurchLink[] = [];
     let after: string | null = null;
     do {
       const data = record(
         await request(`/api/churches${after ? `?after=${after}` : ""}`),
       );
-      items.push(...namedItems(data.churches));
-      after = data.next == null ? null : id(data.next);
+      if (!Array.isArray(data.churches)) return contractError();
+      items.push(
+        ...data.churches.map((value: unknown) => {
+          const item = record(value);
+          return {
+            ...namedItems([item])[0]!,
+            role: parseRole(item.role),
+            version: parseVersion(item.version),
+          };
+        }),
+      );
+      const previous: string | null = after;
+      after = data.next === null ? null : id(data.next);
+      if (after && (after === previous || after !== items.at(-1)?.id))
+        return contractError();
     } while (after);
     return items;
   },
@@ -295,24 +317,119 @@ export const api = {
       data.churchName.length > 160
     )
       return contractError();
-    activeChurchId = id(data.churchId);
+    const churchId = id(data.churchId);
+    const role = parseRole(data.role);
+    if (activeChurchId !== churchId || activeRole !== role) contextGeneration++;
+    activeChurchId = churchId;
+    activeRole = role;
     return {
       churchId: activeChurchId,
       churchName: data.churchName,
+      role: parseRole(data.role),
       membersEnabled: data.membersEnabled,
     };
+  },
+  async editChurch(
+    churchId: string,
+    input: {
+      name: string;
+      address: string;
+      phone: string;
+      email: string;
+      version: number;
+    },
+  ) {
+    const data = record(
+      await request(`/api/churches/${id(churchId)}`, input, undefined, "PATCH"),
+    );
+    if (
+      id(data.churchId) !== churchId ||
+      parseVersion(data.version) !== input.version + 1
+    )
+      return contractError();
+  },
+  async accessList(churchId: string, after: string | null = null) {
+    const data = record(
+      await request(
+        `/api/churches/${id(churchId)}/accesses${after ? `?after=${id(after)}` : ""}`,
+      ),
+    );
+    if (!Array.isArray(data.accesses) || data.accesses.length > 100)
+      return contractError();
+    const accesses = data.accesses.map((value: unknown) => {
+      const item = record(value);
+      if (
+        id(item.churchId) !== churchId ||
+        typeof item.name !== "string" ||
+        typeof item.email !== "string" ||
+        typeof item.createdAt !== "string" ||
+        !Number.isFinite(Date.parse(item.createdAt))
+      )
+        return contractError();
+      return {
+        id: id(item.id),
+        userId: id(item.userId),
+        name: item.name,
+        email: item.email,
+        role: parseRole(item.role),
+        version: parseVersion(item.version),
+        createdAt: item.createdAt,
+      };
+    });
+    const next = data.next === null ? null : id(data.next);
+    if (next && (next === after || next !== accesses.at(-1)?.id))
+      return contractError();
+    return { accesses, next };
+  },
+  async changeAccess(
+    churchId: string,
+    accessId: string,
+    version: number,
+    role: ChurchRole | null,
+  ) {
+    const data = record(
+      await request(
+        `/api/churches/${id(churchId)}/accesses/${id(accessId)}`,
+        role === null ? { version } : { version, role },
+        undefined,
+        role === null ? "DELETE" : "PATCH",
+      ),
+    );
+    if (id(data.churchId) !== churchId) return contractError();
   },
   async churches() {
     const selected = activeChurchId ?? contractError();
     const data = record(await request(`/api/churches/${selected}`));
-    if (id(data.id) !== selected || typeof data.nome !== "string")
+    if (
+      id(data.id) !== selected ||
+      typeof data.nome !== "string" ||
+      !data.nome.trim() ||
+      data.nome.length > 160
+    )
       return contractError();
+    parseVersion(data.version);
+    for (const [field, max] of [
+      ["address", 500],
+      ["phone", 40],
+      ["email", 254],
+    ] as const) {
+      const value = data[field];
+      if (
+        activeRole === "admin" &&
+        value !== null &&
+        (typeof value !== "string" || value.length > max)
+      )
+        return contractError();
+      if (activeRole === "collaborator" && value !== undefined)
+        return contractError();
+    }
     return {
       churchId: selected,
       churches: [
         {
           id: selected,
           nome: data.nome,
+          version: parseVersion(data.version),
           address: typeof data.address === "string" ? data.address : null,
           phone: typeof data.phone === "string" ? data.phone : null,
           email: typeof data.email === "string" ? data.email : null,
@@ -430,3 +547,13 @@ export const memberApi = {
     );
   },
 };
+
+function parseRole(value: unknown): ChurchRole {
+  if (value !== "admin" && value !== "collaborator") return contractError();
+  return value;
+}
+function parseVersion(value: unknown): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1)
+    return contractError();
+  return value;
+}
