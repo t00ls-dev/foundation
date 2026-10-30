@@ -93,6 +93,7 @@ void test("ACLs reais: exatamente pares por coluna revisados para igrejas; nenhu
           ].includes(table),
       ),
       ["church_memberships", "SELECT, INSERT, DELETE"],
+      ["church_invitations", "SELECT, INSERT"],
       ["church_sessions", "SELECT, INSERT"],
       ["church_creation_requests", "SELECT, INSERT"],
       ["feature_flag_churches", "DELETE"],
@@ -178,6 +179,11 @@ void test("ACLs reais: exatamente pares por coluna revisados para igrejas; nenhu
     ],
     ["churches", "SELECT", ["version", "updated_at"]],
     ["church_memberships", "UPDATE", ["role", "version"]],
+    [
+      "church_invitations",
+      "UPDATE",
+      ["accepted_at", "accepted_by", "cancelled_at", "cancelled_by"],
+    ],
     ["church_sessions", "UPDATE", ["active_church_id", "updated_at"]],
     ["audit_events", "INSERT", ["church_id"]],
   ] as const;
