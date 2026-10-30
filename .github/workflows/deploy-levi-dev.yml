@@ -2,6 +2,14 @@ name: Deploy Levi DEV
 
 on:
   workflow_dispatch:
+    inputs:
+      maintenance_smoke:
+        description:
+          "Usar capacidade temporária para os seis smokes durante manutenção
+          autorizada"
+        type: boolean
+        default: false
+        required: true
 
 permissions:
   contents: read
@@ -64,6 +72,10 @@ jobs:
         working-directory: apps/levi
         run: pnpm deploy:dev
         env:
+          LEVI_MAINTENANCE_SMOKE: ${{ inputs.maintenance_smoke }}
+          LEVI_SMOKE_CAPABILITY:
+            ${{ inputs.maintenance_smoke && secrets.LEVI_SMOKE_CAPABILITY || ''
+            }}
           GITHUB_TOKEN: ${{ github.token }}
           LEVI_DEPLOY_SHA: ${{ needs.validate.outputs.sha }}
           LEVI_DEV_READY: ${{ vars.LEVI_DEPLOY_READY }}

@@ -11,7 +11,9 @@ import {
 // A conversão sintética exige seu próprio histórico anterior ao corte.
 if (
   !process.argv.some((arg) =>
-    ["--churches", "--files", "--browser", "--worker"].includes(arg),
+    ["--churches", "--etapa7", "--files", "--browser", "--worker"].includes(
+      arg,
+    ),
   )
 ) {
   const result = spawnSync(
@@ -27,6 +29,20 @@ if (
   );
   if (result.status !== 0)
     throw new Error("O ensaio sintético de igrejas falhou.");
+  if (process.argv.includes("--runtime-acls")) {
+    const rehearsal = spawnSync(
+      process.execPath,
+      [
+        "--import",
+        "tsx",
+        "tools/test-integration.ts",
+        "--etapa7",
+        "--runtime-acls",
+      ],
+      { stdio: "inherit", env: process.env },
+    );
+    if (rehearsal.status !== 0) throw new Error("O ensaio da etapa 7 falhou.");
+  }
 }
 // Somente este container recém-criado é usado e removido. Sem banco externo.
 const image =
@@ -104,9 +120,11 @@ try {
     const { migratorUrl, runtimeUrl } = await prepareRuntimeRoles(
       env.LEVI_DATABASE_URL,
     );
-    run(["tools/migrate.ts"], { LEVI_DATABASE_URL: migratorUrl });
-    run(["tools/migrate.ts"], { LEVI_DATABASE_URL: migratorUrl });
-    await applyRuntimeGrants(migratorUrl);
+    if (!process.argv.includes("--etapa7")) {
+      run(["tools/migrate.ts"], { LEVI_DATABASE_URL: migratorUrl });
+      run(["tools/migrate.ts"], { LEVI_DATABASE_URL: migratorUrl });
+      await applyRuntimeGrants(migratorUrl);
+    }
     Object.assign(env, {
       LEVI_TEST_RUNTIME_DATABASE_URL: runtimeUrl,
       LEVI_TEST_MIGRATOR_DATABASE_URL: migratorUrl,
@@ -115,7 +133,10 @@ try {
     run(["tools/migrate.ts"]);
     run(["tools/migrate.ts"]); // reaplicação do journal deve ser inócua
   }
-  if (!process.argv.includes("--churches"))
+  if (
+    !process.argv.includes("--churches") &&
+    !process.argv.includes("--etapa7")
+  )
     run(["tools/prepare-church-test.ts"]);
   if (process.argv.includes("--files")) {
     run([
@@ -125,6 +146,9 @@ try {
         .slice(process.argv.indexOf("--files") + 1)
         .filter((arg) => arg !== "--runtime-acls"),
     ]);
+  } else if (process.argv.includes("--etapa7")) {
+    if (!restricted) throw new Error("O ensaio exige roles restritas.");
+    run(["--test", "test/etapa7.integration.test.ts"]);
   } else if (process.argv.includes("--churches")) {
     run([
       "--test",

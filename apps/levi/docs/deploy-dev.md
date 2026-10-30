@@ -543,6 +543,10 @@ não executa qualquer um desses procedimentos.
 
 ## Corte estrutural — etapa 7
 
+A [preparação técnica da etapa 7](etapa7-preparacao.md) descreve o smoke restrito
+por capacidade temporária, o cliente de leitura, o ensaio descartável e os
+impedimentos de drenagem/recuperação que precisam de comprovação dos custodiantes.
+
 Preparação não autoriza execução. O caminho padrão preserva dados e acessos,
 sem reset. Em Actions → Deploy Levi DEV → Run workflow, selecionar `master`.
 O SHA do evento é fixado, validado pela CI e reconferido antes da publicação;

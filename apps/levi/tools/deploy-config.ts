@@ -19,6 +19,20 @@ function asRecordArray(value: unknown): Record<string, unknown>[] {
   return entries.map((entry) => asRecord(entry));
 }
 
+// Capacidade exclusiva do executor: não pertence aos bindings do Worker.
+export function maintenanceSmokeHeaders(
+  env: NodeJS.ProcessEnv,
+): Record<string, string> {
+  const mode = env.LEVI_MAINTENANCE_SMOKE ?? "false";
+  if (mode === "false") return {};
+  if (mode !== "true") throw new Error("Modo de smoke inválido.");
+  const capability = env.LEVI_SMOKE_CAPABILITY ?? "";
+  // 32 bytes aleatórios em hex, provisionados somente sob autorização operacional.
+  if (!/^[a-f0-9]{64}$/.test(capability))
+    throw new Error("Capacidade temporária de smoke ausente ou inválida.");
+  return { "X-Levi-Smoke-Capability": capability };
+}
+
 export function deploySettings(env: NodeJS.ProcessEnv) {
   assert.equal(env.GITHUB_ACTIONS, "true");
   assert.equal(env.GITHUB_REPOSITORY, "t00ls-dev/foundation");
