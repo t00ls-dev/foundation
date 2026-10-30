@@ -26,7 +26,10 @@
     "test:worker": "tsx tools/test-integration.ts --worker",
     "db:migrate:dev": "tsx tools/migrate-dev.ts",
     "deploy:dev": "tsx tools/deploy-dev.ts",
-    "db:status:dev": "tsx tools/migrate-dev.ts --status"
+    "db:status:dev": "tsx tools/migrate-dev.ts --status",
+    "db:cutover:status": "tsx tools/etapa7-cutover-dev.ts --status",
+    "db:cutover:prepare": "tsx tools/etapa7-cutover-dev.ts --prepare",
+    "db:cutover:resume": "tsx tools/etapa7-cutover-dev.ts --resume"
   },
   "dependencies": {
     "@hono/node-server": "2.1.5",

@@ -50,6 +50,11 @@ Criar/remover regras e secret, dispatch e os efeitos técnicos dos smokes
 (contadores SQL) continuam pendentes de autorização. Ao encerrar, revogar a
 capacidade e retirar a exceção sob o procedimento aprovado.
 
+Na modalidade DEV de indisponibilidade aceita, M0/M1 e a capacidade são
+dispensados. O workflow oficial é executado com `NOLOGIN`; a falha dos smokes
+nessa condição não é tratada como sucesso, e os mesmos seis GETs são repetidos
+após `db:cutover:resume`, antes de considerar a validação concluída.
+
 ## Cliente de leitura e preservação
 
 Em checkout revisado, já compilado e com as dependências existentes, o operador
@@ -113,21 +118,56 @@ explicitadas no SQL; não são um provador universal de ACLs/schema. Tabelas
 adicionais, estado parcial ou permissões não classificadas bloqueiam a decisão,
 mesmo com checks automáticos verdes. Não executar DML exploratório no DEV.
 
-## Contenção e drenagem: impedimento registrado
+## Contenção e drenagem
 
 O inventário de 30/10 registrou migrator/runtime sem superuser, CREATEROLE ou
-memberships. Isso não demonstra autoridade para mudar LOGIN de outra role nem
+memberships. Isso não demonstrava autoridade para mudar LOGIN de outra role nem
 sinalizar seus backends. PostgreSQL 18 exige CREATEROLE + ADMIN OPTION aplicáveis
 para esse ALTER ROLE por não superuser; encerrar backends depende de autoridade
 sobre a role ou `pg_signal_backend`, com restrições para superusers.
 Referências: [ALTER ROLE](https://www.postgresql.org/docs/18/sql-alterrole.html)
 e [funções administrativas](https://www.postgresql.org/docs/18/functions-admin.html).
-Não há prova de privilégios de gestão Neon disponíveis nesta preparação.
-Portanto **não foi implementado executor NOLOGIN/terminate**, nem concedido
-privilégio para viabilizá-lo. O catálogo permite renovar o inventário por leitura;
-esta execução local não reconsultou o Neon.
 
-O mecanismo operacional continua bloqueado até o custodiante comprovar:
+### Janela de indisponibilidade aceita — Levi DEV
+
+Exceção exclusiva do Levi DEV, registrada pelo responsável: não há usuários reais,
+novas operações estão suspensas durante a janela, indisponibilidade temporária
+aceita e WAF dispensado. A exceção não altera produção, não autoriza reset ou
+contract e não dispensa a identidade do banco, a barreira de escrita nem a
+validação posterior.
+
+A barreira efetiva é `levi_dev_runtime`, operada por `neondb_owner` com
+`CREATEROLE`, `ADMIN OPTION` sobre a runtime e `pg_signal_backend`:
+
+1. `pnpm --filter levi db:cutover:status` confere identidade Neon, privilégios,
+   uso da runtime em todos os bancos, transações/locks/prepared e estado de LOGIN.
+2. `pnpm --filter levi db:cutover:prepare` exige runtime sem privilégios, uso
+   somente em `levi_dev`, zero transações/locks/prepared; executa
+   `ALTER ROLE levi_dev_runtime NOLOGIN`, termina somente backends runtime de
+   `levi_dev`, confirma zero backends e então executa `converter.sql`,
+   `runtime-acls.sql` e a verificação de journal, ACLs e preservação. A barreira
+   permanece em qualquer falha.
+3. Executar o workflow oficial **com a runtime ainda NOLOGIN**. O upload não usa
+   SQL; confirmar versão/SHA/tráfego. Se os smokes finais falharem apenas por
+   `NOLOGIN`, não repetir upload. Aguardar 30 s após a versão nova ativa para
+   terminar requests antigos em voo.
+4. `pnpm --filter levi db:cutover:resume` restaura somente `LOGIN` e exige zero
+   backends/transações. Validar os seis GETs, headers e diagnóstico oficial.
+5. Se conversão ou ACL falhar, manter `NOLOGIN` e o app indisponível; corrigir de
+   forma compatível revisada ou restaurar sob autorização. Não executar reset,
+   contract ou down migration.
+
+Nesta janela DEV, o ensaio completo de restauração é dispensado pelo aceite
+registrado; a custódia da versão anterior, o ponto de decisão e a proibição de
+perda silenciosa permanecem. Produção mantém a exigência de restore demonstrado.
+O executor é `tools/etapa7-cutover-dev.ts`; não há SQL destrutivo nele.
+Credenciais e confirmações ficam somente no ambiente privado:
+`LEVI_DEV_ADMIN_DATABASE_URL`, `LEVI_DEV_CUTOVER_CONFIRMATION` com
+`PREPARAR|RETOMAR|CONSULTAR:<host>/levi_dev`, além de `LEVI_DEV_DATABASE_*` e
+`LEVI_DEV_MIGRATION_CONFIRMATION=APLICAR:<host>/levi_dev`.
+
+Fora desta janela, o mecanismo operacional continua bloqueado até o custodiante
+comprovar:
 
 1. M0 em todas as entradas, publicadores coordenados e ausência de outros
    invocadores/escritores. Telemetria aplicável da versão antiga cobrindo cada

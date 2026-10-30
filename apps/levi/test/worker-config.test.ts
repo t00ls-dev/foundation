@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { workerOptions, type WorkerEnv } from "../src/worker-config.js";
-import { devMigrationTarget } from "../tools/dev-migration-config.js";
+import {
+  devCutoverAdminTarget,
+  devMigrationTarget,
+} from "../tools/dev-migration-config.js";
 import { createApp } from "../src/app.js";
 import worker from "../src/worker.js";
 
@@ -133,6 +136,74 @@ void test("guarda de migrations aceita somente alvo Neon DEV direto e explícito
       /Migração DEV recusada/,
     );
   assert.throws(() => devMigrationTarget({}));
+});
+
+void test("barreira DEV aceita somente owner administrativo, alvo direto e confirmação explícita", () => {
+  const host = "ep-synthetic-only.us-east-2.aws.neon.tech";
+  const valid: NodeJS.ProcessEnv = {
+    LEVI_DEV_ADMIN_DATABASE_URL: `postgresql://neondb_owner:synthetic-only@${host}/levi_dev?sslmode=verify-full`,
+    LEVI_DEV_DATABASE_HOST: host,
+    LEVI_DEV_DATABASE_NAME: "levi_dev",
+    LEVI_DEV_CUTOVER_CONFIRMATION: `PREPARAR:${host}/levi_dev`,
+  };
+  assert.equal(
+    devCutoverAdminTarget(valid, "prepare"),
+    valid.LEVI_DEV_ADMIN_DATABASE_URL,
+  );
+  assert.equal(
+    devCutoverAdminTarget(
+      {
+        ...valid,
+        LEVI_DEV_ADMIN_DATABASE_URL:
+          valid.LEVI_DEV_ADMIN_DATABASE_URL + "&channel_binding=require",
+      },
+      "prepare",
+    ),
+    valid.LEVI_DEV_ADMIN_DATABASE_URL + "&channel_binding=require",
+  );
+  for (const changes of [
+    { LEVI_DEV_CUTOVER_CONFIRMATION: "" },
+    { LEVI_DEV_CUTOVER_CONFIRMATION: `RETOMAR:${host}/levi_dev` },
+    { LEVI_DEV_DATABASE_HOST: "ep-another.us-east-2.aws.neon.tech" },
+    { LEVI_DEV_DATABASE_NAME: "levi_prod" },
+    {
+      LEVI_DEV_ADMIN_DATABASE_URL: valid.LEVI_DEV_ADMIN_DATABASE_URL!.replace(
+        "verify-full",
+        "require",
+      ),
+    },
+    {
+      LEVI_DEV_ADMIN_DATABASE_URL: valid.LEVI_DEV_ADMIN_DATABASE_URL!.replace(
+        "neondb_owner",
+        "levi_dev_migrator",
+      ),
+    },
+    {
+      LEVI_DEV_ADMIN_DATABASE_URL:
+        valid.LEVI_DEV_ADMIN_DATABASE_URL! + "&options=unsafe",
+    },
+    {
+      LEVI_DEV_ADMIN_DATABASE_URL:
+        valid.LEVI_DEV_ADMIN_DATABASE_URL! + "&channel_binding=prefer",
+    },
+    {
+      LEVI_DEV_ADMIN_DATABASE_URL: valid.LEVI_DEV_ADMIN_DATABASE_URL!.replace(
+        host,
+        "127.0.0.1",
+      ),
+    },
+    {
+      LEVI_DEV_ADMIN_DATABASE_URL: valid.LEVI_DEV_ADMIN_DATABASE_URL!.replace(
+        "ep-synthetic-only.",
+        "ep-synthetic-only-pooler.",
+      ),
+    },
+  ])
+    assert.throws(
+      () => devCutoverAdminTarget({ ...valid, ...changes }, "prepare"),
+      /Barreira DEV recusada/,
+    );
+  assert.throws(() => devCutoverAdminTarget({}, "status"));
 });
 
 void test("Worker sem configuração preserva 404 administrativo antes de qualquer binding ou validação", async () => {

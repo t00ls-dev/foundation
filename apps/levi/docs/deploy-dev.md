@@ -557,11 +557,15 @@ versão publicada. Não existe aplicação SQL nem credencial SQL no publicador.
    Identificar projeto/branch Neon, host direto, banco, consumidores, owners,
    journal/hashes, grants/triggers e dados existentes. Status não prova ACLs.
    Confirmar backup com restauração ensaiada, responsável, retenção e ponto de
-   recuperação. Nenhuma ferramenta atual cria backup automaticamente.
+   recuperação. Nenhuma ferramenta atual cria backup automaticamente. Na janela
+   DEV aceita, o ensaio completo de restore pode ser dispensado por decisão
+   registrada; produção mantém a exigência.
 2. Conter todos os escritores e publicadores, inclusive autenticação, tarefas
    externas e conexões em voo. O Worker atual não tem uma guarda de manutenção
    comprovada; não confiar apenas em uma página 503. A estratégia de contenção
-   e drenagem deve ser ensaiada e autorizada antes da janela.
+   e drenagem deve ser ensaiada e autorizada antes da janela. Na janela DEV
+   aceita, usar a barreira de role de `etapa7-preparacao.md`; ausência de usuários
+   não substitui a barreira.
 3. Consultar `pnpm --filter levi db:status:dev` com a confirmação CONSULTAR
    descrita em Cloudflare Workers. Revisar cada pendência histórica antes de
    autorizar aplicação. `db:migrate:dev` sem seleção falha antes de conectar.
@@ -581,6 +585,13 @@ versão publicada. Não existe aplicação SQL nem credencial SQL no publicador.
    respostas normais: manutenção não conta como sucesso. Planejar a liberação
    para permitir os smokes existentes; não desabilitá-los. Complementar com
    validação autenticada autorizada de Magic Link, igrejas, papéis e convites.
+
+Na modalidade DEV de indisponibilidade aceita e WAF dispensado, a exceção da
+[preparação da etapa 7](etapa7-preparacao.md#janela-de-indisponibilidade-aceita--levi-dev)
+permite executar o workflow oficial com `levi_dev_runtime` em `NOLOGIN`. A falha
+dos smokes finais por essa barreira não conta como sucesso e não autoriza repetir
+o upload. Confirmar versão/SHA/tráfego, aguardar 30 s com a versão nova ativa,
+executar `db:cutover:resume` e repetir os seis GETs. Produção não usa essa exceção.
 
 Interromper por identidade ou exclusividade incerta, hash divergente, papel
 legado desconhecido, igreja sem admin, diferença nos conjuntos administrativos,
