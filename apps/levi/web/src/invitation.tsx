@@ -55,92 +55,94 @@ export function Invitation({ token: initial }: { token: string }) {
     }
   }
   return (
-    <main className="access-main">
-      <h1>Convite para o Levi</h1>
-      <p>
-        O convite concede acesso a uma igreja, sem criar um membro da
-        congregação.
-      </p>
-      <p role="status">{message}</p>
-      {!token && !accepted ? (
+    <div className="workspace">
+      <main className="panel access-panel" aria-busy={busy}>
+        <h1>Convite para o Levi</h1>
         <p>
-          Link indisponível. Abra novamente o convite recebido por e-mail ou
-          solicite um novo ao administrador.
+          O convite concede acesso a uma igreja, sem criar um membro da
+          congregação.
         </p>
-      ) : accepted ? (
-        <a href="/igrejas/selecionar">Selecionar igreja</a>
-      ) : identity ? (
-        <>
+        <p role="status">{message}</p>
+        {!token && !accepted ? (
           <p>
-            Confirme o convite com sua conta. O e-mail precisa corresponder ao
-            destinatário.
+            Link indisponível. Abra novamente o convite recebido por e-mail ou
+            solicite um novo ao administrador.
           </p>
-          <button
-            disabled={busy}
-            onClick={() =>
+        ) : accepted ? (
+          <a href="/igrejas/selecionar">Selecionar igreja</a>
+        ) : identity ? (
+          <>
+            <p>
+              Confirme o convite com sua conta. O e-mail precisa corresponder ao
+              destinatário.
+            </p>
+            <button
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  const current = generation.current;
+                  const session = await api.sessionContext();
+                  if (
+                    session?.userId !== identity.userId ||
+                    session.sessionId !== identity.sessionId
+                  )
+                    throw new Error(
+                      "Sua sessão mudou. Reabra o convite para continuar.",
+                    );
+                  await api.acceptInvitation(token);
+                  if (current === generation.current) {
+                    setToken("");
+                    setAccepted(true);
+                    setMessage(
+                      "Convite aceito. Selecione a igreja para continuar.",
+                    );
+                  }
+                })
+              }
+            >
+              Aceitar convite
+            </button>
+            <button
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  await api.logout();
+                  setIdentity(null);
+                  setMessage("Entre com o e-mail convidado.");
+                })
+              }
+            >
+              Entrar com outra conta
+            </button>
+          </>
+        ) : (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
               void run(async () => {
-                const current = generation.current;
-                const session = await api.sessionContext();
-                if (
-                  session?.userId !== identity.userId ||
-                  session.sessionId !== identity.sessionId
-                )
-                  throw new Error(
-                    "Sua sessão mudou. Reabra o convite para continuar.",
-                  );
-                await api.acceptInvitation(token);
-                if (current === generation.current) {
-                  setToken("");
-                  setAccepted(true);
-                  setMessage(
-                    "Convite aceito. Selecione a igreja para continuar.",
-                  );
-                }
-              })
-            }
+                await api.invitationAuth(email, token);
+                setMessage(
+                  "Consulte seu e-mail para entrar e confirmar o convite. O link funciona também para uma conta nova.",
+                );
+              });
+            }}
           >
-            Aceitar convite
-          </button>
-          <button
-            disabled={busy}
-            onClick={() =>
-              void run(async () => {
-                await api.logout();
-                setIdentity(null);
-                setMessage("Entre com o e-mail convidado.");
-              })
-            }
-          >
-            Entrar com outra conta
-          </button>
-        </>
-      ) : (
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void run(async () => {
-              await api.invitationAuth(email, token);
-              setMessage(
-                "Consulte seu e-mail para entrar e confirmar o convite. O link funciona também para uma conta nova.",
-              );
-            });
-          }}
-        >
-          <label htmlFor="invitation-email">E-mail convidado</label>
-          <input
-            id="invitation-email"
-            type="email"
-            autoComplete="email"
-            maxLength={254}
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-          />
-          <button disabled={busy} type="submit">
-            Continuar por e-mail
-          </button>
-        </form>
-      )}
-    </main>
+            <label htmlFor="invitation-email">E-mail convidado</label>
+            <input
+              id="invitation-email"
+              type="email"
+              autoComplete="email"
+              maxLength={254}
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+            <button disabled={busy} type="submit">
+              Continuar por e-mail
+            </button>
+          </form>
+        )}
+      </main>
+    </div>
   );
 }
