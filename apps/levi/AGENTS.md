@@ -24,7 +24,6 @@
   especulativas e pacotes sem necessidade concreta.
 - Use pnpm/lockfile e CI da raiz. Preserve configurações TypeScript, banco PG e
   runtime próprios; não copie o D1, credenciais ou publicadores do Links.
-- Workflows sob `apps/levi/.github` são históricos, sem execução ativa no Foundation.
 
 ## Convenções e manutenção
 
