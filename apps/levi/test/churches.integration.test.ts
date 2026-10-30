@@ -865,14 +865,14 @@ void test("convite: isolamento, papel explícito, auditoria mínima e uso único
     ).rows[0]?.n,
     0,
   );
-  assert.equal(
+  assert.deepEqual(
     (
       await owner.client.query<Record<string, unknown>>(
         "SELECT metadata FROM audit_events WHERE action='invitation.accepted' AND target=$1",
         [receipt.id],
       )
-    ).rows[0]?.metadata && true,
-    true,
+    ).rows[0]?.metadata,
+    {},
   );
 });
 void test("convite: substituição, cancelamento, expiração, vínculo existente e emissor rebaixado", async () => {
@@ -1063,5 +1063,24 @@ void test("convites concorrentes: só um reenvio confirma; ID de outra igreja n�
     assert.equal(rows.filter((row) => !row.cancelledAt).length, 1);
   } finally {
     await other.client.end();
+  }
+});
+
+void test("convite não altera acesso existente nem restaura papel após alteração ou revogação explícita", async () => {
+  for (const role of ["collaborator", null] as const) {
+    const f = await invitationFixture();
+    await f.issue(f.recipient, "admin");
+    const token = f.token();
+    const membership = await owner.client.query<{ id: string }>(
+      "INSERT INTO church_memberships(church_id,user_id,role) VALUES($1,$2,'collaborator') RETURNING id",
+      [f.churchId, f.recipient.user.id],
+    );
+    await assert.rejects(f.issue(), { code: "VINCULO_EXISTENTE" });
+    const target = membership.rows[0];
+    assert.ok(target);
+    await changeAccess(runtime, f.issuer, f.churchId, target.id, 1, role);
+    await assert.rejects(acceptChurchInvitation(runtime, f.recipient, token), {
+      code: "CONVITE_INDISPONIVEL",
+    });
   }
 });

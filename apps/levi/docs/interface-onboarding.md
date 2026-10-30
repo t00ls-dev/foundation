@@ -222,7 +222,9 @@ convite. A seleção atual de igreja é preservada; após aceitar, selecione a i
 O servidor exige e-mail verificado correspondente e autoridade atual do emissor.
 Convites inválidos, expirados, cancelados, usados ou de outro e-mail falham sem
 revelar dados da igreja. Vínculo existente é preservado, inclusive seu papel;
-um administrador pode ajustá-lo pela gestão de acessos.
+um administrador pode ajustá-lo pela gestão de acessos. O envio para quem já
+possui vínculo é recusado. Alterar ou revogar um acesso cancela os convites
+pendentes anteriores daquela pessoa na igreja.
 
 A migration aditiva `0008_convites-igreja` cria somente a tabela de convites e
 seus índices/ACLs. Sua aplicação persistente exige autorização separada. Tokens

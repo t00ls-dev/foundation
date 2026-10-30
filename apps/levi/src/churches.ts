@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
 import type { FoundationSession } from "@t00ls-dev/auth";
 import { createAccessControl } from "@t00ls-dev/access";
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import type { Database } from "./auth.js";
 import { RequestError } from "./contracts.js";
 import {
   churches,
+  churchInvitations,
   churchMemberships,
   churchSessions,
   churchCreationRequests,
@@ -384,6 +385,33 @@ export async function changeAccess(
         "ULTIMO_ADMINISTRADOR",
         "A igreja precisa manter um administrador.",
       );
+    // Uma revogação/alteração explícita prevalece sobre concessões pendentes anteriores.
+    const [recipient] = await tx
+      .select({ email: user.email })
+      .from(user)
+      .where(eq(user.id, target.userId));
+    if (recipient) {
+      const cancelled = await tx
+        .update(churchInvitations)
+        .set({ cancelledAt: new Date(), cancelledBy: identity.user.id })
+        .where(
+          and(
+            eq(churchInvitations.churchId, churchId),
+            eq(churchInvitations.email, recipient.email.trim().toLowerCase()),
+            isNull(churchInvitations.acceptedAt),
+            isNull(churchInvitations.cancelledAt),
+          ),
+        )
+        .returning({ id: churchInvitations.id });
+      for (const invitation of cancelled)
+        await appendChurchAudit(
+          tx,
+          identity,
+          churchId,
+          "invitation.cancelled",
+          invitation.id,
+        );
+    }
     if (role === null)
       await tx
         .delete(churchMemberships)

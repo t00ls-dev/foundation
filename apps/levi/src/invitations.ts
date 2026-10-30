@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import {
   createInvitation,
   hashInvitationToken,
@@ -139,6 +139,22 @@ export async function sendInvitation(input: {
       if (!previous || previous.acceptedAt || previous.cancelledAt) invalid();
       recipient = { email: previous.email, role: previous.role };
     } else recipient = input.recipient;
+    const [existingAccess] = await tx
+      .select({ id: churchMemberships.id })
+      .from(churchMemberships)
+      .innerJoin(user, eq(user.id, churchMemberships.userId))
+      .where(
+        and(
+          eq(churchMemberships.churchId, churchId),
+          sql`lower(trim(${user.email})) = ${recipient.email}`,
+        ),
+      );
+    if (existingAccess)
+      throw new RequestError(
+        409,
+        "VINCULO_EXISTENTE",
+        "Esta pessoa já possui acesso à igreja. Ajuste seu papel na gestão de acessos.",
+      );
     // Substitui todos os convites abertos para o mesmo destino na igreja.
     const replaced = await tx
       .update(churchInvitations)
