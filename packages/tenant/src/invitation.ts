@@ -45,7 +45,8 @@ export async function createInvitation<TRole extends string>(input: {
   email: string;
   expiresAt: Date;
   id?: string;
-  repository: InvitationRepository<TRole>;
+  repository: Pick<InvitationRepository<TRole>, "create"> &
+    Partial<Pick<InvitationRepository<TRole>, "consume">>;
   role: TRole;
   tenantId: string;
 }): Promise<{ invitation: TenantInvitation<TRole>; token: string }> {
@@ -73,7 +74,8 @@ export async function acceptInvitation<TRole extends string>(input: {
   audit: InvitationAudit;
   email: string;
   now?: Date;
-  repository: InvitationRepository<TRole>;
+  repository: Pick<InvitationRepository<TRole>, "consume"> &
+    Partial<Pick<InvitationRepository<TRole>, "create">>;
   token: string;
   userId: string;
 }): Promise<TenantInvitation<TRole>> {
