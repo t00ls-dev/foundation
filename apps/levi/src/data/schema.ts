@@ -341,3 +341,37 @@ export const featureFlagChurches = pgTable(
   },
   (t) => [primaryKey({ columns: [t.featureFlagId, t.churchId] })],
 );
+
+// Convite não cria identidade, vínculo ou membro antes da aceitação.
+export const churchInvitations = pgTable(
+  "church_invitations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    churchId: uuid("church_id")
+      .notNull()
+      .references(() => churches.id),
+    email: text("email").notNull(),
+    role: text("role").$type<"admin" | "collaborator">().notNull(),
+    issuerId: uuid("issuer_id")
+      .notNull()
+      .references(() => user.id),
+    tokenHash: text("token_hash").notNull().unique(),
+    createdAt: instant("created_at").notNull().defaultNow(),
+    expiresAt: instant("expires_at").notNull(),
+    acceptedAt: instant("accepted_at"),
+    acceptedBy: uuid("accepted_by").references(() => user.id),
+    cancelledAt: instant("cancelled_at"),
+    cancelledBy: uuid("cancelled_by").references(() => user.id),
+  },
+  (t) => [
+    index("church_invitation_page").on(t.churchId, t.id),
+    index("church_invitation_recipient").on(t.churchId, t.email),
+    check("invitation_role", sql`${t.role} IN ('admin','collaborator')`),
+    check("invitation_email", sql`${t.email} = lower(trim(${t.email}))`),
+    check("invitation_lifetime", sql`${t.expiresAt} > ${t.createdAt}`),
+    check(
+      "invitation_terminal",
+      sql`(${t.acceptedAt} IS NULL OR ${t.cancelledAt} IS NULL) AND ((${t.acceptedAt} IS NULL) = (${t.acceptedBy} IS NULL)) AND ((${t.cancelledAt} IS NULL) = (${t.cancelledBy} IS NULL))`,
+    ),
+  ],
+);

@@ -1,3 +1,11 @@
+import {
+  acceptChurchInvitation,
+  cancelInvitation,
+  invitationInput,
+  invitationToken,
+  listInvitations,
+  sendInvitation,
+} from "./invitations.js";
 import type { SessionContext } from "./session-types.js";
 import { administrativePath } from "./admin-paths.js";
 import {
@@ -286,6 +294,88 @@ export function createApp(options: AppOptions) {
     return c.json({ feature: result });
   });
 
+  app.post("/api/invitations/auth", async (c) => {
+    const body = await readObject(c.req.raw, ["email", "token"]);
+    const token = invitationToken(body);
+    return authRequest(
+      c.get("auth"),
+      options,
+      c.req.raw,
+      "/sign-in/magic-link",
+      {
+        email: readString(body, "email", 3, 254),
+        callbackURL: `/convite#convite=${token}`,
+      },
+    );
+  });
+  app.post("/api/invitations/accept", async (c) => {
+    const identity = verifiedSession(c.get("identity"));
+    const body = await readObject(c.req.raw, ["token"]);
+    return c.json(
+      await acceptChurchInvitation(
+        c.get("database"),
+        identity,
+        invitationToken(body),
+      ),
+    );
+  });
+  app.get("/api/churches/:id/invitations", async (c) =>
+    c.json(
+      await listInvitations(
+        c.get("database"),
+        verifiedSession(c.get("identity")),
+        requireUuid(c.req.param("id")),
+        c.req.query("after")
+          ? requireUuid(c.req.query("after") ?? "")
+          : undefined,
+      ),
+    ),
+  );
+  app.post("/api/churches/:id/invitations", async (c) => {
+    const identity = verifiedSession(c.get("identity"));
+    const recipient = invitationInput(
+      await readObject(c.req.raw, ["email", "role"]),
+    );
+    const abuse = c.get("abuse");
+    return c.json(
+      await sendInvitation({
+        database: c.get("database"),
+        identity,
+        churchId: requireUuid(c.req.param("id")),
+        recipient,
+        email: abuse ? invitationEmail(options) : options.email,
+        baseURL: origin,
+      }),
+      201,
+    );
+  });
+  app.post("/api/churches/:id/invitations/:invitationId/resend", async (c) => {
+    const identity = verifiedSession(c.get("identity"));
+    await readObject(c.req.raw, []);
+    const abuse = c.get("abuse");
+    return c.json(
+      await sendInvitation({
+        database: c.get("database"),
+        identity,
+        churchId: requireUuid(c.req.param("id")),
+        recipient: { id: requireUuid(c.req.param("invitationId")) },
+        email: abuse ? invitationEmail(options) : options.email,
+        baseURL: origin,
+      }),
+      201,
+    );
+  });
+  app.delete("/api/churches/:id/invitations/:invitationId", async (c) => {
+    await readObject(c.req.raw, []);
+    return c.json(
+      await cancelInvitation(
+        c.get("database"),
+        verifiedSession(c.get("identity")),
+        requireUuid(c.req.param("id")),
+        requireUuid(c.req.param("invitationId")),
+      ),
+    );
+  });
   app.post("/api/onboarding/email", async (c) => {
     const input = await readObject(c.req.raw, ["email"]);
     const email = readString(input, "email", 3, 254);
@@ -303,7 +393,7 @@ export function createApp(options: AppOptions) {
       c.get("auth"),
       options,
       c.req.raw,
-      `/magic-link/verify?${new URLSearchParams({ token, callbackURL: returnPath })}`,
+      `/magic-link/verify?${new URLSearchParams({ token, callbackURL: invitationReturn(c.req.query("callbackURL"), returnPath) })}`,
     );
   });
   app.post("/api/onboarding/password-email", async (c) => {
@@ -655,5 +745,38 @@ function readChurchInput(body: Record<string, unknown>) {
     address: optional("address", 500),
     phone: optional("phone", 40),
     email,
+  };
+}
+
+function invitationReturn(value: string | undefined, fallback: string) {
+  if (!value) return fallback;
+  try {
+    const url = new URL(value, "https://local.invalid");
+    // Apenas um destino fixo; origem é retirada e nunca autoriza redirect externo.
+    if (
+      url.pathname === "/convite" &&
+      !url.search &&
+      /^#convite=[\w-]{43}$/.test(url.hash)
+    )
+      return `/convite${url.hash}`;
+  } catch {
+    /* Destino inválido usa o retorno normal. */
+  }
+  return fallback;
+}
+
+// Quotas não participam da transação de domínio: timeout/rollback também consome orçamento.
+function invitationEmail(options: AppOptions): AppOptions["email"] {
+  return {
+    async send(input) {
+      const counters = await createPostgresDatabase(options.databaseUrl);
+      try {
+        await createAbuseProtection(counters.client, options.secret)
+          .protectInvitationEmail(options.email)
+          .send(input);
+      } finally {
+        await counters.client.end();
+      }
+    },
   };
 }

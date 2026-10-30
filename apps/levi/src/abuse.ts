@@ -1,3 +1,4 @@
+import { RequestError } from "./contracts.js";
 import { fixedWindowRateLimit } from "@t00ls-dev/security";
 import type { FoundationEmail, FoundationSession } from "@t00ls-dev/auth";
 import type { MiddlewareHandler, Next } from "hono";
@@ -107,9 +108,11 @@ export function createAbuseProtection(
   function credentialLimiter(c: Parameters<MiddlewareHandler>[0]) {
     if (
       c.req.method === "POST" &&
-      ["/api/onboarding/email", "/api/onboarding/password-email"].includes(
-        c.req.path,
-      )
+      [
+        "/api/onboarding/email",
+        "/api/onboarding/password-email",
+        "/api/invitations/auth",
+      ].includes(c.req.path)
     )
       return emailRequests;
     if (c.req.path === "/api/auth/sign-in/email") return login;
@@ -192,6 +195,11 @@ export function createAbuseProtection(
         windowMs = 15 * 60_000;
       } else if (
         (method === "POST" && path === "/api/members") ||
+        (method !== "GET" &&
+          (path === "/api/invitations/accept" ||
+            /^\/api\/churches\/[^/]+\/invitations(?:\/[^/]+(?:\/resend)?)?$/.test(
+              path,
+            ))) ||
         (method === "PATCH" &&
           /^\/api\/(?:members|churches)\/[^/]+$/.test(path)) ||
         (["PATCH", "DELETE"].includes(method) &&
@@ -207,6 +215,7 @@ export function createAbuseProtection(
           "/api/context",
           "/api/members",
         ].includes(path) ||
+          /^\/api\/churches\/[^/]+\/invitations$/.test(path) ||
           /^\/api\/(?:churches|members)\/[^/]+$/.test(path) ||
           /^\/api\/members\/requests\/[^/]+$/.test(path) ||
           /^\/api\/churches\/[^/]+\/accesses$/.test(path))
@@ -227,7 +236,10 @@ export function createAbuseProtection(
       (await store.increment(`${prefix}:${start}`, start + windowMs)) <= limit
     );
   }
-  function protectEmail(provider: FoundationEmail): FoundationEmail {
+  function protectEmail(
+    provider: FoundationEmail,
+    explicit = false,
+  ): FoundationEmail {
     return {
       async send(input) {
         const recipient = await digest(input.to.trim().toLowerCase());
@@ -242,8 +254,15 @@ export function createAbuseProtection(
             24 * 60 * 60_000,
             publicAbuseLimits.emailAttemptsPerDay,
           ))
-        )
-          return; // Mesma resposta por destinatário, exista conta ou não.
+        ) {
+          if (explicit)
+            throw new RequestError(
+              429,
+              "LIMITE_DE_SOLICITACOES",
+              "Limite de envios atingido. Aguarde antes de reenviar.",
+            );
+          return; // Resposta neutra na autenticação.
+        }
         // Falha/timeout também consome orçamento; sem retry nem envio transacional.
         await provider.send(input);
       },
@@ -265,5 +284,13 @@ export function createAbuseProtection(
         next,
       );
   }
-  return { beforeSession, middleware, administrative, protectEmail, store };
+  return {
+    beforeSession,
+    middleware,
+    administrative,
+    protectEmail,
+    protectInvitationEmail: (provider: FoundationEmail) =>
+      protectEmail(provider, true),
+    store,
+  };
 }

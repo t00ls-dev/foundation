@@ -1,3 +1,10 @@
+import { hashInvitationToken } from "@t00ls-dev/tenant";
+import {
+  sendInvitation,
+  listInvitations,
+  cancelInvitation,
+  acceptChurchInvitation,
+} from "../src/invitations.js";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { randomUUID } from "node:crypto";
@@ -766,6 +773,295 @@ void test("último administrador permanece protegido com snapshots REPEATABLE RE
   } finally {
     for (const database of connections)
       await database.client.query<Record<string, unknown>>("ROLLBACK");
+    await other.client.end();
+  }
+});
+
+// Convites usam somente dados e destinatários sintéticos; nenhum envio externo.
+async function invitationFixture() {
+  const issuer = await identity(),
+    recipient = await identity();
+  const { churchId } = await createChurch(
+    runtime,
+    issuer,
+    { name: "Convites sintéticos" },
+    randomUUID(),
+  );
+  const messages: { to: string; text: string }[] = [];
+  const email = {
+    send(input: { to: string; text: string }) {
+      messages.push(input);
+      return Promise.resolve();
+    },
+  };
+  const issue = (
+    destination = recipient,
+    role: "admin" | "collaborator" = "collaborator",
+  ) =>
+    sendInvitation({
+      database: runtime,
+      identity: issuer,
+      churchId,
+      recipient: { email: destination.user.email, role },
+      email,
+      baseURL: "https://example.test",
+    });
+  const token = () => {
+    const value = messages.at(-1)?.text.match(/#convite=([\w-]{43})/)?.[1];
+    assert.ok(value);
+    return value;
+  };
+  return { issuer, recipient, churchId, messages, email, issue, token };
+}
+void test("convite: isolamento, papel explícito, auditoria mínima e uso único concorrente", async () => {
+  const f = await invitationFixture();
+  const receipt = await f.issue(f.recipient, "admin"),
+    token = f.token();
+  const page = await listInvitations(runtime, f.issuer, f.churchId);
+  assert.equal(page.invitations[0]?.role, "admin");
+  assert.ok(!JSON.stringify(page).includes(token));
+  assert.ok(!JSON.stringify(page).includes("tokenHash"));
+  await assert.rejects(listInvitations(runtime, f.recipient, f.churchId), {
+    code: "ACESSO_NEGADO",
+  });
+  await assert.rejects(
+    sendInvitation({
+      database: runtime,
+      identity: f.recipient,
+      churchId: f.churchId,
+      recipient: { email: f.issuer.user.email, role: "admin" },
+      email: f.email,
+      baseURL: "https://example.test",
+    }),
+    { code: "ACESSO_NEGADO" },
+  );
+  await assert.rejects(acceptChurchInvitation(runtime, f.issuer, token), {
+    code: "CONVITE_INDISPONIVEL",
+  });
+  const other = await createPostgresDatabase(applicationDatabaseUrl(url));
+  try {
+    const results = await Promise.allSettled([
+      acceptChurchInvitation(runtime, f.recipient, token),
+      acceptChurchInvitation(other, f.recipient, token),
+    ]);
+    assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+  } finally {
+    await other.client.end();
+  }
+  await assert.rejects(acceptChurchInvitation(runtime, f.recipient, token), {
+    code: "CONVITE_INDISPONIVEL",
+  });
+  const rows = await owner.client.query<Record<string, unknown>>(
+    "SELECT role FROM church_memberships WHERE church_id=$1 AND user_id=$2",
+    [f.churchId, f.recipient.user.id],
+  );
+  assert.equal(rows.rows[0]?.role, "admin");
+  assert.equal(
+    (
+      await owner.client.query<Record<string, unknown>>(
+        "SELECT count(*)::int n FROM members WHERE church_id=$1",
+        [f.churchId],
+      )
+    ).rows[0]?.n,
+    0,
+  );
+  assert.equal(
+    (
+      await owner.client.query<Record<string, unknown>>(
+        "SELECT metadata FROM audit_events WHERE action='invitation.accepted' AND target=$1",
+        [receipt.id],
+      )
+    ).rows[0]?.metadata && true,
+    true,
+  );
+});
+void test("convite: substituição, cancelamento, expiração, vínculo existente e emissor rebaixado", async () => {
+  const f = await invitationFixture();
+  const a = await f.issue(),
+    old = f.token();
+  const b = await f.issue(),
+    current = f.token();
+  assert.notEqual(old, current);
+  await assert.rejects(acceptChurchInvitation(runtime, f.recipient, old), {
+    code: "CONVITE_INDISPONIVEL",
+  });
+  await assert.rejects(
+    sendInvitation({
+      database: runtime,
+      identity: f.issuer,
+      churchId: f.churchId,
+      recipient: { id: a.id },
+      email: f.email,
+      baseURL: "https://example.test",
+    }),
+    { code: "CONVITE_INDISPONIVEL" },
+  );
+  await cancelInvitation(runtime, f.issuer, f.churchId, b.id);
+  await assert.rejects(acceptChurchInvitation(runtime, f.recipient, current), {
+    code: "CONVITE_INDISPONIVEL",
+  });
+  const c = await f.issue(),
+    expired = f.token();
+  await owner.client.query(
+    "UPDATE church_invitations SET created_at=now()-interval '8 days',expires_at=now()-interval '1 day' WHERE id=$1",
+    [c.id],
+  );
+  await assert.rejects(acceptChurchInvitation(runtime, f.recipient, expired), {
+    code: "CONVITE_INDISPONIVEL",
+  });
+  await f.issue();
+  const valid = f.token();
+  await owner.client.query(
+    "INSERT INTO church_memberships(church_id,user_id,role) VALUES($1,$2,'collaborator')",
+    [f.churchId, f.recipient.user.id],
+  );
+  await assert.rejects(acceptChurchInvitation(runtime, f.recipient, valid), {
+    code: "VINCULO_EXISTENTE",
+  });
+  await owner.client.query(
+    "UPDATE church_memberships SET role='admin' WHERE church_id=$1 AND user_id=$2",
+    [f.churchId, f.recipient.user.id],
+  );
+  await owner.client.query(
+    "UPDATE church_memberships SET role='collaborator' WHERE church_id=$1 AND user_id=$2",
+    [f.churchId, f.issuer.user.id],
+  );
+  const fresh = await identity();
+  await owner.client.query(
+    "UPDATE church_invitations SET email=$2 WHERE token_hash=$1",
+    [await hashInvitationToken(valid), fresh.user.email],
+  );
+  await assert.rejects(acceptChurchInvitation(runtime, fresh, valid), {
+    code: "CONVITE_INDISPONIVEL",
+  });
+  await assert.rejects(acceptChurchInvitation(runtime, fresh, "invalid"), {
+    code: "CONVITE_INDISPONIVEL",
+  });
+});
+void test("convite: falha do envio preserva convite anterior e não deixa concessão ou auditoria parcial", async () => {
+  const f = await invitationFixture();
+  await f.issue();
+  const token = f.token();
+  await assert.rejects(
+    sendInvitation({
+      database: runtime,
+      identity: f.issuer,
+      churchId: f.churchId,
+      recipient: { email: f.recipient.user.email, role: "admin" },
+      email: {
+        send() {
+          return Promise.reject(new Error("provider sintético indisponível"));
+        },
+      },
+      baseURL: "https://example.test",
+    }),
+  );
+  assert.equal(
+    (await listInvitations(runtime, f.issuer, f.churchId)).invitations.length,
+    1,
+  );
+  await acceptChurchInvitation(runtime, f.recipient, token);
+});
+void test("convite: reenviar versus aceitar e cancelar versus aceitar são serializados", async () => {
+  for (const operation of ["resend", "cancel"]) {
+    const f = await invitationFixture();
+    const receipt = await f.issue(),
+      token = f.token();
+    const other = await createPostgresDatabase(applicationDatabaseUrl(url));
+    try {
+      const results = await Promise.allSettled([
+        acceptChurchInvitation(runtime, f.recipient, token),
+        operation === "cancel"
+          ? cancelInvitation(other, f.issuer, f.churchId, receipt.id)
+          : sendInvitation({
+              database: other,
+              identity: f.issuer,
+              churchId: f.churchId,
+              recipient: { id: receipt.id },
+              email: f.email,
+              baseURL: "https://example.test",
+            }),
+      ]);
+      assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+    } finally {
+      await other.client.end();
+    }
+  }
+});
+
+void test("convite revalida emissor após esperar lock e não aceita concessão revogada", async () => {
+  const f = await invitationFixture();
+  await f.issue();
+  const token = f.token();
+  const backup = await identity();
+  await owner.client.query(
+    "INSERT INTO church_memberships(church_id,user_id,role) VALUES($1,$2,'admin')",
+    [f.churchId, backup.user.id],
+  );
+  const blocker = await createPostgresDatabase(url);
+  try {
+    await blocker.client.query("BEGIN");
+    await blocker.client.query(
+      "SELECT id FROM churches WHERE id=$1 FOR UPDATE",
+      [f.churchId],
+    );
+    // A alteração mantém o lock até o commit; aceite só pode examinar autoridade depois.
+    await blocker.client.query(
+      "UPDATE church_memberships SET role='collaborator' WHERE church_id=$1 AND user_id=$2",
+      [f.churchId, f.issuer.user.id],
+    );
+    const acceptance = acceptChurchInvitation(runtime, f.recipient, token);
+    const rejected = assert.rejects(acceptance, {
+      code: "CONVITE_INDISPONIVEL",
+    });
+    await blocker.client.query("COMMIT");
+    await rejected;
+    assert.equal(
+      (
+        await owner.client.query<Record<string, unknown>>(
+          "SELECT count(*)::int n FROM church_memberships WHERE church_id=$1 AND user_id=$2",
+          [f.churchId, f.recipient.user.id],
+        )
+      ).rows[0]?.n,
+      0,
+    );
+  } finally {
+    await blocker.client.query("ROLLBACK");
+    await blocker.client.end();
+  }
+});
+void test("convites concorrentes: só um reenvio confirma; ID de outra igreja não é consultável", async () => {
+  const f = await invitationFixture();
+  const receipt = await f.issue();
+  const { churchId: otherChurch } = await createChurch(
+    runtime,
+    f.issuer,
+    { name: "Outra igreja" },
+    randomUUID(),
+  );
+  await assert.rejects(
+    cancelInvitation(runtime, f.issuer, otherChurch, receipt.id),
+    { code: "CONVITE_INDISPONIVEL" },
+  );
+  const other = await createPostgresDatabase(applicationDatabaseUrl(url));
+  try {
+    const results = await Promise.allSettled(
+      [runtime, other].map((database) =>
+        sendInvitation({
+          database,
+          identity: f.issuer,
+          churchId: f.churchId,
+          recipient: { id: receipt.id },
+          email: f.email,
+          baseURL: "https://example.test",
+        }),
+      ),
+    );
+    assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+    const rows = (await listInvitations(runtime, f.issuer, f.churchId))
+      .invitations;
+    assert.equal(rows.filter((row) => !row.cancelledAt).length, 1);
+  } finally {
     await other.client.end();
   }
 });

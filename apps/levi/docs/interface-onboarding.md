@@ -113,7 +113,7 @@ O backend mantém a allowlist de auth, CSRF/origem e autorização atual. A SPA
 não concede autoridade por URL ou estado local. A ficha, edição e gestão dos
 acessos estão descritas em [Núcleo de igrejas](nucleo-igrejas.md).
 A [interface de membros](gestao-membros.md) opera exclusivamente na igreja ativa.
-Não há convites, busca global de usuários ou exclusão de igrejas.
+Não há busca global de usuários ou exclusão de igrejas.
 
 ## Validação
 
@@ -205,3 +205,30 @@ removidos antes da revalidação. Respostas obsoletas são descartadas pela gera
 da consulta; erros e ausência de acesso não conservam a moldura de gestão.
 Não há cache de conteúdo privado entre sessões. A lista guarda somente seus
 critérios em memória na mesma sessão, sem reter respostas de membros ao navegar.
+
+## Convites por e-mail
+
+Em **Gerenciar acessos**, administradores convidam por e-mail como Administrador
+ou Colaborador, consultam estados, cancelam e reenviam. O prazo é de sete dias;
+o reenvio substitui os convites abertos para o mesmo e-mail naquela igreja.
+O envio não cria conta, vínculo ou membro da congregação.
+
+O destinatário abre `/convite`, entra pelo Magic Link existente (conta nova ou
+existente) e confirma o aceite. O token sai da URL ao abrir a página, permanece
+somente em memória e não é guardado no navegador. Para retomar após fechar ou
+recarregar a página, reabra o e-mail. O retorno do Magic Link leva novamente ao
+convite. A seleção atual de igreja é preservada; após aceitar, selecione a igreja.
+
+O servidor exige e-mail verificado correspondente e autoridade atual do emissor.
+Convites inválidos, expirados, cancelados, usados ou de outro e-mail falham sem
+revelar dados da igreja. Vínculo existente é preservado, inclusive seu papel;
+um administrador pode ajustá-lo pela gestão de acessos.
+
+A migration aditiva `0008_convites-igreja` cria somente a tabela de convites e
+seus índices/ACLs. Sua aplicação persistente exige autorização separada. Tokens
+aleatórios de 256 bits são armazenados apenas como hash. Auditoria transacional
+registra IDs e ações, sem e-mail ou token. As quotas duráveis existentes limitam
+requisições e envios por destinatário e orçamento global. Falha ou limite de envio
+não confirma o novo convite; o anterior permanece válido no rollback. E-mail e
+commit não são atômicos: em falha de conexão após entrega, consulte o estado antes
+de reenviar; um link entregue sem commit será recusado. Não há retry automático.

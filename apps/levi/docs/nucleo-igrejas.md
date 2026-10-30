@@ -115,8 +115,10 @@ O usuário pode descartar explicitamente o rascunho e recarregar os dados atuais
 
 `/igrejas/acessos` lista pessoas com paginação, permite promoção, rebaixamento e
 revogação com confirmação e versão. O servidor protege o último administrador.
-Alteração do próprio acesso reconsulta o contexto imediatamente. Não há convites,
-busca global, criação de vínculos nem exclusão de igreja. Dados pessoais ficam
+Alteração do próprio acesso reconsulta o contexto imediatamente. Administradores
+podem [convidar por e-mail](interface-onboarding.md#convites-por-e-mail), cancelar
+e reenviar. O vínculo só é criado após o aceite autenticado. Não há busca global
+nem exclusão de igreja. Dados pessoais ficam
 somente em memória; identidade, papel e igreja são revalidados nas operações.
 
 Membros usam exclusivamente a igreja ativa, sem seletor ou parâmetro `?igreja=`.

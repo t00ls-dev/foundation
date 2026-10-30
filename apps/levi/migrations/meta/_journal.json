@@ -57,6 +57,13 @@
       "when": 1793316000000,
       "tag": "0007_igrejas-expand",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793333745955,
+      "tag": "0008_convites-igreja",
+      "breakpoints": true
     }
   ]
 }

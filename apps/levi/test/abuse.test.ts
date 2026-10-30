@@ -265,3 +265,39 @@ await test("429 nativo de auth é sanitizado, normaliza X-Retry-After e preserva
   assert.equal(result.headers.get("cache-control"), "private, no-store");
   assert.ok(!(await result.text()).includes("private-upstream"));
 });
+
+await test("convites compartilham quotas de escrita/e-mail, protegem destino e falham explicitamente no envio limitado", async () => {
+  const f = fixture();
+  f.setIdentity(identity("inviter"));
+  for (let i = 0; i < 60; i++)
+    assert.equal(
+      (await f.send("/api/churches/church/invitations", "POST")).status,
+      200,
+    );
+  assert.equal((await f.send("/api/invitations/accept", "POST")).status, 429);
+  assert.equal(
+    (await f.send("/api/churches/church/invitations", "GET")).status,
+    200,
+  );
+  for (let i = 0; i < 5; i++)
+    assert.equal((await f.send("/api/invitations/auth", "POST")).status, 200);
+  assert.equal((await f.send("/api/onboarding/email", "POST")).status, 429);
+  let delivered = 0;
+  const provider = f.protection.protectInvitationEmail({
+    send() {
+      delivered++;
+      return Promise.resolve();
+    },
+  });
+  const message = {
+    to: "invited@example.test",
+    subject: "Convite",
+    text: "synthetic",
+  };
+  for (let i = 0; i < 3; i++) await provider.send(message);
+  await assert.rejects(provider.send(message), {
+    code: "LIMITE_DE_SOLICITACOES",
+  });
+  assert.equal(delivered, 3);
+  assert.ok(!JSON.stringify([...f.counts.keys()]).includes(message.to));
+});

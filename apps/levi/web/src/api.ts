@@ -228,6 +228,56 @@ function namedItems(list: unknown): NamedItem[] {
   });
 }
 export const api = {
+  invitationAuth: (email: string, token: string) =>
+    request("/api/invitations/auth", { email, token }),
+  acceptInvitation: (token: string) =>
+    request("/api/invitations/accept", { token }),
+  sendInvitation: (churchId: string, email: string, role: ChurchRole) =>
+    request(`/api/churches/${id(churchId)}/invitations`, { email, role }),
+  cancelInvitation: (churchId: string, invitationId: string) =>
+    request(
+      `/api/churches/${id(churchId)}/invitations/${id(invitationId)}`,
+      {},
+      undefined,
+      "DELETE",
+    ),
+  resendInvitation: (churchId: string, invitationId: string) =>
+    request(
+      `/api/churches/${id(churchId)}/invitations/${id(invitationId)}/resend`,
+      {},
+    ),
+  async invitations(churchId: string, after: string | null = null) {
+    const data = record(
+      await request(
+        `/api/churches/${id(churchId)}/invitations${after ? `?after=${id(after)}` : ""}`,
+      ),
+    );
+    if (!Array.isArray(data.invitations) || data.invitations.length > 100)
+      return contractError();
+    return {
+      next: data.next === null ? null : id(data.next),
+      invitations: data.invitations.map((value: unknown) => {
+        const item = record(value);
+        if (
+          typeof item.email !== "string" ||
+          (item.role !== "admin" && item.role !== "collaborator") ||
+          typeof item.expiresAt !== "string" ||
+          !Number.isFinite(Date.parse(item.expiresAt)) ||
+          (item.acceptedAt !== null && typeof item.acceptedAt !== "string") ||
+          (item.cancelledAt !== null && typeof item.cancelledAt !== "string")
+        )
+          return contractError();
+        return {
+          id: id(item.id),
+          email: item.email,
+          role: item.role,
+          expiresAt: item.expiresAt,
+          acceptedAt: item.acceptedAt,
+          cancelledAt: item.cancelledAt,
+        };
+      }),
+    };
+  },
   async sessionContext(): Promise<SessionContext | null> {
     try {
       const value = record(await request("/api/session-context"));

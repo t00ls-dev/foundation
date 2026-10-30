@@ -1085,3 +1085,79 @@ test("conta nova utiliza sessão sem senha e pode iniciar criação da primeira 
   await page.getByRole("link", { name: "Criar igreja", exact: true }).click();
   await provision(page);
 });
+
+test("convites: conta nova e existente entram por Magic Link e aceitam sem criar membro", async ({
+  page,
+  browser,
+}) => {
+  await verifyEmail(page);
+  await page.goto("/criar-igreja");
+  await provision(page, "Igreja dos convites");
+  await page.goto("/igrejas/acessos");
+  for (const existing of [false, true]) {
+    const context = await browser.newContext({
+      baseURL: new URL(page.url()).origin,
+    });
+    const invited = await context.newPage();
+    try {
+      const email = existing
+        ? await verifyEmail(invited)
+        : `${crypto.randomUUID()}@example.test`;
+      if (existing) {
+        await invited.request.post("/api/auth/sign-out", {
+          headers: { Origin: new URL(page.url()).origin },
+          data: {},
+        });
+      }
+      await page
+        .getByLabel("E-mail do destinatário", { exact: true })
+        .fill(email);
+      await page
+        .getByRole("button", { name: "Enviar convite", exact: true })
+        .click();
+      await expect(
+        page
+          .getByRole("status")
+          .filter({ hasText: "Convite enviado por e-mail." }),
+      ).toBeVisible();
+      const invitation = await emailLink(
+        email,
+        "Convite para acessar uma igreja no Levi",
+      );
+      await invited.goto(invitation);
+      await expect(invited).toHaveURL(/\/convite$/);
+      await invited.getByLabel("E-mail convidado", { exact: true }).fill(email);
+      await invited
+        .getByRole("button", { name: "Continuar por e-mail", exact: true })
+        .click();
+      await expect(invited.getByRole("status")).toContainText(
+        "Consulte seu e-mail",
+      );
+      await invited.goto(
+        await emailLink(email, "Verifique seu e-mail no Levi"),
+      );
+      await expect(invited).toHaveURL(/\/convite$/);
+      await invited
+        .getByRole("button", { name: "Aceitar convite", exact: true })
+        .click();
+      await expect(invited.getByRole("status")).toContainText("Convite aceito");
+      expect(
+        (await new AxeBuilder({ page: invited }).analyze()).violations,
+      ).toEqual([]);
+      await invited
+        .getByRole("link", { name: "Selecionar igreja", exact: true })
+        .click();
+      await expect(
+        invited.getByRole("heading", { name: "Suas igrejas", exact: true }),
+      ).toBeVisible();
+      await page
+        .getByRole("button", { name: "Atualizar acessos", exact: true })
+        .click();
+      await expect(
+        page.getByText("Aceito", { exact: false }).first(),
+      ).toBeVisible();
+    } finally {
+      await context.close();
+    }
+  }
+});
