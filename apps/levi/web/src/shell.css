@@ -1,4 +1,196 @@
-/* Shared organizational shell. Screen layouts remain in style.css. */
+/* Application shell. A single viewport breakpoint (48rem) switches between the
+   mobile shell (bottom navigation) and the sidebar shell. Content inside
+   <main> adapts with container queries on the "panel" container, so screens
+   respond to the space they actually have next to the sidebar. */
+.skip-link {
+  position: fixed;
+  top: -100px;
+  left: max(var(--space-4), env(safe-area-inset-left));
+  background: var(--surface);
+  padding: 0.7rem var(--space-4);
+  z-index: 20;
+}
+.skip-link:focus {
+  top: max(var(--space-2), env(safe-area-inset-top));
+}
+
+/* Topbar */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  min-height: 80px;
+  gap: var(--space-4);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  padding: 0 max(var(--space-8), env(safe-area-inset-right)) 0
+    max(var(--space-8), env(safe-area-inset-left));
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  text-decoration: none;
+  color: var(--ink);
+  font-weight: 760;
+  font-size: 1.55rem;
+  line-height: 1.2;
+}
+.brand small {
+  display: block;
+  font-size: var(--text-small);
+  color: var(--muted);
+  font-weight: 500;
+  margin-top: 0.2rem;
+}
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 39px;
+  height: 39px;
+  background: var(--brand-solid);
+  color: var(--on-brand);
+  border-radius: 11px;
+  font-size: 1.6rem;
+  font-weight: 750;
+}
+.access-app .topbar {
+  background: transparent;
+  max-width: 1280px;
+  margin: auto;
+  border: 0;
+  min-height: 100px;
+}
+.admin-app .topbar {
+  grid-column: 1 / -1;
+  padding-block: var(--space-4);
+}
+.admin-app .brand {
+  width: 208px;
+  flex-shrink: 0;
+}
+.context-label {
+  margin-right: auto;
+  min-width: 0;
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  flex: 1;
+}
+.context-label .eyebrow {
+  color: var(--muted);
+  margin: 0;
+}
+.context-label strong {
+  overflow-wrap: anywhere;
+  font-size: 0.88rem;
+  font-weight: 620;
+}
+.context-role {
+  font-size: var(--text-small);
+  color: var(--muted);
+}
+.loading-context {
+  height: 3.25rem;
+  flex: 1;
+  max-width: 22rem;
+}
+
+/* Workspace and main panel */
+.workspace {
+  margin: var(--space-12) auto;
+  max-width: 850px;
+  padding: 0 var(--space-6);
+}
+.panel {
+  container: panel / inline-size;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  padding: clamp(1.4rem, 3.5vw, 2.5rem);
+  box-shadow: var(--shadow-panel);
+}
+.panel > p {
+  color: var(--muted);
+}
+.panel > .eyebrow {
+  color: var(--brand);
+}
+.admin-panel {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+}
+.admin-app .workspace {
+  max-width: 1420px;
+  margin: 0;
+  min-width: 0;
+  width: 100%;
+  padding: var(--space-10) clamp(1.5rem, 3vw, 3rem);
+  min-height: calc(100dvh - 160px);
+}
+.admin-app:not(:has(.sidebar)) .workspace {
+  max-width: 1000px;
+  margin: auto;
+}
+footer {
+  color: var(--muted);
+  text-align: center;
+  font-size: var(--text-small);
+  margin: var(--space-12) 0 var(--space-6);
+}
+
+/* Navigation */
+.sidebar {
+  min-width: 0;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  z-index: 4;
+}
+.nav-caption {
+  font-size: var(--text-small);
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  padding-left: 0.9rem;
+  font-weight: 650;
+}
+.admin-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.admin-nav .button-link,
+.navigation-more summary {
+  background: transparent;
+  color: var(--muted);
+  min-height: 46px;
+  font-size: var(--text-small);
+  font-weight: 620;
+}
+.admin-nav > .button-link {
+  width: 100%;
+  justify-content: flex-start;
+  padding: var(--space-3);
+  gap: var(--space-2);
+}
+.admin-nav .button-link[aria-current] {
+  background: var(--tint);
+  color: var(--brand);
+  font-weight: 720;
+}
+@media (hover: hover) {
+  .admin-nav .button-link:hover,
+  .navigation-more summary:hover {
+    background: var(--canvas);
+    color: var(--ink);
+  }
+}
 .navigation-more {
   position: relative;
   min-width: 0;
@@ -7,60 +199,75 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 46px;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3);
   border-radius: var(--radius-control);
-  color: var(--muted);
   cursor: pointer;
   list-style: none;
-  font-size: var(--text-small);
-  font-weight: 620;
 }
 .navigation-more summary::-webkit-details-marker {
   display: none;
 }
-.navigation-more summary:hover,
 .navigation-more[open] summary {
   background: var(--tint);
   color: var(--brand);
 }
 .navigation-actions {
-  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+  background: var(--surface-raised);
   border: 1px solid var(--line);
   border-radius: var(--radius-control);
   padding: var(--space-2);
-  box-shadow: var(--shadow-panel);
+  box-shadow: var(--shadow-raised);
+  overscroll-behavior: contain;
 }
-.admin-nav .navigation-actions .organization-switch {
-  margin: 0;
-  border: 0;
-  padding: var(--space-3);
-}
-.navigation-actions button {
+.navigation-actions > .button-link,
+.navigation-actions > button {
   width: 100%;
   justify-content: flex-start;
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--text-small);
+  padding: var(--space-3);
 }
+.sidebar-note {
+  margin-top: auto;
+  padding: var(--space-12) 0.9rem 0;
+}
+.sidebar-note p {
+  font-size: var(--text-small);
+  color: var(--muted);
+  margin: var(--space-2) 0 0;
+}
+.loading-sidebar {
+  gap: var(--space-2);
+}
+.loading-sidebar > .placeholder {
+  min-height: 46px;
+}
+
+/* Sidebar shell: tablets and desktops. */
 @media (min-width: 48rem) {
   .admin-app:has(.sidebar) {
     display: grid;
     grid-template-columns: 184px minmax(0, 1fr);
+    grid-template-rows: auto 1fr auto;
   }
   .admin-app .sidebar {
     position: sticky;
+    grid-column: 1;
+    grid-row: 2 / 4;
+    align-self: start;
     top: 0;
-    width: auto;
-    padding: var(--space-6) var(--space-3);
+    max-height: 100dvh;
+    overflow-y: auto;
+    padding: var(--space-8) var(--space-3);
     border-right: 1px solid var(--line);
-    border-top: 0;
   }
-  .admin-app .admin-nav {
-    display: flex;
-    flex-direction: column;
-  }
-  .admin-app .admin-nav > .button-link {
-    justify-content: flex-start;
-    padding: var(--space-3);
-    gap: var(--space-2);
+  .admin-app:has(.sidebar) .admin-footer {
+    grid-column: 2;
   }
 }
 @media (min-width: 75rem) {
@@ -68,16 +275,94 @@
     grid-template-columns: 232px minmax(0, 1fr);
   }
   .admin-app .workspace {
-    padding: var(--space-7);
+    padding: var(--space-12);
   }
 }
+
+/* Mobile shell: compact topbar and bottom navigation. */
 @media (max-width: 47.999rem) {
-  .admin-app:has(.sidebar) {
-    padding-bottom: calc(92px + env(safe-area-inset-bottom));
+  html:has(.admin-app .sidebar) {
+    scroll-padding-bottom: var(--bottom-nav-space);
   }
-  .admin-app .topbar {
-    position: static;
-    padding-top: max(var(--space-4), env(safe-area-inset-top));
+  .topbar,
+  .access-app .topbar {
+    min-height: 64px;
+    padding: max(0.8rem, env(safe-area-inset-top))
+      max(var(--space-4), env(safe-area-inset-right)) 0.8rem
+      max(var(--space-4), env(safe-area-inset-left));
+    gap: 0.6rem;
+  }
+  .access-app .topbar {
+    min-height: 82px;
+  }
+  .brand {
+    font-size: 1.3rem;
+  }
+  .brand-mark {
+    width: 35px;
+    height: 35px;
+  }
+  .admin-app .brand {
+    width: auto;
+  }
+  .admin-app .brand small {
+    display: none;
+  }
+  .admin-app:has(.sidebar) .brand > span:last-child {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  .context-label {
+    padding-left: 0.7rem;
+    display: block;
+  }
+  .context-label .eyebrow {
+    display: block;
+    line-height: 1.35;
+  }
+  .context-label strong {
+    display: block;
+    font-size: var(--text-small);
+    line-height: 1.35;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    overflow-wrap: normal;
+  }
+  .context-label .context-role {
+    display: none;
+  }
+  .workspace {
+    margin: var(--space-4) auto;
+    padding: 0 max(var(--space-4), env(safe-area-inset-right)) 0
+      max(var(--space-4), env(safe-area-inset-left));
+  }
+  .panel {
+    padding: 1.4rem 1.2rem;
+    border-radius: var(--radius);
+  }
+  .admin-panel {
+    padding: 0;
+  }
+  .admin-app .workspace,
+  .admin-app:not(:has(.sidebar)) .workspace {
+    margin: 0;
+    padding: var(--space-6) max(var(--space-4), env(safe-area-inset-right))
+      var(--space-6) max(var(--space-4), env(safe-area-inset-left));
+    min-height: calc(100dvh - 170px);
+  }
+  .admin-app:has(.sidebar) {
+    padding-bottom: var(--bottom-nav-space);
+  }
+  .admin-app:has(.sidebar) .admin-footer {
+    margin: var(--space-6) var(--space-4);
   }
   .admin-app .sidebar {
     position: fixed;
@@ -86,9 +371,26 @@
     padding: var(--space-2) max(var(--space-2), env(safe-area-inset-right))
       max(var(--space-2), env(safe-area-inset-bottom))
       max(var(--space-2), env(safe-area-inset-left));
+    border-top: 1px solid var(--line);
+    transition:
+      transform 160ms ease,
+      visibility 160ms;
+  }
+  /* The virtual keyboard covers the bottom of the screen while a text field
+     is focused. The fixed bar steps aside instead of moving, so the form never
+     shifts; it returns as soon as the field loses focus. */
+  .admin-app:has(
+      :is(input:not([type="checkbox"], [type="radio"]), textarea, select):focus
+    )
+    .sidebar:not(.loading-sidebar) {
+    transform: translateY(110%);
+    visibility: hidden;
+  }
+  .nav-caption,
+  .sidebar-note {
+    display: none;
   }
   .admin-app .admin-nav {
-    display: flex;
     flex-direction: row;
     gap: var(--space-1);
   }
@@ -104,29 +406,28 @@
     min-height: 60px;
     padding: var(--space-1);
     gap: var(--space-1);
-  }
-  .admin-nav > a[href="/membros"] {
-    order: 1;
-  }
-  .admin-nav > a[href="/igrejas"] {
-    order: 2;
-  }
-  .navigation-more {
-    order: 3;
+    line-height: 1.25;
+    text-align: center;
   }
   .navigation-actions {
     position: absolute;
     bottom: calc(100% + var(--space-4));
     right: 0;
-    width: min(260px, 85vw);
+    width: min(260px, calc(100vw - 2 * var(--space-4)));
+    margin: 0;
+    max-height: 60dvh;
+    overflow-y: auto;
   }
-  /* Keep navigation above the virtual keyboard without shifting the form. */
-  .admin-app:has(form :focus) .sidebar {
-    top: 0;
-    bottom: auto;
+  .loading-sidebar {
+    flex-direction: row;
   }
-  .admin-app:has(form :focus) .navigation-actions {
-    bottom: auto;
-    top: 100%;
+  .loading-sidebar > .placeholder {
+    flex: 1;
+    min-height: 60px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-app .sidebar {
+    transition: none;
   }
 }

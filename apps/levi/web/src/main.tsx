@@ -3,8 +3,12 @@ import { createRoot } from "react-dom/client";
 import { Admin } from "./admin.js";
 import { App } from "./app.js";
 import { takeLinkReturn } from "./session.js";
-import "./style.css";
+import "./base.css";
 import "./shell.css";
+import "./access.css";
+import "./churches.css";
+import "./members.css";
+import "./admin-global.css";
 
 const invitation = takeInvitation();
 const link = takeLinkReturn(window.location, window.history);

@@ -1,0 +1,215 @@
+/* Dashboard, church selection, church details and church administration. */
+.page-intro {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  justify-content: space-between;
+  margin: var(--space-2) 0 var(--space-6);
+}
+.page-intro p {
+  color: var(--muted);
+  margin: 0;
+  max-width: 60ch;
+}
+.page-intro button {
+  flex-shrink: 0;
+}
+.count-label {
+  font-size: var(--text-small);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Dashboard */
+.welcome {
+  padding: var(--space-8);
+  margin: 1.8rem 0 var(--space-6);
+  background: var(--welcome-surface);
+}
+.welcome h2 {
+  font-size: clamp(1.5rem, 1.3rem + 0.6vw, 2rem);
+  letter-spacing: -0.035em;
+}
+.welcome p:not(.eyebrow) {
+  color: var(--muted);
+  font-size: 0.9rem;
+  max-width: 49ch;
+  margin: 0.8rem 0 0;
+}
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+}
+.overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-6);
+}
+.overview-card {
+  padding: var(--space-6);
+}
+.overview-card h2 {
+  margin-top: var(--space-4);
+}
+.overview-card p {
+  color: var(--muted);
+  font-size: var(--text-small);
+  margin-top: var(--space-4);
+}
+.overview-card .metric {
+  display: block;
+  font-size: 2.4rem;
+  margin-top: calc(-1 * var(--space-2));
+  font-weight: 680;
+}
+
+/* Church cards */
+.church-grid {
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr));
+  gap: var(--space-5);
+}
+.church-card {
+  padding: var(--space-6);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-4);
+  align-content: start;
+}
+.church-card h2 {
+  overflow-wrap: anywhere;
+}
+.church-card dl,
+.church-card > button,
+.church-card > .button-link,
+.church-card > .hint {
+  grid-column: 1 / -1;
+}
+.church-card dl {
+  margin: 0;
+  font-size: var(--text-small);
+}
+.church-card dt {
+  color: var(--muted);
+  margin: 0.7rem 0 0.2rem;
+}
+.church-card dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Church administration */
+.church-admin {
+  margin-bottom: var(--space-8);
+}
+.church-admin > .segmented > .button-link {
+  border: 0;
+}
+.church-admin-section {
+  padding: var(--space-6);
+  margin-bottom: var(--space-6);
+}
+.church-admin-section h2,
+.church-admin-section h3:first-child {
+  margin-top: 0;
+}
+.church-admin-section > p {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+.church-admin-section .access-panel fieldset {
+  margin-top: 0;
+}
+.invite-form {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  align-items: end;
+  margin: var(--space-4) 0 0;
+}
+.invite-form .field {
+  margin: 0;
+}
+.access-list li {
+  align-items: flex-start;
+}
+.access-list li > div:first-child {
+  display: block;
+}
+.access-list p {
+  margin: var(--space-1) 0 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+.row-actions button {
+  font-size: var(--text-small);
+}
+
+/* Narrow content area: phones, and tablets next to the sidebar. */
+@container panel (max-width: 40rem) {
+  .item-list li {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .item-list .compact {
+    width: 100%;
+  }
+  .page-intro {
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    margin-bottom: var(--space-5);
+  }
+  .page-intro p {
+    font-size: 0.85rem;
+  }
+  .page-intro .primary {
+    width: 100%;
+    min-height: 48px;
+  }
+  .welcome {
+    padding: var(--space-5);
+    margin-top: var(--space-5);
+  }
+  .welcome h2 {
+    font-size: 1.5rem;
+  }
+  .quick-actions > * {
+    flex: 1 1 100%;
+    min-height: 48px;
+  }
+  .overview-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+  .overview-card,
+  .church-card,
+  .church-admin-section {
+    padding: var(--space-5);
+  }
+  .church-admin > .segmented {
+    width: 100%;
+  }
+  .invite-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .invite-form button {
+    width: 100%;
+    min-height: 48px;
+  }
+  .row-actions {
+    justify-content: stretch;
+  }
+  .row-actions button {
+    flex: 1 1 100%;
+  }
+}

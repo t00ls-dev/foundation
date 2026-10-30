@@ -6,6 +6,7 @@ import {
   useFormFocusVisibility,
 } from "./ui.js";
 import { ChurchManagement } from "./church-management.js";
+import { ChurchNavigation } from "./shell.js";
 import { Members } from "./members.js";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -693,54 +694,58 @@ export function App({
         )
       }
     >
+      <Icon name="logout" />
       Sair
     </button>
   );
+  const passwordLink = (
+    <NavigationLink href="/conta/senha" navigate={go} disabled={busy}>
+      <Icon name="lock" />
+      Configurar senha
+    </NavigationLink>
+  );
   const navigation = currentOrganization && (
-    <nav aria-label="Navegação da igreja" className="admin-nav">
-      {(
-        [
-          { path: "/painel", label: "Início", icon: "home" },
-          { path: "/igrejas", label: "Igrejas", icon: "church" },
-          ...(membersEnabled
-            ? [{ path: "/membros", label: "Membros", icon: "people" }]
-            : []),
-        ] as const
-      ).map((item) => (
-        <NavigationLink
-          key={item.path}
-          href={item.path}
-          navigate={go}
-          disabled={busy}
-          aria-current={
-            (screen.kind === "dashboard" && item.path === "/painel") ||
-            (screen.kind === "churches" && item.path === "/igrejas") ||
-            (screen.kind === "members" && item.path === "/membros")
-              ? "page"
-              : undefined
-          }
-        >
-          <Icon name={item.icon as "home" | "church" | "people"} />
-          {item.label}
-        </NavigationLink>
-      ))}
-      <details key={screen.kind} className="navigation-more">
-        <summary>
-          <span aria-hidden="true">•••</span>Mais
-        </summary>
-        <div className="navigation-actions">
-          <NavigationLink
-            href="/igrejas/selecionar"
-            navigate={go}
-            className="organization-switch"
-            disabled={busy}
-          >
-            <span aria-hidden="true">⇄</span>Trocar igreja
-          </NavigationLink>
-          {logoutButton}
-        </div>
-      </details>
-    </nav>
+    <ChurchNavigation
+      busy={busy}
+      navigate={go}
+      menuKey={screen.kind}
+      items={[
+        {
+          path: "/painel",
+          label: "Início",
+          icon: "home",
+          current: screen.kind === "dashboard",
+        },
+        ...(membersEnabled
+          ? [
+              {
+                path: "/membros",
+                label: "Membros",
+                icon: "people" as const,
+                current: screen.kind === "members",
+              },
+            ]
+          : []),
+        {
+          path: "/igrejas",
+          label: "Igrejas",
+          icon: "church",
+          current: screen.kind === "churches",
+        },
+      ]}
+    >
+      <NavigationLink
+        href="/igrejas/selecionar"
+        navigate={go}
+        className="organization-switch"
+        disabled={busy}
+      >
+        <Icon name="swap" />
+        Trocar igreja
+      </NavigationLink>
+      {passwordLink}
+      {logoutButton}
+    </ChurchNavigation>
   );
   return (
     <div className={`app ${administrative ? "admin-app" : "access-app"}`}>
@@ -777,7 +782,9 @@ export function App({
         {currentOrganization && (
           <div className="context-label">
             <span className="eyebrow">Igreja ativa</span>
-            <strong>{currentOrganization.nome}</strong>
+            <strong title={currentOrganization.nome}>
+              {currentOrganization.nome}
+            </strong>
             <span className="context-role">
               {currentOrganization.role === "admin"
                 ? "Administrador"
@@ -785,11 +792,7 @@ export function App({
             </span>
           </div>
         )}
-        {hasSession && (
-          <NavigationLink href="/conta/senha" navigate={go} disabled={busy}>
-            Configurar senha
-          </NavigationLink>
-        )}
+        {hasSession && !navigation && passwordLink}
         {hasSession && !currentOrganization && logoutButton}
       </header>
       {managementLoading && (
@@ -863,7 +866,14 @@ export function App({
                 ? "Vamos começar"
                 : "Seu espaço no Levi"}
           </p>
-          {showSteps && <p className="step-caption">Etapa {step + 1} de 3</p>}
+          {showSteps && (
+            <>
+              <p className="step-caption">Etapa {step + 1} de 3</p>
+              <span className="step-progress" aria-hidden="true">
+                <span style={{ width: `${((step + 1) / 3) * 100}%` }} />
+              </span>
+            </>
+          )}
           <h1 ref={heading} tabIndex={-1}>
             {titles[screen.kind]}
           </h1>
@@ -1123,7 +1133,7 @@ export function App({
                     <li key={item.id}>
                       <div>
                         <span className="item-symbol" aria-hidden="true">
-                          O
+                          <Icon name="church" />
                         </span>
                         <strong>{item.nome}</strong>
                         <span>
@@ -1197,14 +1207,9 @@ export function App({
           {screen.kind === "dashboard" && (
             <>
               <div className="welcome surface">
-                <div>
-                  <p className="eyebrow">Sua comunidade, mais próxima</p>
-                  <h2>Seu espaço de gestão está pronto.</h2>
-                  <p>
-                    Comece pelo cadastro de uma pessoa ou consulte os membros já
-                    registrados. Os campos pessoais opcionais podem ficar em
-                    branco.
-                  </p>
+                <p className="eyebrow">Sua comunidade, mais próxima</p>
+                <h2>Seu espaço de gestão está pronto.</h2>
+                <div className="quick-actions">
                   <button
                     className="primary"
                     onClick={() =>
@@ -1215,9 +1220,11 @@ export function App({
                     {membersEnabled ? "Cadastrar membro" : "Consultar igrejas"}
                   </button>
                 </div>
-                <div className="welcome-mark" aria-hidden="true">
-                  <Icon name="people" />
-                </div>
+                <p>
+                  Comece pelo cadastro de uma pessoa ou consulte os membros já
+                  registrados. Os campos pessoais opcionais podem ficar em
+                  branco.
+                </p>
               </div>
               <div className="overview-grid">
                 <div className="surface overview-card">

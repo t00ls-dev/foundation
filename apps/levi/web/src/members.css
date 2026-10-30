@@ -1,0 +1,355 @@
+/* Member list, filters, form and profile. */
+.back-link {
+  margin: -0.3rem 0 0.7rem;
+}
+
+/* Filters */
+.filter-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) auto auto;
+  gap: var(--space-4);
+  align-items: end;
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.filter-grid .field {
+  margin: 0;
+}
+.status-filter {
+  margin: 0;
+  min-width: 0;
+}
+.status-filter legend {
+  font-size: var(--text-small);
+  font-weight: 620;
+  margin-bottom: 0.45rem;
+  padding: 0;
+}
+.status-filter .segmented {
+  margin: 0;
+}
+
+/* Rows: the whole row opens the profile. */
+.member-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-6) 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: clip;
+}
+.member-list li {
+  border-bottom: 1px solid var(--line);
+}
+.member-list li:last-child {
+  border-bottom: 0;
+}
+.member-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto 20px;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  overflow-wrap: anywhere;
+}
+.member-link {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-weight: 650;
+  text-align: left;
+}
+/* Stretched link: the whole row is the target. */
+.member-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.member-link:focus-visible {
+  outline: none;
+}
+.member-row:has(.member-link:focus-visible) {
+  outline: 3px solid var(--brand);
+  outline-offset: -3px;
+}
+@media (hover: hover) {
+  .member-row:hover {
+    background: var(--tint);
+  }
+}
+.member-row > .icon {
+  color: var(--muted);
+  width: 20px;
+  height: 20px;
+}
+.member-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.member-summary .member-link {
+  font-size: var(--text-body);
+}
+.member-summary > span {
+  font-size: var(--text-small);
+  color: var(--muted);
+}
+
+/* Pagination */
+.pagination {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-5) 0;
+  font-size: var(--text-small);
+}
+.pagination button {
+  font-size: var(--text-small);
+}
+.pagination button:last-child {
+  justify-self: end;
+}
+.pagination button:first-child {
+  justify-self: start;
+}
+.page-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.35;
+  text-align: center;
+}
+.page-status small {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+/* Form */
+.form-description {
+  color: var(--muted);
+  font-size: 0.9rem;
+  max-width: 70ch;
+}
+.member-form {
+  max-width: 940px;
+}
+.form-section {
+  padding: var(--space-6);
+  margin-top: var(--space-5);
+}
+.form-section legend {
+  float: left;
+  width: 100%;
+  font-size: var(--text-body);
+  font-weight: 680;
+  margin-bottom: 0.2rem;
+  padding: 0;
+}
+.form-section > .hint {
+  clear: both;
+  margin: 0.2rem 0 var(--space-5);
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: var(--space-6);
+}
+.full-width {
+  grid-column: 1 / -1;
+}
+.form-grid .field:last-child,
+.form-grid .field:nth-last-child(2):not(.full-width) {
+  margin-bottom: 0;
+}
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-6);
+  margin-top: var(--space-6);
+  box-shadow: var(--shadow-raised);
+}
+.form-actions p {
+  margin: 0;
+  max-width: 48ch;
+}
+.form-actions button {
+  flex-shrink: 0;
+}
+/* Unsaved changes keep the save action in reach. Its position never changes
+   with focus, so the button cannot move between press and release;
+   useFormFocusVisibility scrolls a focused field above the bar instead. */
+.member-form[data-dirty="true"] .form-actions {
+  position: sticky;
+  bottom: var(--space-2);
+  z-index: 3;
+}
+
+/* Profile */
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin: var(--space-4) 0 var(--space-6);
+}
+.profile-header > div {
+  min-width: 0;
+}
+.profile-header h2 {
+  font-size: 1.5rem;
+  overflow-wrap: anywhere;
+}
+.profile-header .eyebrow {
+  margin-bottom: 0.3rem;
+}
+.profile-header > button {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.member-details {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(0, 2fr);
+  margin: 0;
+  padding: var(--space-2) var(--space-6);
+  max-width: 940px;
+}
+.member-details dt,
+.member-details dd {
+  padding: var(--space-4) 0;
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.9rem;
+}
+.member-details dt {
+  color: var(--muted);
+}
+.member-details dd {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.member-details dt:last-of-type,
+.member-details dd:last-of-type {
+  border: 0;
+}
+
+@container panel (max-width: 40rem) {
+  .filter-grid {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-3) 0.7rem;
+    padding: var(--space-4);
+  }
+  .filter-grid > .field {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .filter-grid > button {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .status-filter {
+    grid-column: 1 / -1;
+  }
+  .status-filter .segmented {
+    width: 100%;
+  }
+  .member-list {
+    margin-top: var(--space-5);
+  }
+  .member-row {
+    grid-template-columns: 32px minmax(0, 1fr) auto 16px;
+    gap: 0.6rem;
+    padding: var(--space-4);
+  }
+  .member-row .avatar {
+    width: 32px;
+    height: 32px;
+    font-size: var(--text-small);
+  }
+  .member-row > .icon {
+    width: 16px;
+    height: 16px;
+  }
+  .member-summary .member-link {
+    font-size: var(--text-small);
+  }
+  .pagination {
+    grid-template-columns: 1fr 1fr;
+  }
+  .page-status {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .pagination button,
+  .pagination button:first-child,
+  .pagination button:last-child {
+    justify-self: stretch;
+    padding: 0.55rem 0.6rem;
+  }
+  .form-section {
+    padding: 1.1rem;
+  }
+  .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .form-grid .field:nth-last-child(2):not(.full-width) {
+    margin-bottom: var(--space-5);
+  }
+  .form-actions {
+    padding: 0.8rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
+  }
+  .form-actions button {
+    min-height: 48px;
+  }
+  .member-form[data-dirty="true"] .form-actions .hint {
+    display: none;
+  }
+  .profile-header {
+    flex-wrap: wrap;
+  }
+  .profile-header .avatar {
+    width: 44px;
+    height: 44px;
+    font-size: 1.2rem;
+  }
+  .profile-header h2 {
+    font-size: 1.15rem;
+  }
+  .profile-header > div {
+    flex: 1;
+  }
+  .profile-header > button {
+    width: 100%;
+    margin: 0.3rem 0 0;
+  }
+  .member-details {
+    display: block;
+    padding: var(--space-2) 1.2rem;
+  }
+  .member-details dt {
+    border: 0;
+    padding: 0.8rem 0 0.2rem;
+    font-size: var(--text-small);
+  }
+  .member-details dd {
+    padding: 0 0 0.8rem;
+  }
+}
+@media (max-width: 47.999rem) {
+  .admin-app .member-form[data-dirty="true"] .form-actions {
+    bottom: calc(var(--bottom-nav-space) + var(--space-2));
+  }
+}

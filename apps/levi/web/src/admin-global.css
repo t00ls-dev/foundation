@@ -1,0 +1,70 @@
+/* Global administration (/admin). Own composition, outside the church shell. */
+.global-admin .topbar {
+  gap: var(--space-4);
+}
+.global-admin .topbar > span {
+  flex: 1;
+}
+.global-admin .quiet {
+  background: transparent;
+  border-color: var(--input-line);
+}
+.global-admin-main {
+  max-width: 1100px;
+  margin: var(--space-8) auto;
+  padding: 0 max(var(--space-4), env(safe-area-inset-right)) 0
+    max(var(--space-4), env(safe-area-inset-left));
+}
+.global-admin-section {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--space-6);
+  margin: var(--space-6) 0;
+}
+.global-admin-section p,
+.global-admin-section small {
+  overflow-wrap: anywhere;
+}
+.global-admin-section form {
+  border-top: 1px solid var(--line);
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+}
+.global-admin-section .item-list small {
+  display: block;
+}
+.global-admin-section fieldset {
+  min-width: 0;
+  margin: var(--space-4) 0;
+  border: 1px solid var(--line);
+}
+.organization-options {
+  max-height: 24rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.organization-options label,
+.global-confirm {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0.6rem;
+}
+.organization-options input,
+.global-confirm input {
+  width: auto;
+  min-height: 24px;
+}
+.organization-options small {
+  flex-basis: 100%;
+}
+@media (max-width: 47.999rem) {
+  .global-admin-section {
+    padding: var(--space-4);
+  }
+  .global-admin .topbar > span {
+    flex-basis: 50%;
+  }
+}

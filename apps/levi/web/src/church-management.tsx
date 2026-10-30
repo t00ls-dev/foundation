@@ -123,17 +123,33 @@ export function ChurchManagement({
     if (path === "/igrejas/acessos") void run(() => load());
     // A instância é recriada pelo shell ao trocar identidade, igreja ou rota.
   }, []);
+  const roleLabel = (value: string) =>
+    value === "admin" ? "Administrador" : "Colaborador";
   return (
-    <section aria-label="Administração da igreja">
-      <NavigationLink href="/igrejas/editar" navigate={navigate}>
-        Editar igreja
-      </NavigationLink>{" "}
-      <NavigationLink href="/igrejas/acessos" navigate={navigate}>
-        Gerenciar acessos
-      </NavigationLink>
-      {error && <p role="alert">{error}</p>}
+    <section className="church-admin" aria-label="Administração da igreja">
+      <nav className="segmented" aria-label="Seções da administração">
+        <NavigationLink
+          href="/igrejas/editar"
+          navigate={navigate}
+          aria-current={path === "/igrejas/editar" ? "page" : undefined}
+        >
+          Editar igreja
+        </NavigationLink>
+        <NavigationLink
+          href="/igrejas/acessos"
+          navigate={navigate}
+          aria-current={path === "/igrejas/acessos" ? "page" : undefined}
+        >
+          Gerenciar acessos
+        </NavigationLink>
+      </nav>
+      {error && (
+        <p className="notice error" role="alert">
+          {error}
+        </p>
+      )}
       {path === "/igrejas/editar" && (
-        <>
+        <div className="surface church-admin-section">
           <h2>Editar igreja</h2>
           <AccessForm
             mode="organization"
@@ -162,6 +178,7 @@ export function ChurchManagement({
             }}
           />
           <button
+            className="text-button"
             disabled={busy}
             onClick={() => {
               if (
@@ -174,195 +191,225 @@ export function ChurchManagement({
           >
             Recarregar dados atuais
           </button>
-        </>
+        </div>
       )}
       {path === "/igrejas/acessos" && (
         <>
-          <h2>Pessoas com acesso ao Levi</h2>
-          <h3>Convidar por e-mail</h3>
-          <p>
-            Convites válidos por 7 dias. O envio não cria conta nem membro da
-            congregação.
-          </p>
-          {sent && <p role="status">{sent}</p>}
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              void run(async () => {
-                const current = generation.current;
-                setSent("");
-                await api.sendInvitation(church.id, email, role);
-                await validate();
-                if (current !== generation.current) return;
-                setEmail("");
-                setSent("Convite enviado por e-mail.");
-                await load();
-              });
-            }}
-          >
-            <label htmlFor="invite-email">E-mail do destinatário</label>
-            <input
-              id="invite-email"
-              type="email"
-              required
-              maxLength={254}
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-            <label htmlFor="invite-role">Papel concedido</label>
-            <select
-              id="invite-role"
-              value={role}
-              onChange={(event) =>
-                setRole(
-                  event.target.value === "admin" ? "admin" : "collaborator",
-                )
-              }
+          <div className="surface church-admin-section">
+            <h2>Pessoas com acesso ao Levi</h2>
+            <h3>Convidar por e-mail</h3>
+            <p>
+              Convites válidos por 7 dias. O envio não cria conta nem membro da
+              congregação.
+            </p>
+            {sent && (
+              <p className="notice success" role="status">
+                {sent}
+              </p>
+            )}
+            <form
+              className="invite-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void run(async () => {
+                  const current = generation.current;
+                  setSent("");
+                  await api.sendInvitation(church.id, email, role);
+                  await validate();
+                  if (current !== generation.current) return;
+                  setEmail("");
+                  setSent("Convite enviado por e-mail.");
+                  await load();
+                });
+              }}
             >
-              <option value="collaborator">Colaborador</option>
-              <option value="admin">Administrador</option>
-            </select>
-            <button disabled={busy} type="submit">
-              Enviar convite
-            </button>
-          </form>
-          <h3>Convites</h3>
-          {invitations && (
-            <>
-              <ul className="item-list">
-                {invitations.invitations.map((item) => (
-                  <li key={item.id}>
-                    <div>
-                      <strong>{item.email}</strong>
-                      <p>
-                        {item.role === "admin"
-                          ? "Administrador"
-                          : "Colaborador"}{" "}
-                        ·{" "}
-                        {item.acceptedAt
-                          ? "Aceito"
-                          : item.cancelledAt
-                            ? "Cancelado ou substituído"
-                            : Date.parse(item.expiresAt) <= Date.now()
-                              ? "Expirado"
-                              : "Pendente"}
-                      </p>
-                      <p>
-                        Validade:{" "}
-                        {new Date(item.expiresAt).toLocaleString("pt-BR")}
-                      </p>
-                    </div>
-                    {!item.acceptedAt && !item.cancelledAt && (
-                      <div>
-                        {["Reenviar", "Cancelar"].map((action) => (
-                          <button
-                            key={action}
-                            disabled={busy}
-                            onClick={() =>
-                              void run(async () => {
-                                const current = generation.current;
-                                await (action === "Reenviar"
-                                  ? api.resendInvitation(church.id, item.id)
-                                  : api.cancelInvitation(church.id, item.id));
-                                await validate();
-                                if (current !== generation.current) return;
-                                setSent(
-                                  action === "Reenviar"
-                                    ? "Novo convite enviado. O link anterior foi invalidado."
-                                    : "Convite cancelado.",
-                                );
-                                await load();
-                              })
-                            }
-                          >
-                            {action}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-              {invitations.next && (
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    void run(async () => {
-                      const current = generation.current;
-                      const result = await api.invitations(
-                        church.id,
-                        invitations.next,
-                      );
-                      await validate();
-                      if (current === generation.current)
-                        setInvitations(result);
-                    })
+              <div className="field">
+                <label htmlFor="invite-email">E-mail do destinatário</label>
+                <input
+                  id="invite-email"
+                  type="email"
+                  required
+                  maxLength={254}
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  enterKeyHint="send"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="invite-role">Papel concedido</label>
+                <select
+                  id="invite-role"
+                  value={role}
+                  onChange={(event) =>
+                    setRole(
+                      event.target.value === "admin" ? "admin" : "collaborator",
+                    )
                   }
                 >
-                  Mais convites
-                </button>
-              )}
-            </>
-          )}
-
-          <p>Gerencie os vínculos existentes desta igreja.</p>
-          <button disabled={busy} onClick={() => void run(() => load())}>
-            Atualizar acessos
-          </button>
-          {page && (
-            <>
-              <ul className="item-list">
-                {page.accesses.map((item) => (
-                  <li key={item.id}>
-                    <div>
-                      <strong>
-                        {item.name || item.email}
-                        {item.userId === identity?.userId ? " (Você)" : ""}
-                      </strong>
-                      <p>{item.email}</p>
-                      <p>
-                        {item.role === "admin"
-                          ? "Administrador"
-                          : "Colaborador"}{" "}
-                        · Desde{" "}
-                        {new Date(item.createdAt).toLocaleDateString("pt-BR")}
-                      </p>
-                    </div>
-                    <div>
-                      <button
-                        disabled={busy}
-                        onClick={() =>
-                          void change(
-                            item,
-                            item.role === "admin" ? "collaborator" : "admin",
-                          )
-                        }
-                      >
-                        {item.role === "admin"
-                          ? "Rebaixar a colaborador"
-                          : "Promover a administrador"}
-                      </button>
-                      <button
-                        disabled={busy}
-                        onClick={() => void change(item, null)}
-                      >
-                        Revogar acesso
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              {page.next && (
-                <button
-                  disabled={busy}
-                  onClick={() => void run(() => load(page.next))}
-                >
-                  Próxima página
-                </button>
-              )}
-            </>
-          )}
+                  <option value="collaborator">Colaborador</option>
+                  <option value="admin">Administrador</option>
+                </select>
+              </div>
+              <button className="primary" disabled={busy} type="submit">
+                Enviar convite
+              </button>
+            </form>
+          </div>
+          <div className="surface church-admin-section">
+            <h3>Convites</h3>
+            {invitations && (
+              <>
+                <ul className="item-list access-list">
+                  {invitations.invitations.map((item) => (
+                    <li key={item.id}>
+                      <div>
+                        <strong>{item.email}</strong>
+                        <p>
+                          {roleLabel(item.role)} ·{" "}
+                          {item.acceptedAt
+                            ? "Aceito"
+                            : item.cancelledAt
+                              ? "Cancelado ou substituído"
+                              : Date.parse(item.expiresAt) <= Date.now()
+                                ? "Expirado"
+                                : "Pendente"}
+                        </p>
+                        <p>
+                          Validade:{" "}
+                          {new Intl.DateTimeFormat("pt-BR", {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          }).format(new Date(item.expiresAt))}
+                        </p>
+                      </div>
+                      {!item.acceptedAt && !item.cancelledAt && (
+                        <div className="row-actions">
+                          {["Reenviar", "Cancelar"].map((action) => (
+                            <button
+                              key={action}
+                              className={
+                                action === "Cancelar"
+                                  ? "destructive"
+                                  : "secondary"
+                              }
+                              disabled={busy}
+                              onClick={() =>
+                                void run(async () => {
+                                  const current = generation.current;
+                                  await (action === "Reenviar"
+                                    ? api.resendInvitation(church.id, item.id)
+                                    : api.cancelInvitation(church.id, item.id));
+                                  await validate();
+                                  if (current !== generation.current) return;
+                                  setSent(
+                                    action === "Reenviar"
+                                      ? "Novo convite enviado. O link anterior foi invalidado."
+                                      : "Convite cancelado.",
+                                  );
+                                  await load();
+                                })
+                              }
+                            >
+                              {action}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                {invitations.next && (
+                  <button
+                    className="secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      void run(async () => {
+                        const current = generation.current;
+                        const result = await api.invitations(
+                          church.id,
+                          invitations.next,
+                        );
+                        await validate();
+                        if (current === generation.current)
+                          setInvitations(result);
+                      })
+                    }
+                  >
+                    Mais convites
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+          <div className="surface church-admin-section">
+            <h3>Acessos atuais</h3>
+            <p>Gerencie os vínculos existentes desta igreja.</p>
+            <button
+              className="secondary"
+              disabled={busy}
+              onClick={() => void run(() => load())}
+            >
+              Atualizar acessos
+            </button>
+            {page && (
+              <>
+                <ul className="item-list access-list">
+                  {page.accesses.map((item) => (
+                    <li key={item.id}>
+                      <div>
+                        <strong>
+                          {item.name || item.email}
+                          {item.userId === identity?.userId ? " (Você)" : ""}
+                        </strong>
+                        <p>{item.email}</p>
+                        <p>
+                          {roleLabel(item.role)} · Desde{" "}
+                          {new Intl.DateTimeFormat("pt-BR", {
+                            dateStyle: "medium",
+                          }).format(new Date(item.createdAt))}
+                        </p>
+                      </div>
+                      <div className="row-actions">
+                        <button
+                          className="secondary"
+                          disabled={busy}
+                          onClick={() =>
+                            void change(
+                              item,
+                              item.role === "admin" ? "collaborator" : "admin",
+                            )
+                          }
+                        >
+                          {item.role === "admin"
+                            ? "Rebaixar a colaborador"
+                            : "Promover a administrador"}
+                        </button>
+                        <button
+                          className="destructive"
+                          disabled={busy}
+                          onClick={() => void change(item, null)}
+                        >
+                          Revogar acesso
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                {page.next && (
+                  <button
+                    className="secondary"
+                    disabled={busy}
+                    onClick={() => void run(() => load(page.next))}
+                  >
+                    Próxima página
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </>
       )}
     </section>

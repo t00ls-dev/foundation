@@ -12,7 +12,7 @@ export default class SafeReporter implements Reporter {
     if (result.status === "failed" || result.status === "timedOut") {
       for (const error of result.errors) {
         const source = error.stack?.match(
-          /(?:onboarding\.spec|members\.spec|proxy\.spec|admin\.spec|helpers)\.ts:\d+:\d+/,
+          /(?:onboarding\.spec|members\.spec|proxy\.spec|admin\.spec|layout\.spec|helpers)\.ts:\d+:\d+/,
         )?.[0];
         console.error(
           `Falha de asserção${source ? ` em ${source}` : " no navegador"}; detalhes sensíveis omitidos.`,

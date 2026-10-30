@@ -55,7 +55,8 @@ apenas porque operações internas existem. Sem concessão global, servidor reto
 Roxo refinado, superfícies neutras e tipografia de sistema. Identidade acolhedora
 sem ilustrações decorativas ou fotografias de pessoas. Prioridade: reconhecer
 contexto, encontrar uma pessoa e concluir uma tarefa com poucos obstáculos.
-Somente modo claro.
+Modo claro e modo escuro conforme a preferência do sistema (revisão da
+Fase 2; ver abaixo).
 
 | Token            | Valor                     | Aplicação                       |
 | ---------------- | ------------------------- | ------------------------------- |
@@ -222,12 +223,111 @@ próxima fase; não se declara conformidade WCAG integral.
 
 A autorização da Fase 1 sucede a proposta acima. O shell usa uma única
 navegação responsiva; “Mais” é um disclosure nativo, sem criar rota nova,
-com troca de organização e saída. Com foco em formulário no celular, a barra
-passa ao topo para liberar a área do teclado sem deslocar o formulário,
-mantendo os mesmos links. A guarda de foco considera a barra superior.
+com troca de organização e saída. O comportamento da barra com o teclado
+virtual foi revisto na Fase 2.
 
 O Levi consome Skeleton pelo export público de `@t00ls-dev/ui`, com a classe
 local de placeholder estático. Os demais componentes serão avaliados por
 superfície na Fase 2. Tailwind fica adiado: o CSS existente atende esta
 integração sem acrescentar dependências de build ou reset global. Tokens e
 estilos do shell pertencem ao aplicativo; defaults compartilhados permanecem.
+
+## Decisões de implementação — Fase 2 (template e uso móvel)
+
+Revisão do template com prioridade para o uso móvel. Contratos, permissões,
+rascunhos protegidos e fluxos de navegação permanecem inalterados.
+
+**Breakpoints.** O shell usa um único breakpoint de viewport, 48rem (768 px):
+abaixo dele, topbar compacta e navegação inferior; a partir dele, lateral de
+184 px (232 px a partir de 75rem). O conteúdo de `<main>` responde ao espaço
+disponível por container queries (`panel`, limite de 40rem), e não à largura
+da janela. Isso elimina a faixa de 768–1024 px em que telas móveis apareciam
+dentro da lateral de desktop. Como a consulta usa rem, texto a 200% também
+adota o layout estreito. O onboarding mantém duas colunas a partir de 64rem;
+abaixo disso, a lista de etapas dá lugar a uma barra de progresso compacta
+junto de “Etapa N de 3”.
+
+**Navegação.** A ordem é a mesma no DOM e na tela: Início, Membros, Igrejas,
+Mais. Não há reordenação por CSS. “Mais” continua um `<details>` nativo e
+fecha com Escape (devolvendo o foco ao resumo), com toque fora e quando o foco
+sai do menu. “Configurar senha” passa para “Mais” sempre que a navegação da
+igreja existe; sem igreja, permanece na topbar. O nome da igreja ocupa uma
+linha com reticências no celular e mantém o nome completo em `title`. Ícones
+SVG substituem glifos de texto.
+
+**Teclado virtual.** Com um campo de texto, data ou seleção em foco no celular,
+a barra inferior recua para fora da tela (sem ocupar outro lugar), e o
+formulário não se desloca. Ela volta quando o campo perde o foco.
+`useFormFocusVisibility` desconta barras fixas ou aderentes que não contenham o
+controle focado, e `scroll-padding-bottom` reserva a área da barra.
+
+**Formulário de membro.** Com alterações não salvas, a área de ações fica
+aderente ao fim da tela, acima da navegação. A posição não muda com o foco,
+para que o botão não se desloque entre o toque e a soltura;
+`useFormFocusVisibility` rola o campo em foco para acima da barra, que portanto
+não cobre o que está sendo digitado. Os campos de membro usam
+`autocomplete="off"`: são dados de outra pessoa, e o preenchimento automático
+sugeriria os dados do operador. Endereço usa `textarea`; telefone usa
+`inputMode="tel"`.
+
+**Lista de membros.** A linha inteira abre a ficha (link estendido). O nome
+acessível continua “Consultar ficha de <nome>”, contém o texto visível e
+descreve a igreja por `aria-describedby`. A situação é filtrada por um controle
+segmentado de rádios (Todas, Ativo, Inativo), visível em todas as larguras, e a
+busca usa `type="search"`. A paginação mostra o intervalo exibido; o total não
+é mostrado porque a API não retorna contagem, e acrescentá-la exigiria mudança
+de contrato. Avatares recebem um de cinco tons estáveis, calculados pelo
+identificador, sem fotos.
+
+**Ficha e igreja.** Telefone e e-mail viram links `tel:` e `mailto:`; datas de
+registro usam `Intl.DateTimeFormat` (`dateStyle: medium`). As telas de
+administração da igreja ganham abas segmentadas, seções em superfícies,
+formulário de convite em grade e ações empilhadas no celular. Cancelar convite e
+revogar acesso usam estilo destrutivo.
+
+**Painel.** Ações principais logo após o título; o círculo decorativo foi
+removido.
+
+**Tokens e CSS.** Todas as cores estão em `tokens.css`. O espaçamento segue a
+escala `--space-N` = N × 4 px. O antigo `style.css` foi dividido por superfície
+(`base`, `shell`, `access`, `churches`, `members`, `admin-global`), importados
+em ordem fixa. Camadas `@layer` não foram adotadas: mudariam a precedência
+entre arquivos e exigiriam revisão de cada seletor, sem ganho visível. Os
+`!important` locais foram substituídos por especificidade explícita (o de
+`[hidden]` permanece). Estados de hover ficam em `@media (hover: hover)`, para
+não persistirem após toque. Títulos usam `clamp` com base em rem e
+`text-wrap: balance`.
+
+**Modo escuro.** A paleta escura redefine os mesmos tokens em
+`prefers-color-scheme: dark`, com `theme-color` correspondente. Contrastes,
+calculados pela luminância relativa sRGB: texto principal/superfície 14,4:1;
+texto secundário/superfície 7,8:1; ação (`#c4b0f5`)/superfície 8,9:1;
+branco/botão primário (`#6d4fc4`) 5,9:1; limite de controle/superfície 5,1:1;
+erro, sucesso, selos e avatares acima de 8:1. No modo claro, avatares ficam
+acima de 6,3:1 e o botão destrutivo em 7,1:1. Separadores continuam
+decorativos.
+
+**Instalação.** `web/public/assets` publica o manifesto, o ícone SVG e os PNGs
+(180, 192, 512 e 512 _maskable_) sob `/assets`, já servido pelo Node e pelo
+Worker, sem novas rotas. Não há service worker nem uso offline.
+
+**Não adotado nesta fase.**
+
+- AlertDialog no lugar de `window.confirm`. A guarda de rascunho precisa
+  continuar síncrona em `popstate` e na navegação, e o componente compartilhado
+  depende de classes Tailwind que o Levi não compila. Mantém-se o diálogo nativo,
+  acessível e consistente com a plataforma.
+- Seções opcionais recolhidas no cadastro. Ocultariam campos do foco de erro e
+  da revisão antes de salvar; as seções já são curtas.
+- Snapshots visuais versionados. Exigiriam imagens no repositório e variam
+  entre fontes locais e da CI. A cobertura passa a ser feita por asserções de
+  reflow, sobreposição e axe.
+
+**Validação.** O novo `e2e/layout.spec.ts` roda nos projetos desktop e mobile e
+também em `android-360` (Galaxy S8, 360 px), `tablet` (iPad Mini em Chromium,
+768 px) e `iphone-landscape` (712 × 327). Em cada tela principal, incluindo
+acessos e edição da igreja, verifica ausência de overflow com texto a 100% e
+200%, navegação fixa sem cobrir o conteúdo e axe nos modos claro e escuro.
+Também verifica o fechamento de “Mais” e o recuo da barra com campo em foco.
+Teclado virtual real, VoiceOver/TalkBack e Safari físico continuam fora do
+alcance da emulação.

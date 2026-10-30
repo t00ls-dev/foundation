@@ -1,5 +1,6 @@
 import { formText } from "./form-data.js";
 import {
+  avatarTone,
   EmptyState,
   Icon,
   NavigationLink,
@@ -61,15 +62,6 @@ export function Members({
       : path === "/membros"
         ? "list"
         : "detail";
-  const [filtersOpen, setFiltersOpen] = useState(
-    () => window.matchMedia("(min-width: 64.001rem)").matches,
-  );
-  useEffect(() => {
-    const media = window.matchMedia("(min-width: 64.001rem)");
-    const change = () => setFiltersOpen(media.matches);
-    media.addEventListener("change", change);
-    return () => media.removeEventListener("change", change);
-  }, []);
   const [page, setPage] = useState<MemberPage | null>(null);
   const [member, setMember] = useState<Member | null>(null);
   const [busy, setBusy] = useState(true);
@@ -331,31 +323,37 @@ export function Members({
                 <input
                   id="member-name-filter"
                   name="name"
+                  type="search"
                   maxLength={160}
                   defaultValue={filters.name ?? ""}
+                  autoComplete="off"
+                  autoCapitalize="words"
+                  spellCheck={false}
+                  enterKeyHint="search"
                 />
               </div>
-              <details
-                className="member-filter-options"
-                open={filtersOpen}
-                onToggle={(event) => setFiltersOpen(event.currentTarget.open)}
-              >
-                <summary>Mais filtros</summary>
-                <div className="filter-options-grid">
-                  <div className="field">
-                    <label htmlFor="member-status-filter">Situação</label>
-                    <select
-                      id="member-status-filter"
-                      name="status"
-                      defaultValue={filters.status ?? ""}
-                    >
-                      <option value="">Todas as situações</option>
-                      <option>Ativo</option>
-                      <option>Inativo</option>
-                    </select>
-                  </div>
+              <fieldset className="status-filter">
+                <legend>Situação</legend>
+                <div className="segmented">
+                  {(
+                    [
+                      ["", "Todas"],
+                      ["Ativo", "Ativo"],
+                      ["Inativo", "Inativo"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <label key={label}>
+                      <input
+                        type="radio"
+                        name="status"
+                        value={value}
+                        defaultChecked={(filters.status ?? "") === value}
+                      />
+                      {label}
+                    </label>
+                  ))}
                 </div>
-              </details>
+              </fieldset>
               <button
                 className="secondary"
                 type="submit"
@@ -368,28 +366,36 @@ export function Members({
           {page && (
             <>
               {page.members.length ? (
-                <ul className="item-list member-list">
+                <ul className="member-list">
                   {page.members.map((item) => (
-                    <li key={item.id}>
-                      <span className="avatar" aria-hidden="true">
+                    <li key={item.id} className="member-row">
+                      <span
+                        className={`avatar ${avatarTone(item.id)}`}
+                        aria-hidden="true"
+                      >
                         {item.name
                           .trim()
                           .slice(0, 1)
                           .toLocaleUpperCase("pt-BR")}
                       </span>
-                      <div className="member-summary">
-                        <strong>{item.name}</strong>
-                        <span>{item.churchName}</span>
-                      </div>
+                      <span className="member-summary">
+                        {/* O link cobre a linha inteira; o nome acessível
+                            continua contendo o texto visível. */}
+                        <NavigationLink
+                          href={`/membros/${item.id}`}
+                          navigate={navigate}
+                          className="member-link"
+                          aria-describedby={`member-${item.id}-details`}
+                        >
+                          <span className="sr-only">Consultar ficha de </span>
+                          <span>{item.name}</span>
+                        </NavigationLink>
+                        <span id={`member-${item.id}-details`}>
+                          {item.churchName}
+                        </span>
+                      </span>
                       <Status value={item.status} />
-                      <NavigationLink
-                        href={`/membros/${item.id}`}
-                        navigate={navigate}
-                        className="secondary compact"
-                        aria-label={`Consultar ficha de ${item.name}`}
-                      >
-                        Consultar ficha
-                      </NavigationLink>
+                      <Icon name="chevron" />
                     </li>
                   ))}
                 </ul>
@@ -425,10 +431,7 @@ export function Members({
                   )}
                 </EmptyState>
               )}
-              <nav
-                className="actions pagination"
-                aria-label="Paginação dos membros"
-              >
+              <nav className="pagination" aria-label="Paginação dos membros">
                 <button
                   className="secondary"
                   disabled={busy || page.page === 1}
@@ -438,7 +441,15 @@ export function Members({
                 >
                   Página anterior
                 </button>
-                <span aria-live="polite">Página {page.page}</span>
+                <span className="page-status" aria-live="polite">
+                  <span>Página {page.page}</span>
+                  {page.members.length > 0 && (
+                    <small>
+                      {(page.page - 1) * page.pageSize + 1}–
+                      {(page.page - 1) * page.pageSize + page.members.length}
+                    </small>
+                  )}
+                </span>
                 <button
                   className="secondary"
                   disabled={busy || !page.hasNext}
@@ -553,7 +564,10 @@ export function Members({
       {mode === "detail" && member && (
         <>
           <div className="profile-header">
-            <span className="avatar large" aria-hidden="true">
+            <span
+              className={`avatar large ${avatarTone(member.id)}`}
+              aria-hidden="true"
+            >
               {member.name.trim().slice(0, 1)}
             </span>
             <div>
@@ -575,14 +589,27 @@ export function Members({
               <Fragment key={key}>
                 <dt>{label}</dt>
                 <dd>
-                  {type === "date"
-                    ? formatCivilDate(member[key])
-                    : member[key] || "Não informado"}
+                  {type === "date" ? (
+                    formatCivilDate(member[key])
+                  ) : key === "phone" && member.phone ? (
+                    <a href={`tel:${member.phone.replace(/[^\d+]/g, "")}`}>
+                      {member.phone}
+                    </a>
+                  ) : key === "email" && member.email ? (
+                    <a href={`mailto:${member.email}`}>{member.email}</a>
+                  ) : (
+                    member[key] || "Não informado"
+                  )}
                 </dd>
               </Fragment>
             ))}
             <dt>Cadastrado em</dt>
-            <dd>{new Date(member.createdAt).toLocaleString("pt-BR")}</dd>
+            <dd>
+              {new Intl.DateTimeFormat("pt-BR", {
+                dateStyle: "medium",
+                timeStyle: "short",
+              }).format(new Date(member.createdAt))}
+            </dd>
           </dl>
         </>
       )}
@@ -654,34 +681,41 @@ function MemberForm({
   }
   function field(key: (typeof optionalFields)[number][0]) {
     const [, label, type] = optionalFields.find(([value]) => value === key)!;
+    // Dados de outra pessoa: o preenchimento automático traria os do operador.
+    const attributes = {
+      name: key,
+      defaultValue: initial?.[key] ?? "",
+      autoComplete: "off",
+      maxLength:
+        key in memberTextLimits
+          ? memberTextLimits[key as keyof typeof memberTextLimits]
+          : undefined,
+      "aria-invalid": Boolean(errors[key]),
+      "aria-describedby": errors[key]
+        ? `error-${key}`
+        : key === "churchRole"
+          ? "role-hint"
+          : undefined,
+    };
     return (
       <div
         className={`field ${key === "address" ? "full-width" : ""}`}
         key={key}
       >
         <label htmlFor={`member-${key}`}>{label} (opcional)</label>
-        <input
-          id={`member-${key}`}
-          name={key}
-          type={type}
-          defaultValue={initial?.[key] ?? ""}
-          enterKeyHint="next"
-          max={type === "date" ? "9999-12-31" : undefined}
-          min={type === "date" ? "0001-01-01" : undefined}
-          maxLength={
-            key in memberTextLimits
-              ? memberTextLimits[key as keyof typeof memberTextLimits]
-              : undefined
-          }
-          aria-invalid={Boolean(errors[key])}
-          aria-describedby={
-            errors[key]
-              ? `error-${key}`
-              : key === "churchRole"
-                ? "role-hint"
-                : undefined
-          }
-        />
+        {key === "address" ? (
+          <textarea id={`member-${key}`} rows={2} {...attributes} />
+        ) : (
+          <input
+            id={`member-${key}`}
+            type={type}
+            inputMode={type === "tel" ? "tel" : undefined}
+            enterKeyHint="next"
+            max={type === "date" ? "9999-12-31" : undefined}
+            min={type === "date" ? "0001-01-01" : undefined}
+            {...attributes}
+          />
+        )}
         {errors[key] && (
           <p id={`error-${key}`} className="field-error">
             {errors[key]}
@@ -715,7 +749,7 @@ function MemberForm({
         event.preventDefault();
         const controls = Array.from(
           event.currentTarget.querySelectorAll<HTMLElement>(
-            "input, select, button",
+            "input, select, textarea, button",
           ),
         );
         controls[controls.indexOf(event.target) + 1]?.focus();
@@ -742,7 +776,8 @@ function MemberForm({
               required
               maxLength={160}
               defaultValue={initial?.name ?? ""}
-              autoComplete="name"
+              autoComplete="off"
+              autoCapitalize="words"
               enterKeyHint="next"
               aria-invalid={Boolean(errors.name)}
               aria-describedby={errors.name ? "error-name" : undefined}

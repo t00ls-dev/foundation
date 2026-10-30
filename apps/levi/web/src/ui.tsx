@@ -6,11 +6,18 @@ import {
   type ReactNode,
 } from "react";
 
-export function Icon({
-  name,
-}: {
-  name: "home" | "people" | "church" | "arrow" | "plus";
-}) {
+export type IconName =
+  | "home"
+  | "people"
+  | "church"
+  | "arrow"
+  | "plus"
+  | "more"
+  | "swap"
+  | "logout"
+  | "lock"
+  | "chevron";
+export function Icon({ name }: { name: IconName }) {
   const paths = {
     home: "m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z",
     people:
@@ -18,6 +25,11 @@ export function Icon({
     church: "M4 21V7l8-4 8 4v14M2 21h20M9 21v-5h6v5M8 8h1m6 0h1m-8 4h1m6 0h1",
     arrow: "M5 12h14m-5-5 5 5-5 5",
     plus: "M12 5v14M5 12h14",
+    more: "M6.5 12a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm7 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm7 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z",
+    swap: "m16 3 4 4-4 4m4-4H4m4 14-4-4 4-4m-4 4h16",
+    logout: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4m7 14 5-5-5-5m5 5H9",
+    lock: "M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4",
+    chevron: "m9 6 6 6-6 6",
   };
   return (
     <svg
@@ -84,7 +96,7 @@ export function EmptyState({
 }: {
   title: string;
   children?: ReactNode;
-  icon?: ComponentProps<typeof Icon>["name"];
+  icon?: IconName;
 }) {
   return (
     <div className="empty-state">
@@ -95,6 +107,12 @@ export function EmptyState({
       {children}
     </div>
   );
+}
+// Tom estável por identificador: facilita a leitura da lista sem fotos.
+export function avatarTone(id: string) {
+  let sum = 0;
+  for (const char of id) sum = (sum + char.charCodeAt(0)) % 997;
+  return `tone-${(sum % 5) + 1}`;
 }
 export function Status({ value }: { value: string }) {
   return (
@@ -150,17 +168,29 @@ export function useFormFocusVisibility() {
           ?.getBoundingClientRect();
         if (header && header.bottom > top && header.bottom < bottom)
           top = header.bottom + 12;
-        const navigation = document.querySelector(".sidebar");
-        if (
-          navigation instanceof HTMLElement &&
-          getComputedStyle(navigation).position === "fixed"
-        ) {
-          const bounds = navigation.getBoundingClientRect();
-          if (bounds.top < top && bounds.bottom < bottom)
-            top = bounds.bottom + 12;
-        }
         const rect = target.getBoundingClientRect();
-        if (rect.bottom > bottom) window.scrollBy(0, rect.bottom - bottom);
+        let visibleBottom = bottom;
+        // Barras fixas ou aderentes que não contêm o controle reduzem a área útil.
+        for (const element of document.querySelectorAll(
+          ".sidebar, .form-actions",
+        )) {
+          if (!(element instanceof HTMLElement) || element.contains(target))
+            continue;
+          const style = getComputedStyle(element);
+          if (
+            !["fixed", "sticky"].includes(style.position) ||
+            style.visibility === "hidden"
+          )
+            continue;
+          const bounds = element.getBoundingClientRect();
+          if (bounds.right <= rect.left || bounds.left >= rect.right) continue;
+          if (bounds.top < top && bounds.bottom < bottom)
+            top = Math.max(top, bounds.bottom + 12);
+          else if (bounds.top > top && bounds.top < visibleBottom)
+            visibleBottom = bounds.top - 12;
+        }
+        if (rect.bottom > visibleBottom)
+          window.scrollBy(0, rect.bottom - visibleBottom);
         else if (rect.top < top) window.scrollBy(0, rect.top - top);
       });
     };

@@ -138,16 +138,14 @@ test("membros: cadastro completo, ficha com datas civis, filtros e acessibilidad
     page.getByText("Nenhum membro neste recorte.", { exact: true }),
   ).toBeVisible();
   await page.getByLabel("Nome", { exact: true }).fill("sintética");
-  if (!(await page.getByLabel("Situação", { exact: true }).isVisible()))
-    await page.getByText("Mais filtros", { exact: true }).click();
-  await page.getByLabel("Situação", { exact: true }).selectOption("Ativo");
+  await page.getByRole("radio", { name: "Ativo", exact: true }).check();
   await page
     .getByRole("button", { name: "Filtrar membros", exact: true })
     .click();
   await expect(
     page.getByText("Nenhum membro neste recorte.", { exact: true }),
   ).toBeVisible();
-  await page.getByLabel("Situação", { exact: true }).selectOption("Inativo");
+  await page.getByRole("radio", { name: "Inativo", exact: true }).check();
   await page
     .getByRole("button", { name: "Filtrar membros", exact: true })
     .click();
@@ -169,9 +167,9 @@ test("membros: cadastro completo, ficha com datas civis, filtros e acessibilidad
   await expect(page.getByLabel("Nome", { exact: true })).toHaveValue(
     "sintética",
   );
-  await expect(page.getByLabel("Situação", { exact: true })).toHaveValue(
-    "Inativo",
-  );
+  await expect(
+    page.getByRole("radio", { name: "Inativo", exact: true }),
+  ).toBeChecked();
   expect(page.url()).not.toContain("sint");
 });
 

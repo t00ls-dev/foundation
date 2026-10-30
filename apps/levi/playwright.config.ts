@@ -14,14 +14,38 @@ export default defineConfig({
   projects: [
     {
       name: "desktop",
-      testMatch: /(?:onboarding|members|admin)\.spec\.ts/,
+      testMatch: /(?:onboarding|members|admin|layout)\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], baseURL: "http://localhost:4317" },
     },
     {
       name: "mobile",
-      testMatch: /(?:onboarding|members|admin)\.spec\.ts/,
+      testMatch: /(?:onboarding|members|admin|layout)\.spec\.ts/,
       use: {
         ...devices["iPhone 13 Mini"],
+        browserName: "chromium",
+        baseURL: "http://localhost:4317",
+      },
+    },
+    // Larguras e orientações adicionais para o layout responsivo.
+    {
+      name: "android-360",
+      testMatch: /layout\.spec\.ts/,
+      use: { ...devices["Galaxy S8"], baseURL: "http://localhost:4317" },
+    },
+    {
+      name: "tablet",
+      testMatch: /layout\.spec\.ts/,
+      use: {
+        ...devices["iPad Mini"],
+        browserName: "chromium",
+        baseURL: "http://localhost:4317",
+      },
+    },
+    {
+      name: "iphone-landscape",
+      testMatch: /layout\.spec\.ts/,
+      use: {
+        ...devices["iPhone 13 Mini landscape"],
         browserName: "chromium",
         baseURL: "http://localhost:4317",
       },
@@ -30,7 +54,7 @@ export default defineConfig({
       ? [
           {
             name: "iphone-webkit",
-            testMatch: /(?:onboarding|members|admin)\.spec\.ts/,
+            testMatch: /(?:onboarding|members|admin|layout)\.spec\.ts/,
             use: {
               ...devices["iPhone 13 Mini"],
               browserName: "webkit" as const,
