@@ -134,17 +134,29 @@ export async function revokeChurchAccess(
   churchId: string,
   userId: string,
 ) {
-  const backup = randomUUID();
-  await database.client.query(
-    `INSERT INTO "user"(id,name,email,email_verified) VALUES($1,'Backup sintético',$2,true)`,
-    [backup, `${backup}@example.test`],
-  );
-  await database.client.query(
-    "INSERT INTO church_memberships(church_id,user_id,role) VALUES($1,$2,'admin')",
-    [churchId, backup],
-  );
-  await database.client.query(
-    "DELETE FROM church_memberships WHERE church_id=$1 AND user_id=$2",
-    [churchId, userId],
-  );
+  await database.client.query("BEGIN");
+  try {
+    // Fixture concorrente também segue igreja → vínculos, antes do DML direto.
+    await database.client.query(
+      "SELECT id FROM churches WHERE id=$1 FOR UPDATE",
+      [churchId],
+    );
+    const backup = randomUUID();
+    await database.client.query(
+      `INSERT INTO "user"(id,name,email,email_verified) VALUES($1,'Backup sintético',$2,true)`,
+      [backup, `${backup}@example.test`],
+    );
+    await database.client.query(
+      "INSERT INTO church_memberships(church_id,user_id,role) VALUES($1,$2,'admin')",
+      [churchId, backup],
+    );
+    await database.client.query(
+      "DELETE FROM church_memberships WHERE church_id=$1 AND user_id=$2",
+      [churchId, userId],
+    );
+    await database.client.query("COMMIT");
+  } catch (error) {
+    await database.client.query("ROLLBACK");
+    throw error;
+  }
 }
