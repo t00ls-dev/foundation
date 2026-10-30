@@ -162,8 +162,6 @@ comprova entrega externa ou operação remota nem autoriza dados reais.
 O modo `pnpm --filter levi test:e2e --runtime-acls` preserva os mesmos cenários usando
 login restrito; é o modo executado na CI.
 
-Capturas finais e roteiro de revisão estão nas [evidências da interface](evidencias-interface/index.md).
-
 ## Direção da interface
 
 A referência foi a organização visual dos [dashboards Preline](https://preline.co/blocks/application-pages/admin-dashboard-pages/)

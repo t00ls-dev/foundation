@@ -101,7 +101,7 @@ introduzir tabela complexa sem necessidade de comparação entre colunas.
 Autenticação usa coluna central de até 700 px, sem navegação privada.
 
 Skip link precede o shell; h1 recebe `tabIndex=-1` e foco após navegação real.
-No protótipo, links carregam documentos completos. Preservar links nativos,
+Preservar links nativos,
 voltar/avançar, abertura em nova aba e rascunhos protegidos na aplicação futura.
 
 ## Componentes e arquitetura futura
@@ -141,8 +141,7 @@ Remover regras somente após ausência de consumidores, inclusive `/admin`.
   inválido; erro recuperável persistente com próxima ação.
 - Resultado incerto: “Não foi possível confirmar. Consulte o resultado antes
   de tentar novamente.” Não prometer rollback nem sucesso.
-- Sucesso: uma confirmação após resposta autoritativa; no protótipo, sempre
-  identificada como simulação. Operações concorrentes bloqueadas.
+- Sucesso: uma confirmação após resposta autoritativa; operações concorrentes bloqueadas.
 - Indisponível/sem acesso: remover dados protegidos; consultar acesso. Admin
   não autorizado permanece recurso não encontrado.
 - Informação ausente: “Não informado”; batismo sem data não significa “Não
@@ -159,25 +158,6 @@ Guardar apenas chaves opacas autorizadas em sessionStorage, nunca payloads.
 Preservar `useDraftGuard`, `useFormFocusVisibility`, geração de consultas,
 revalidação de usuário/sessão/organização e descarte de respostas antigas.
 Preservar CSP e `Referrer-Policy: no-referrer` na composição servidor/Worker.
-Protótipos não reproduzem cabeçalhos HTTP nem provam essas proteções.
-Nenhuma fonte remota, CDN, telemetria, persistência ou API nos protótipos.
-
-## Protótipos e avaliação
-
-Abrir [painel](prototipos/painel.html) diretamente no navegador. HTML, CSS e JS
-locais, sem build. Cinco telas principais: painel, membros, formulário, detalhe
-e onboarding. Auxiliares: login, igrejas e seleção de organização. Administração
-global fica documentada, sem protótipo para evitar reduzir qualidade do núcleo.
-
-Lista permite busca/situação e vazio; formulário demonstra espera/sucesso sem
-salvar. Edição mantém igreja/situação bloqueadas. Onboarding mostra e-mail e
-prévia da etapa organizacional; verificação real, senha e cooldown não são
-simulados integralmente. Dados são fictícios e não representam indicadores reais.
-
-Galeria externa:
-`/home/admin/ai_reports/foundation/levi-ui-fase0-2026-10-29/index.html`.
-Cinco larguras por tela: 360, 390, 768, 1024 e 1440 px. Altura de viewport
-900 px; capturas de página inteira. Nenhuma imagem no repositório.
 
 ## Fases propostas e aceite
 
@@ -201,23 +181,6 @@ não autoriza mudanças funcionais, deploy ou uso de dados reais.
 
 A Fase 0 encerra na avaliação desta proposta. Fases seguintes exigem aprovação
 explícita do usuário.
-
-### Registro de validação
-
-Prettier dos entregáveis e `pnpm --filter levi format:check` aprovados.
-As 25 combinações foram abertas por `file://` no Chromium, sem overflow
-horizontal. Busca sem correspondência exibe vazio; Tab alcança controle nativo.
-O axe identificou inicialmente aviso fora de landmark, corrigido para região
-nomeada. Capturas regeneradas após correção. Revisão visual do painel móvel
-realizada; não equivale a revisão humana completa de todas as capturas.
-
-Não foram executados backend, suíte monorepo ou testes da aplicação real, pois
-nenhum arquivo funcional foi alterado. Zoom 200%, leitor de tela, teclado virtual,
-Safari físico e percurso completo por teclado permanecem inconclusivos.
-Ausência de recursos externos verificada nas fontes locais, sem auditoria de
-rede dedicada. Galeria usa imagens relativas e links nativos para ampliar.
-A aprovação visual e essas verificações complementares são pendências para a
-próxima fase; não se declara conformidade WCAG integral.
 
 ## Decisões de implementação — Fase 1
 

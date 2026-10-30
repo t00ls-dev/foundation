@@ -2,8 +2,7 @@
 
 Este documento descreve o publicador manual do Foundation para `apps/levi`.
 A transferência do Levi DEV foi concluída; o Foundation é o publicador autorizado.
-O histórico incorporado permanece preservado. A cópia histórica em
-`apps/levi/.github` não é executada como workflow raiz.
+O histórico incorporado permanece preservado no Git.
 
 O [workflow Deploy Levi DEV](../../../.github/workflows/deploy-levi-dev.yml) utiliza
 os cadastros do Environment `levi-dev`. Esta revisão padroniza seus nomes, mas não

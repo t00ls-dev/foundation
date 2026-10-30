@@ -10,8 +10,4 @@ playwright-report/
 test-results/
 .wrangler/
 
-# Evidências temporárias de testes; assets e baselines visuais permanecem permitidos.
-/apps/levi/docs/evidencias-interface/*.png
-/apps/levi/docs/evidencias-interface/*.webp
-/apps/levi/docs/evidencias-interface/*.jpg
 blob-report/
