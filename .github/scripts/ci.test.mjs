@@ -97,7 +97,7 @@ function validateCiStructure(ci, setup) {
   assert.deepEqual(setup.runs, {
     using: "composite",
     steps: [
-      { uses: "pnpm/action-setup@v6.1.0" },
+      { uses: "pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413" },
       {
         uses: "actions/setup-node@v7",
         with: { "node-version": "22.23.3", "cache": "pnpm" },

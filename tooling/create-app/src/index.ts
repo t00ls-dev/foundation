@@ -10,8 +10,10 @@ import {
   rmdir,
   writeFile,
 } from "node:fs/promises";
-import { basename, dirname, join, parse, resolve } from "node:path";
+import { dirname, join, parse, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { projectName } from "./project-name.js";
 
 export const PRESET = "basic-d1";
 
@@ -22,19 +24,6 @@ export interface GenerateOptions {
 export interface GeneratedApp {
   name: string;
   target: string;
-}
-
-function projectName(target: string): string {
-  const name = basename(target)
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/^[._-]+|[._-]+$/g, "");
-
-  if (!name) {
-    throw new Error("Target directory must produce a valid package name.");
-  }
-
-  return name;
 }
 
 async function validateTarget(target: string): Promise<"empty" | "missing"> {
