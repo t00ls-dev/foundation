@@ -1,3 +1,8 @@
+import { rm } from "node:fs/promises";
+import {
+  migrationSelection,
+  selectedMigrationFolder,
+} from "./migration-selection.js";
 import { createPostgresDatabase } from "@t00ls-dev/db/postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { devMigrationTarget } from "./dev-migration-config.js";
@@ -5,7 +10,8 @@ import { inspectMigrationHistory } from "./migration-history.js";
 
 // Nunca importado pela aplicação ou pelo build/deploy. Ação administrativa explícita.
 try {
-  const statusOnly = process.argv.includes("--status");
+  const selected = migrationSelection(process.argv.slice(2));
+  const statusOnly = selected === null;
   const databaseUrl = devMigrationTarget(
     process.env,
     statusOnly ? "status" : "apply",
@@ -49,13 +55,23 @@ try {
           pendentes: before.pending.length,
         }),
       );
-      await migrate(db, { migrationsFolder: "migrations" });
+      if (selected === null) throw new Error();
+      const folder = await selectedMigrationFolder(selected, before.pending);
+      try {
+        await migrate(db, { migrationsFolder: folder });
+      } finally {
+        await rm(folder, { recursive: true, force: true });
+      }
       const after = await inspectMigrationHistory(client);
-      if (after.pending.length) throw new Error();
+      if (
+        after.applied.length !== before.applied.length + 1 ||
+        after.applied.at(-1) !== selected
+      )
+        throw new Error();
       console.info(
         JSON.stringify({
           operacao: "migration-dev",
-          pendentes: 0,
+          pendentes: after.pending.length,
           aplicadas: after.applied.length,
         }),
       );

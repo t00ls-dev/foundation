@@ -153,7 +153,7 @@ Antes de cada operação autorizada, o operador configura privadamente:
 - `LEVI_DEV_DATABASE_NAME`: `levi_dev` ou prefixo `levi_dev_`;
 - `LEVI_DEV_MIGRATION_CONFIRMATION`: `CONSULTAR:<host>/<banco>` para
   `pnpm db:status:dev`, ou `APLICAR:<host>/<banco>` para
-  `pnpm db:migrate:dev`.
+  `pnpm db:migrate:dev --through TAG`.
 
 Não há carregamento automático de `.env`. Não copiar credenciais privadas para o
 projeto ou CI. O runner exige role `levi_dev_migrator`, senha, porta padrão, endpoint
@@ -162,9 +162,12 @@ projeto ou CI. O runner exige role `levi_dev_migrator`, senha, porta padrão, en
 O status roda em `BEGIN READ ONLY` e termina com `ROLLBACK`, sem criar objetos,
 inclusive em banco vazio. O modo de aplicação usa advisory lock não bloqueante,
 confere o histórico, aplica pelo Drizzle e reconsulta hashes/status. O SQL e as
-entradas pendentes são transacionais pelo migrator PostgreSQL Drizzle; o runner
-aplica **todas** as pendentes. Para autorizar só uma, comprovar que só ela está
-pendente imediatamente antes; não existe seletor individual implícito.
+revisão selecionada são transacionais pelo migrator PostgreSQL Drizzle. O runner
+exige `--through TAG` e aceita exclusivamente a primeira revisão pendente, usando
+um journal temporário com o prefixo autorizado. Não salta nem reaplica revisões.
+Sem seleção, falha antes de conectar. Novas revisões exigem classificação na
+lista operacional; conversão e contract continuam fora do journal. Consulte o
+[corte estrutural](deploy-dev.md#corte-estrutural--etapa-7).
 
 O runner não identifica sozinho projeto/branch Neon nem comprova integridade de
 cada objeto. Um preflight continua necessário: identidade completa por metadados

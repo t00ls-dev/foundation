@@ -80,8 +80,8 @@ PostgreSQL/ACLs/Worker/E2E. O agregador `checks` exige
 sucesso de todos os jobs de validação; falha, cancelamento, omissão e skip indevido
 bloqueiam o resultado. CI não recebe Environment ou secrets operacionais do Levi.
 
-O novo publicador aceita **somente workflow_dispatch**, com `execution_sha`
-obrigatório igual ao SHA selecionado de master. O job validate, sem Environment,
+O publicador aceita **somente workflow_dispatch**, selecionando `master`, sem
+input SHA. O SHA imutável do evento (`github.sha`) é capturado internamente. O job validate, sem Environment,
 reutiliza o [validador raiz](../../../.github/scripts/ci-evidence.mjs): exige
 `t00ls-dev/foundation`, ref master, CI canônica de push/master concluída com
 success no SHA exato e `checks` aprovado na tentativa atual. A conclusão global
@@ -473,9 +473,12 @@ interrompe antes da etapa seguinte. Não executar o workflow para testar o gate.
 
 ### Migrations e ACLs: verificações independentes
 
-O [runner DEV](../tools/migrate-dev.ts) aplica todas as migrations pendentes pelo
+O [runner DEV](../tools/migrate-dev.ts) exige `--through TAG` e aplica somente a
+primeira revisão pendente selecionada, mantendo o
 histórico Drizzle, com advisory lock não bloqueante. Confirmar imediatamente
-antes que sejam **somente 0005 e 0006**, na ordem. A 0005 depende do histórico
+antes quais revisões estão pendentes. Para o corte administrativo histórico,
+autorizar **0005 e 0006** individualmente, na ordem. Para a simplificação
+estrutural, seguir a seção de etapa 7 abaixo. A 0005 depende do histórico
 0000–0004, de `user`, `tenants` e `audit_events`, ownership apropriado, ausência de
 colisões das quatro tabelas e de ações globais reservadas incompatíveis no audit.
 A 0006 depende de `admin_bootstrap` e cria função/trigger permanente, sem seed.
@@ -537,3 +540,79 @@ Para devolver a publicação ao original em recuperação, primeiro conter Found
 aguardar execuções e retirar sua capacidade exclusiva, depois restaurar a do
 original mediante autorização. Nunca manter dois escritores. Esta preparação
 não executa qualquer um desses procedimentos.
+
+## Corte estrutural — etapa 7
+
+Preparação não autoriza execução. O caminho padrão preserva dados e acessos,
+sem reset. Em Actions → Deploy Levi DEV → Run workflow, selecionar `master`.
+O SHA do evento é fixado, validado pela CI e reconferido antes da publicação;
+se master avançar, iniciar novo dispatch autorizado. O resumo registra SHA e
+versão publicada. Não existe aplicação SQL nem credencial SQL no publicador.
+
+1. Obter autorização própria para inventário SQL, migrations e janela de corte.
+   Identificar projeto/branch Neon, host direto, banco, consumidores, owners,
+   journal/hashes, grants/triggers e dados existentes. Status não prova ACLs.
+   Confirmar backup com restauração ensaiada, responsável, retenção e ponto de
+   recuperação. Nenhuma ferramenta atual cria backup automaticamente.
+2. Conter todos os escritores e publicadores, inclusive autenticação, tarefas
+   externas e conexões em voo. O Worker atual não tem uma guarda de manutenção
+   comprovada; não confiar apenas em uma página 503. A estratégia de contenção
+   e drenagem deve ser ensaiada e autorizada antes da janela.
+3. Consultar `pnpm --filter levi db:status:dev` com a confirmação CONSULTAR
+   descrita em Cloudflare Workers. Revisar cada pendência histórica antes de
+   autorizar aplicação. `db:migrate:dev` sem seleção falha antes de conectar.
+   Com confirmação APLICAR e alvo já comprovados, usar, por exemplo,
+   `pnpm --filter levi db:migrate:dev --through 0007_igrejas-expand`.
+   Isso aplica exclusivamente a primeira pendência: não salta revisões nem
+   reaplica uma revisão concluída. Reconsultar status em conexão nova.
+4. Aplicar 0008 separadamente com `--through 0008_convites-igreja`, validar
+   tabela/índices/constraints e grants dos convites. Ela depende da expansão
+   0007; não depende do contract. O journal não inclui conversão nem contract.
+5. Seguir as fases de [núcleo de igrejas](nucleo-igrejas.md#fases-de-migration-e-corte):
+   conversão transacional, comparação exata dos acessos e ACLs revisadas,
+   publicação compatível e confirmação de versão/bindings. Contract exige
+   autorização independente e ausência comprovada de consumidores antigos.
+   Validar invariantes e proteções antes de liberar escritas.
+6. Autorizar dispatch apenas com schema/ACLs compatíveis. Os smokes exigem
+   respostas normais: manutenção não conta como sucesso. Planejar a liberação
+   para permitir os smokes existentes; não desabilitá-los. Complementar com
+   validação autenticada autorizada de Magic Link, igrejas, papéis e convites.
+
+Interromper por identidade ou exclusividade incerta, hash divergente, papel
+legado desconhecido, igreja sem admin, diferença nos conjuntos administrativos,
+lock/timeout, backup não recuperável ou resultado indeterminado de commit/upload.
+Não repetir automaticamente: reconciliar journal e versão ativa primeiro.
+Depois de novas escritas por igreja ou contract, voltar ao Worker antigo pode
+ser incompatível. Preferir correção compatível revisada; restauração exige
+outra autorização e recuperação comprovada. Nunca executar down automático.
+
+### Reset DEV opcional — procedimento bloqueado por padrão
+
+Não há necessidade comprovada de reset para este corte. Não foi criado botão,
+input, secret SQL, função privilegiada ou comando de limpeza. Portanto nenhum
+input de deploy pode apagar dados. Produção não integra este procedimento.
+
+Se houver necessidade posterior, o operador deve solicitar uma operação manual
+específica, fora do deploy, com estes checkpoints obrigatórios:
+
+- Comprovar projeto e branch Neon exclusivamente DEV, host direto e banco exatos,
+  proprietários e todos os consumidores. Nome `levi_dev`, regex ou Environment
+  sozinhos não comprovam isolamento. Qualquer possibilidade de produção bloqueia.
+- Inventariar e aprovar o manifesto efetivo: identidades, contas/credenciais,
+  sessões/verificações, igrejas/acessos, membros/históricos/recibos, convites,
+  auditoria, bootstrap, contadores e arquivo `levi_legacy`. Revisar retenção e
+  configuração que deve permanecer, preservando journal, schema, grants e triggers.
+- Obter backup recuperável, contenção/drenagem e confirmação explícita escrita
+  `APAGAR DEV <projeto>/<branch>/<host>/<banco>` pelo responsável autorizado.
+  A confirmação não habilita nenhum executor deste repositório.
+- Preparar SQL específico somente depois do inventário e submetê-lo à revisão.
+  Não usar TRUNCATE CASCADE ou desabilitar triggers genericamente: auditoria e
+  bootstrap têm proteções deliberadas. Não usar runtime para limpeza nem
+  conceder ownership ao workflow. Sem alvo exclusivo e revisão, não executar.
+- Ensaiar em clone descartável; validar transação/rollback, concorrência,
+  preservação estrutural e revogação de sessões/links. Commit indeterminado exige
+  reconciliação, sem repetição que possa apagar dados criados depois.
+
+A etapa 7 padrão pode prosseguir sem reset após suas autorizações e evidências.
+O reset permanece uma decisão posterior; este procedimento não contém SQL
+executável destrutivo nem afirma que o banco DEV esteja vazio.

@@ -5,6 +5,11 @@ import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 import { inspectMigrationHistory } from "../tools/migration-history.js";
+import {
+  migrationSelection,
+  selectedMigrationFolder,
+} from "../tools/migration-selection.js";
+import { rm } from "node:fs/promises";
 import { devMigrationTarget } from "../tools/dev-migration-config.js";
 
 const artifacts = readMigrationFiles({ migrationsFolder: "migrations" });
@@ -113,11 +118,20 @@ void test("runner DEV separa status/aplicação, libera conexão e interrompe em
     let inspections = 0;
     let closed = 0;
     const process = {
-      argv: mode === "status" ? ["--status"] : [],
+      argv: [
+        "node",
+        "runner",
+        ...(mode === "status" ? ["--status"] : ["--through", "0000"]),
+      ],
       env: { LEVI_DEV_DATABASE_NAME: "levi_dev" },
       exitCode: 0,
     };
     const modules: Record<string, unknown> = {
+      "node:fs/promises": { rm: async () => {} },
+      "./migration-selection.js": {
+        migrationSelection: () => (mode === "status" ? null : "0000"),
+        selectedMigrationFolder: () => Promise.resolve("synthetic"),
+      },
       "@t00ls-dev/db/postgres": {
         createPostgresDatabase: async () =>
           Promise.resolve({
@@ -195,5 +209,32 @@ void test("runner DEV separa status/aplicação, libera conexão e interrompe em
       mode === "apply" ? 2 : ["status", "journal"].includes(mode) ? 1 : 0,
     );
     assert.ok(!output.join("").includes("private-"));
+  }
+});
+
+void test("seleção exige revisão explícita e recusa lote, contract, reset e revisão futura", async () => {
+  for (const args of [
+    [],
+    ["--status", "--reset"],
+    ["--through", "contract"],
+    ["--through", "0009_future"],
+    ["--reset"],
+  ])
+    assert.throws(() => migrationSelection(args));
+  assert.equal(migrationSelection(["--status"]), null);
+  for (const tag of ["0007_igrejas-expand", "0008_convites-igreja"]) {
+    assert.equal(migrationSelection(["--through", tag]), tag);
+    await assert.rejects(selectedMigrationFolder(tag, []));
+    await assert.rejects(
+      selectedMigrationFolder(tag, ["0000_onboarding", tag]),
+    );
+    const folder = await selectedMigrationFolder(tag, [tag]);
+    try {
+      const selected = readMigrationFiles({ migrationsFolder: folder });
+      assert.equal(selected.length, tag.startsWith("0007") ? 8 : 9);
+      assert.deepEqual(selected, artifacts.slice(0, selected.length));
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
   }
 });

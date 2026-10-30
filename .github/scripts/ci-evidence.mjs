@@ -187,8 +187,7 @@ if (
     } else {
       assert.equal(process.env.GITHUB_EVENT_NAME, "workflow_dispatch");
       assert.equal(process.env.GITHUB_REF, "refs/heads/master");
-      assert.equal(event.inputs?.execution_sha, process.env.GITHUB_SHA);
-      sha = event.inputs.execution_sha;
+      sha = process.env.GITHUB_SHA;
     }
     const evidence = await approvedCi(sha, { diagnostics });
     diagnostics.start("master-read");

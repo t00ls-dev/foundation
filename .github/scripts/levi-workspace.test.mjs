@@ -192,14 +192,7 @@ test("publicador Levi manual permanece isolado e bloqueia readiness antes de cre
     readFileSync(join(root, ".github/workflows/deploy-levi-dev.yml"), "utf8"),
   );
   assert.deepEqual(Object.keys(workflow.on), ["workflow_dispatch"]);
-  assert.equal(
-    workflow.on.workflow_dispatch.inputs.execution_sha.type,
-    "string",
-  );
-  assert.equal(
-    workflow.on.workflow_dispatch.inputs.execution_sha.required,
-    true,
-  );
+  assert.equal(workflow.on.workflow_dispatch, null);
   assert.deepEqual(workflow.permissions, { contents: "read", actions: "read" });
   assert.deepEqual(workflow.concurrency, {
     "group": "levi-dev",
@@ -225,8 +218,6 @@ test("publicador Levi manual permanece isolado e bloqueia readiness antes de cre
     const allows = (context) => runInNewContext(job.if, context);
     assert.equal(allows(trusted), true);
     for (const context of [
-      { ...trusted, inputs: {} },
-      { ...trusted, inputs: { execution_sha: "b".repeat(40) } },
       ...["workflow_run", "pull_request", "push"].map((event_name) => ({
         ...trusted,
         github: { ...trusted.github, event_name },

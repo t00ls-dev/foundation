@@ -2,11 +2,6 @@ name: Deploy Levi DEV
 
 on:
   workflow_dispatch:
-    inputs:
-      execution_sha:
-        description: SHA completo da master atual com CI de push aprovada
-        type: string
-        required: true
 
 permissions:
   contents: read
@@ -20,8 +15,7 @@ jobs:
   validate:
     if: >-
       github.repository == 't00ls-dev/foundation' && github.event_name ==
-      'workflow_dispatch' && github.ref == 'refs/heads/master' &&
-      inputs.execution_sha == github.sha
+      'workflow_dispatch' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.ci.outputs.sha }}
@@ -41,8 +35,8 @@ jobs:
     if: >-
       needs.validate.result == 'success' && github.repository ==
       't00ls-dev/foundation' && github.event_name == 'workflow_dispatch' &&
-      github.ref == 'refs/heads/master' && inputs.execution_sha == github.sha &&
-      needs.validate.outputs.sha == github.sha
+      github.ref == 'refs/heads/master' && needs.validate.outputs.sha ==
+      github.sha
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: levi-dev
