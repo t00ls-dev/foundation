@@ -48,21 +48,23 @@ concessão global ativa. O painel gerencia concessões e políticas preparadas, 
 ativação real ou troca do avaliador de membros. A política de flags não concede
 membership nem autoriza dados de outras organizações.
 
-## Organização, acesso e identidade
+## Igreja, acesso e identidade
 
-- Organização é o tenant e pode conter várias igrejas. Não há tenant por igreja
-  nem limite de uma igreja por organização.
-- O MVP tem somente administradores organizacionais, com acesso às operações
-  disponíveis de todas as igrejas da organização em que possuem vínculo atual.
-  Não há operadores locais, concessões por igreja ou matriz dinâmica de permissões.
-- Administrar uma organização não autoriza acesso a outra, à infraestrutura, a
-  credenciais ou à edição arbitrária de auditoria. Vínculos em mais de uma
-  organização exigem contextos explicitamente validados e isolados.
-- Usuário autenticado e membro eclesiástico são independentes. Um membro não
-  precisa de login; coincidência de e-mail/telefone não associa entidades.
-- Membro pertence à organização e mantém exatamente uma igreja atual, inclusive
-  quando Inativo. Seu UUID permanece estável em alterações, retornos e
-  transferências internas; não há vínculos atuais simultâneos.
+A simplificação aprovada em 2026-10-29 substitui as decisões organizacionais
+anteriores. O [núcleo de igrejas](nucleo-igrejas.md) documenta a etapa 3, os
+contratos, as invariantes e o corte separado de schema.
+
+- Igreja é a única raiz operacional; a conta pode acessar várias igrejas
+  independentes e criar outras com chaves novas, sem limite funcional inicial.
+- Há dois papéis locais: admin gerencia igreja, acessos e membros; collaborator
+  consulta, cadastra e edita membros. Igreja sempre mantém administrador.
+- Administração global é independente e não concede autoridade local.
+- Conta, vínculo de acesso e membro da congregação são separados. Coincidência
+  de e-mail/telefone não associa entidades nem concede privilégios.
+- Membro pertence a exatamente uma igreja. IDs, dados e históricos existentes
+  são preservados na conversão normal. Não há exclusão de igreja nesta fase.
+- Autenticação permite conta sem igreja e senha opcional. A experiência completa
+  de gestão visual pertence à etapa 4 e convites à etapa 5.
 
 ## Cadastro e consultas
 
@@ -76,7 +78,7 @@ membership nem autoriza dados de outras organizações.
 | Data de batismo              | Opcional; ausência não significa “não batizado”.            |
 | Função na igreja             | Opcional; não determina permissão administrativa.           |
 
-A organização e a igreja atual são obrigatórias no registro e validadas pelo
+A igreja atual é obrigatória no registro e validadas pelo
 servidor, assim como os metadados gerados pelo sistema. Campos pessoais opcionais
 não podem tornar-se obrigatórios por efeito do formulário, API ou banco. Não
 inventar datas para preencher lacunas.

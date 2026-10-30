@@ -10,12 +10,11 @@ type AdministrativeEvent =
         | "feature_flag.all"
         | "feature_flag.selected"
         | "feature_flag.disabled";
-      tenant: null;
+      churchId: null;
     }
   | {
-      action:
-        "feature_flag.organization_added" | "feature_flag.organization_removed";
-      tenant: string;
+      action: "feature_flag.church_added" | "feature_flag.church_removed";
+      churchId: string;
     };
 
 // Adaptação local: o contrato público Foundation exige tenant string.
@@ -31,7 +30,7 @@ export async function appendAdministrativeAudit(
     actor: event.actor,
     action: event.action,
     target: event.target,
-    tenant: event.tenant,
+    churchId: event.churchId,
     timestamp: new Date(),
     metadata: {},
     requestId: event.operationId,

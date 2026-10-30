@@ -394,7 +394,6 @@ try {
     ["/admin", "admin-read", "admin-response", 404],
     ["/api/admin/session", "admin-api-read", "admin-api-response", 404],
     ["/api/onboarding", "onboarding-read", "onboarding-response", 200],
-    ["/api/organizations", "organizations-read", "organizations-response", 401],
     ["/api/churches", "churches-read", "churches-response", 401],
     ["/api/members", "members-read", "members-response", 401],
   ] as const) {

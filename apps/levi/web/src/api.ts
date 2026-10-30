@@ -10,7 +10,7 @@ import {
   type MemberEditInput,
 } from "../../src/member-types.js";
 export type Stage =
-  "email" | "verificar-email" | "organizacao" | "concluido" | "sem-acesso";
+  "email" | "verificar-email" | "igreja" | "concluido" | "sem-acesso";
 export interface NamedItem {
   id: string;
   nome: string;
@@ -21,7 +21,6 @@ export interface ChurchItem extends NamedItem {
   email: string | null;
 }
 export interface ProvisionInput {
-  organizationName: string;
   churchName: string;
   churchAddress?: string | null;
   churchPhone?: string | null;
@@ -41,8 +40,11 @@ export class ApiError extends Error {
 // Somente espera de UX em memória; o servidor continua impondo todas as quotas.
 const cooldowns = new Map<string, number>();
 let identityGeneration = 0;
+let contextGeneration = 0;
+let activeChurchId: string | null = null;
 export function resetClientIdentity() {
   identityGeneration++;
+  activeChurchId = null;
   cooldowns.clear();
 }
 function category(path: string, method: string): string {
@@ -54,8 +56,8 @@ function category(path: string, method: string): string {
     return "email";
   if (path === "/api/auth/sign-in/email") return "login";
   if (path === "/api/auth/sign-out") return "logout";
-  if (path === "/api/tenant") return "selection";
-  if (method === "POST" && path === "/api/organizations") return "provision";
+  if (path === "/api/context/church") return "selection";
+  if (method === "POST" && path === "/api/churches") return "provision";
   if (path === "/api/onboarding/password") return "password";
   return method === "GET" ? "read" : "write";
 }
@@ -119,6 +121,8 @@ async function request(
 ): Promise<unknown> {
   const requestMethod = method ?? (body ? "POST" : "GET");
   const generation = identityGeneration;
+  const contextVersion = contextGeneration;
+  const expectedChurch = activeChurchId;
   const scope = category(path, requestMethod);
   const waiting = cooldowns.get(scope);
   if (waiting && waiting > Date.now()) throw rateLimitError(waiting);
@@ -133,6 +137,9 @@ async function request(
       headers: {
         ...(body ? { "Content-Type": "application/json" } : {}),
         ...(key ? { "Idempotency-Key": key } : {}),
+        ...(path.startsWith("/api/members") && expectedChurch
+          ? { "X-Levi-Church": expectedChurch }
+          : {}),
       },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
@@ -150,6 +157,29 @@ async function request(
     cooldowns.set(scope, Math.max(cooldowns.get(scope) ?? 0, retryAt));
     throw rateLimitError(cooldowns.get(scope)!);
   }
+  const value: unknown = await response.json().catch(() => null);
+  if (
+    path.startsWith("/api/members") &&
+    (generation !== identityGeneration || expectedChurch !== activeChurchId)
+  )
+    throw new ApiError(
+      409,
+      "CONTEXTO_ALTERADO",
+      "Atualize a igreja selecionada.",
+    );
+  if (
+    generation !== identityGeneration ||
+    ((path === "/api/context" ||
+      path.startsWith("/api/churches/") ||
+      path.startsWith("/api/members")) &&
+      contextVersion !== contextGeneration)
+  )
+    throw new ApiError(
+      409,
+      "CONTEXTO_ALTERADO",
+      "O contexto foi alterado. Atualize a consulta.",
+    );
+
   if (
     response.ok &&
     [
@@ -160,7 +190,6 @@ async function request(
   ) {
     resetClientIdentity();
   }
-  const value: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     const data =
       value && typeof value === "object" && !Array.isArray(value)
@@ -204,7 +233,7 @@ export const api = {
     if (
       etapa !== "email" &&
       etapa !== "verificar-email" &&
-      etapa !== "organizacao" &&
+      etapa !== "igreja" &&
       etapa !== "sem-acesso" &&
       etapa !== "concluido"
     )
@@ -222,51 +251,73 @@ export const api = {
     request("/api/auth/sign-in/email", { email, password }),
   logout: () => request("/api/auth/sign-out", {}),
   async organizations() {
-    return namedItems(
-      record(await request("/api/organizations")).organizations,
-    );
+    const items: NamedItem[] = [];
+    let after: string | null = null;
+    do {
+      const data = record(
+        await request(`/api/churches${after ? `?after=${after}` : ""}`),
+      );
+      items.push(...namedItems(data.churches));
+      after = data.next == null ? null : id(data.next);
+    } while (after);
+    return items;
   },
   async provision(input: ProvisionInput, key: string) {
-    const result = record(await request("/api/organizations", input, key));
+    const result = record(
+      await request(
+        "/api/churches",
+        {
+          name: input.churchName,
+          address: input.churchAddress,
+          phone: input.churchPhone,
+          email: input.churchEmail,
+        },
+        key,
+      ),
+    );
     return {
-      organizationId: id(result.organizationId),
       churchId: id(result.churchId),
     };
   },
-  select: (organizationId: string) =>
-    request("/api/tenant", { organizationId }),
+  select: (churchId: string) => {
+    contextGeneration++;
+    activeChurchId = null;
+    return request("/api/context/church", { churchId });
+  },
   async context() {
     const data = record(await request("/api/context"));
-    if (data.role !== "admin") return contractError();
+    if (data.role !== "admin" && data.role !== "collaborator")
+      return contractError();
     if (typeof data.membersEnabled !== "boolean") return contractError();
     if (
-      typeof data.organizationName !== "string" ||
-      !data.organizationName.trim() ||
-      data.organizationName.length > 160
+      typeof data.churchName !== "string" ||
+      !data.churchName.trim() ||
+      data.churchName.length > 160
     )
       return contractError();
+    activeChurchId = id(data.churchId);
     return {
-      organizationId: id(data.organizationId),
-      organizationName: data.organizationName,
+      churchId: activeChurchId,
+      churchName: data.churchName,
       membersEnabled: data.membersEnabled,
     };
   },
   async churches() {
-    const data = record(await request("/api/churches"));
+    const selected = activeChurchId ?? contractError();
+    const data = record(await request(`/api/churches/${selected}`));
+    if (id(data.id) !== selected || typeof data.nome !== "string")
+      return contractError();
     return {
-      organizationId: id(data.organizationId),
-      churches: namedItems(data.churches).map((item, index): ChurchItem => {
-        const source = record((data.churches as unknown[])[index]);
-        for (const key of ["address", "phone", "email"])
-          if (source[key] != null && typeof source[key] !== "string")
-            contractError();
-        return {
-          ...item,
-          address: (source.address as string | null) ?? null,
-          phone: (source.phone as string | null) ?? null,
-          email: (source.email as string | null) ?? null,
-        };
-      }),
+      churchId: selected,
+      churches: [
+        {
+          id: selected,
+          nome: data.nome,
+          address: typeof data.address === "string" ? data.address : null,
+          phone: typeof data.phone === "string" ? data.phone : null,
+          email: typeof data.email === "string" ? data.email : null,
+        },
+      ],
     };
   },
 };
@@ -293,7 +344,7 @@ function memberSummary(value: unknown): MemberPage["members"][number] {
 function memberReceipt(value: unknown) {
   const data = record(value);
   return {
-    organizationId: id(data.organizationId),
+    churchId: id(data.churchId),
     memberId: id(data.memberId),
   };
 }
@@ -315,16 +366,14 @@ export const memberApi = {
     )
       return contractError();
     return {
-      organizationId: id(data.organizationId),
+      churchId: id(data.churchId),
       members: data.members.map(memberSummary),
       page: Number(data.page),
       pageSize: Number(data.pageSize),
       hasNext: data.hasNext,
     };
   },
-  async find(
-    memberId: string,
-  ): Promise<{ organizationId: string; member: Member }> {
+  async find(memberId: string): Promise<{ churchId: string; member: Member }> {
     const data = record(await request(`/api/members/${id(memberId)}`));
     const value = record(data.member);
     const summary = memberSummary(value);
@@ -352,7 +401,7 @@ export const memberApi = {
     )
       return contractError();
     return {
-      organizationId: id(data.organizationId),
+      churchId: id(data.churchId),
       member: {
         ...summary,
         birthDate: value.birthDate as string | null,

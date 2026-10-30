@@ -4,11 +4,7 @@ import type { Database } from "./auth.js";
 import { withGlobalAdministrator } from "./admin-access.js";
 import { appendAdministrativeAudit } from "./admin-audit.js";
 import { RequestError, requireUuid } from "./contracts.js";
-import {
-  featureFlags,
-  featureFlagOrganizations,
-  tenants,
-} from "./data/schema.js";
+import { featureFlags, featureFlagChurches, churches } from "./data/schema.js";
 import {
   knownFeature,
   invalidAdministrativeInput,
@@ -31,12 +27,12 @@ export async function listFeatureFlags(input: AdministratorInput) {
         .from(featureFlags)
         .orderBy(asc(featureFlags.key))
         .for("share");
-      const organizations = await tx.select().from(featureFlagOrganizations);
+      const churches = await tx.select().from(featureFlagChurches);
       return flags.map((flag) => ({
         ...flag,
-        organizationIds: organizations
+        churchIds: churches
           .filter((row) => row.featureFlagId === flag.id)
-          .map((row) => row.organizationId)
+          .map((row) => row.churchId)
           .sort(),
       }));
     },
@@ -71,20 +67,20 @@ export async function updateFeatureFlag(
           "A funcionalidade foi alterada. Consulte o estado atual.",
         );
       const selected: string[] =
-        policy.kind === "selected" ? policy.organizationIds : [];
+        policy.kind === "selected" ? policy.churchIds : [];
       if (selected.length) {
         const found = await tx
-          .select({ id: tenants.id })
-          .from(tenants)
-          .where(inArray(tenants.id, selected));
+          .select({ id: churches.id })
+          .from(churches)
+          .where(inArray(churches.id, selected));
         if (found.length !== selected.length) invalidAdministrativeInput();
       }
       const oldIds = previous
         ? (
             await tx
-              .select({ id: featureFlagOrganizations.organizationId })
-              .from(featureFlagOrganizations)
-              .where(eq(featureFlagOrganizations.featureFlagId, previous.id))
+              .select({ id: featureFlagChurches.churchId })
+              .from(featureFlagChurches)
+              .where(eq(featureFlagChurches.featureFlagId, previous.id))
           )
             .map((row) => row.id)
             .sort()
@@ -93,7 +89,7 @@ export async function updateFeatureFlag(
         previous?.policy === policy.kind &&
         JSON.stringify(oldIds) === JSON.stringify(selected)
       )
-        return { ...previous, organizationIds: oldIds };
+        return { ...previous, churchIds: oldIds };
       const values = {
         policy: policy.kind,
         version: expectedVersion + 1,
@@ -112,20 +108,20 @@ export async function updateFeatureFlag(
             .returning();
       if (!changed) throw new Error("Política não confirmada.");
       await tx
-        .delete(featureFlagOrganizations)
-        .where(eq(featureFlagOrganizations.featureFlagId, changed.id));
+        .delete(featureFlagChurches)
+        .where(eq(featureFlagChurches.featureFlagId, changed.id));
       if (selected.length)
-        await tx.insert(featureFlagOrganizations).values(
-          selected.map((organizationId) => ({
+        await tx.insert(featureFlagChurches).values(
+          selected.map((churchId) => ({
             featureFlagId: changed.id,
-            organizationId,
+            churchId,
           })),
         );
       await appendAdministrativeAudit(tx, {
         actor,
         target: changed.id,
         operationId,
-        tenant: null,
+        churchId: null,
         action: `feature_flag.${policy.kind}`,
       });
       for (const id of oldIds.filter((id) => !selected.includes(id)))
@@ -133,18 +129,18 @@ export async function updateFeatureFlag(
           actor,
           target: changed.id,
           operationId,
-          tenant: id,
-          action: "feature_flag.organization_removed",
+          churchId: id,
+          action: "feature_flag.church_removed",
         });
       for (const id of selected.filter((id) => !oldIds.includes(id)))
         await appendAdministrativeAudit(tx, {
           actor,
           target: changed.id,
           operationId,
-          tenant: id,
-          action: "feature_flag.organization_added",
+          churchId: id,
+          action: "feature_flag.church_added",
         });
-      return { ...changed, organizationIds: selected };
+      return { ...changed, churchIds: selected };
     },
   );
 }
@@ -153,21 +149,21 @@ export async function updateFeatureFlag(
 export async function featureAvailable(input: {
   database: Database;
   key: string;
-  organizationId: string;
+  churchId: string;
 }): Promise<boolean> {
   if (!knownFeature(input.key)) return false;
-  const organizationId = requireUuid(input.organizationId).toLowerCase();
+  const churchId = requireUuid(input.churchId).toLowerCase();
   // Um único snapshot: política e seleção nunca vêm de versões diferentes.
   const [row] = await input.database.db
     .select({
       policy: featureFlags.policy,
       selected: sql<boolean>`EXISTS (
-    SELECT 1 FROM feature_flag_organizations
-    WHERE feature_flag_id = ${featureFlags.id} AND organization_id = ${organizationId}::uuid
+    SELECT 1 FROM feature_flag_churches
+    WHERE feature_flag_id = ${featureFlags.id} AND church_id = ${churchId}::uuid
   )`,
     })
     .from(featureFlags)
-    .innerJoin(tenants, eq(tenants.id, organizationId))
+    .innerJoin(churches, eq(churches.id, churchId))
     .where(eq(featureFlags.key, input.key));
   if (!row) return false;
   switch (row.policy) {

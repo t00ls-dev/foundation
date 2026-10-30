@@ -4,13 +4,13 @@ import {
   adminApi,
   type AdministrativeSession,
   type Feature,
-  type Organization,
+  type Church,
 } from "./admin-api.js";
 import { useFormFocusVisibility } from "./ui.js";
 
 type Snapshot = {
   session: AdministrativeSession;
-  organizations: Organization[];
+  churches: Church[];
   organizationNext: string | null;
   features: Feature[];
 };
@@ -43,8 +43,8 @@ export function Admin() {
     const signal = controller.current.signal;
     try {
       const session = await adminApi.session(signal);
-      const [organizations, features] = await Promise.all([
-        adminApi.organizations(signal),
+      const [churches, features] = await Promise.all([
+        adminApi.churches(signal),
         adminApi.features(signal),
       ]);
       const current = await adminApi.session(signal);
@@ -60,8 +60,8 @@ export function Admin() {
         kind: "ready",
         data: {
           session,
-          organizations: organizations.items,
-          organizationNext: organizations.next,
+          churches: churches.items,
+          organizationNext: churches.next,
           features,
         },
       });
@@ -250,10 +250,8 @@ function AdminContent({
     refreshAfter?: boolean,
   ) => Promise<void>;
 }) {
-  const [organizations, setOrganizations] = useState(data.organizations);
-  const [organizationNext, setOrganizationNext] = useState(
-    data.organizationNext,
-  );
+  const [churches, setChurches] = useState(data.churches);
+  const [organizationNext, setChurchNext] = useState(data.organizationNext);
   // Resultados locais só são publicados se o componente ainda pertence ao ciclo atual.
   const alive = useRef(true);
   useEffect(
@@ -277,7 +275,7 @@ function AdminContent({
           <FeatureForm
             key={feature.key}
             feature={feature}
-            organizations={organizations}
+            churches={churches}
             busy={busy}
             run={run}
           />
@@ -288,23 +286,23 @@ function AdminContent({
             onClick={() =>
               void run(
                 async (signal) => {
-                  const page = await adminApi.organizations(
+                  const page = await adminApi.churches(
                     signal,
                     organizationNext,
                   );
                   return () => {
                     if (alive.current && !signal.aborted) {
-                      setOrganizations((items) => [...items, ...page.items]);
-                      setOrganizationNext(page.next);
+                      setChurches((items) => [...items, ...page.items]);
+                      setChurchNext(page.next);
                     }
                   };
                 },
-                "Organizações consultadas.",
+                "Igrejas consultadas.",
                 false,
               )
             }
           >
-            Mais organizações
+            Mais igrejas
           </button>
         )}
       </section>
@@ -313,12 +311,12 @@ function AdminContent({
 }
 function FeatureForm({
   feature,
-  organizations,
+  churches,
   busy,
   run,
 }: {
   feature: Feature;
-  organizations: Organization[];
+  churches: Church[];
   busy: boolean;
   run: (
     operation: (signal: AbortSignal) => Promise<void | (() => void)>,
@@ -327,9 +325,9 @@ function FeatureForm({
   ) => Promise<void>;
 }) {
   const [policy, setPolicy] = useState(feature.policy);
-  const [selected, setSelected] = useState(feature.organizationIds);
+  const [selected, setSelected] = useState(feature.churchIds);
   const [confirmAll, setConfirmAll] = useState(false);
-  const knownIds = new Set(organizations.map((org) => org.id));
+  const knownIds = new Set(churches.map((org) => org.id));
   return (
     <form
       onSubmit={(event) => {
@@ -343,7 +341,7 @@ function FeatureForm({
               {
                 ...feature,
                 policy,
-                organizationIds: policy === "selected" ? selected : [],
+                churchIds: policy === "selected" ? selected : [],
               },
               signal,
             ),
@@ -366,15 +364,15 @@ function FeatureForm({
           }}
         >
           <option value="disabled">Desabilitada</option>
-          <option value="selected">Organizações selecionadas</option>
-          <option value="all">Todas as organizações</option>
+          <option value="selected">Igrejas selecionadas</option>
+          <option value="all">Todas as igrejas</option>
         </select>
       </div>
       {policy === "selected" && (
         <fieldset>
-          <legend>Organizações selecionadas</legend>
+          <legend>Igrejas selecionadas</legend>
           <div className="organization-options">
-            {organizations.map((org) => (
+            {churches.map((org) => (
               <label key={org.id}>
                 <input
                   type="checkbox"
@@ -416,7 +414,7 @@ function FeatureForm({
             checked={confirmAll}
             onChange={(event) => setConfirmAll(event.target.checked)}
           />
-          Confirmo habilitar esta funcionalidade para todas as organizações.
+          Confirmo habilitar esta funcionalidade para todas as igrejas.
         </label>
       )}
       <button

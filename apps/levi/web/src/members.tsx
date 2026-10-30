@@ -109,8 +109,8 @@ export function Members({
       /* Sem credenciais. */
     }
   }
-  function check(organizationId: string) {
-    if (organizationId !== organization.id)
+  function check(churchId: string) {
+    if (churchId !== organization.id)
       throw new ApiError(
         403,
         "CONTEXTO_ALTERADO",
@@ -128,7 +128,7 @@ export function Members({
   async function validateContext() {
     await validateSession();
     const current = await api.context();
-    check(current.organizationId);
+    check(current.churchId);
     if (!current.membersEnabled)
       throw new ApiError(
         403,
@@ -166,12 +166,12 @@ export function Members({
       }
       if (mode === "list") {
         const result = await memberApi.list(filters);
-        check(result.organizationId);
+        check(result.churchId);
         await validateSession();
         if (sequence === generation.current) setPage(result);
       } else if (mode === "detail" || mode === "edit") {
         const result = await memberApi.find(path.split("/")[2] ?? "");
-        check(result.organizationId);
+        check(result.churchId);
         await validateSession();
         if (sequence === generation.current) setMember(result.member);
       } else {
@@ -179,7 +179,7 @@ export function Members({
         if (key) {
           try {
             const result = await memberApi.recover(key);
-            check(result.organizationId);
+            check(result.churchId);
             await validateSession();
             if (sequence === generation.current) {
               clearKey();
@@ -221,7 +221,7 @@ export function Members({
       await validateContext();
       if (sequence !== generation.current) return;
       const result = await memberApi.create(attempt.input, attempt.key);
-      check(result.organizationId);
+      check(result.churchId);
       await validateSession();
       if (sequence === generation.current) {
         clearKey();
@@ -255,7 +255,7 @@ export function Members({
     try {
       await validateContext();
       const result = await memberApi.recover(key);
-      check(result.organizationId);
+      check(result.churchId);
       await validateSession();
       if (sequence === generation.current) {
         clearKey();
@@ -533,7 +533,7 @@ export function Members({
                 ...profile,
                 version: member.version,
               });
-              check(result.organizationId);
+              check(result.churchId);
               await validateSession();
               if (sequence === generation.current)
                 navigate(

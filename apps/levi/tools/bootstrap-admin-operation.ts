@@ -69,7 +69,7 @@ export async function bootstrapAdministrator(input: {
       actor: current.id,
       target: current.id,
       operationId: confirmation.operationId,
-      tenant: null,
+      churchId: null,
       action: "admin.bootstrapped",
     });
     // Uma espera na persistência/auditoria não pode consumir a sessão e ainda

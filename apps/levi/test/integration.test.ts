@@ -238,11 +238,10 @@ async function readyAccount() {
 }
 
 const provisionBody = {
-  organizationName: "Organização sintética",
-  churchName: "Primeira igreja sintética",
+  name: "Primeira igreja sintética",
 };
 function provision(cookie: string, key = randomUUID(), body = provisionBody) {
-  return request("/api/organizations", body, cookie, {
+  return request("/api/churches", body, cookie, {
     "Idempotency-Key": key,
   });
 }
@@ -252,7 +251,6 @@ async function provisionedAccount() {
   const response = await provision(account.cookie, key);
   assert.equal(response.status, 201);
   const result = (await response.json()) as {
-    organizationId: string;
     churchId: string;
   };
   return { ...account, key, ...result };
@@ -302,32 +300,32 @@ void test("rate limiting contextual: sessões reais, mesmo IP, tenant, revogaç�
   // Acesso cruzado negado antes de preparar um segundo vínculo legítimo.
   assert.equal(
     (await send(`/api/churches/${other.churchId}`, account.cookie)).status,
-    404,
+    403,
   );
   assert.equal(
     (
-      await send("/api/tenant", account.cookie, {
-        organizationId: other.organizationId,
+      await send("/api/context/church", account.cookie, {
+        churchId: other.churchId,
       })
     ).status,
     403,
   );
   await observer.client.query(
-    "INSERT INTO tenant_memberships(tenant_id,user_id,role) VALUES($1,$2,'admin')",
-    [other.organizationId, account.id],
+    "INSERT INTO church_memberships(church_id,user_id,role) VALUES($1,$2,'admin')",
+    [other.churchId, account.id],
   );
   assert.equal(
     (
-      await send("/api/tenant", account.cookie, {
-        organizationId: other.organizationId,
+      await send("/api/context/church", account.cookie, {
+        churchId: other.churchId,
       })
     ).status,
     200,
   );
   assert.equal(
     (
-      await send("/api/tenant", account.cookie, {
-        organizationId: account.organizationId,
+      await send("/api/context/church", account.cookie, {
+        churchId: account.churchId,
       })
     ).status,
     200,
@@ -345,31 +343,31 @@ void test("rate limiting contextual: sessões reais, mesmo IP, tenant, revogaç�
       [keys[i], new Date(start + (i + 1) * 60_000)],
     );
   try {
-    const allowed = await send("/api/organizations", account.cookie);
+    const allowed = await send("/api/churches", account.cookie);
     assert.equal(allowed.status, 200);
     assert.equal(allowed.headers.get("ratelimit-limit"), "300");
     const denied = await send("/api/churches", secondCookie, undefined, {
       "cf-connecting-ip": "198.51.100.210",
       "x-user-id": other.id,
-      "x-organization-id": other.organizationId,
+      "x-organization-id": other.churchId,
     });
     assert.equal(denied.status, 429);
     assert.ok(Number(denied.headers.get("retry-after")) > 0);
     assert.equal(denied.headers.get("cache-control"), "private, no-store");
     assert.equal(denied.headers.get("referrer-policy"), "no-referrer");
-    assert.equal((await send("/api/organizations", other.cookie)).status, 200);
+    assert.equal((await send("/api/churches", other.cookie)).status, 200);
     // Trocar tenant não concede novo orçamento de leitura.
     assert.equal(
       (
-        await send("/api/tenant", secondCookie, {
-          organizationId: other.organizationId,
+        await send("/api/context/church", secondCookie, {
+          churchId: other.churchId,
         })
       ).status,
       200,
     );
     assert.equal((await send("/api/churches", secondCookie)).status, 429);
     const fake = await send(
-      "/api/organizations",
+      "/api/churches",
       "better-auth.session_token=forged",
       undefined,
       { "x-user-id": account.id },
@@ -379,16 +377,16 @@ void test("rate limiting contextual: sessões reais, mesmo IP, tenant, revogaç�
     const logout = await send("/api/auth/sign-out", account.cookie, {});
     assert.equal(logout.status, 200);
     assert.equal(logout.headers.get("ratelimit-limit"), "30");
-    const revoked = await send("/api/organizations", account.cookie);
+    const revoked = await send("/api/churches", account.cookie);
     assert.equal(revoked.status, 401);
     assert.equal(revoked.headers.get("ratelimit-limit"), "60");
     // Outra sessão da mesma conta continua válida, mas compartilha a quota.
-    assert.equal((await send("/api/organizations", secondCookie)).status, 429);
+    assert.equal((await send("/api/churches", secondCookie)).status, 429);
     await observer.client.query(
       "UPDATE session SET expires_at=now()-interval '1 second' WHERE user_id=$1",
       [account.id],
     );
-    const expired = await send("/api/organizations", secondCookie);
+    const expired = await send("/api/churches", secondCookie);
     assert.equal(expired.status, 401);
     assert.equal(expired.headers.get("ratelimit-limit"), "60");
   } finally {
@@ -483,7 +481,7 @@ void test("prova pública: Magic Link verifica antes da primeira senha e permite
   assert.ok(cookie.includes("session_token="));
   assert.deepEqual(
     await (await request("/api/onboarding", undefined, cookie)).json(),
-    { etapa: "organizacao" },
+    { etapa: "igreja" },
   );
   const sentBeforePassword = sent.length;
   assert.equal(
@@ -499,7 +497,7 @@ void test("prova pública: Magic Link verifica antes da primeira senha e permite
   assert.equal(sent.length, sentBeforePassword);
   assert.deepEqual(
     await (await request("/api/onboarding", undefined, cookie)).json(),
-    { etapa: "organizacao" },
+    { etapa: "igreja" },
   );
   const login = await request("/api/auth/sign-in/email", {
     email,
@@ -601,7 +599,7 @@ void test("conta existente retoma o fluxo sem exigir credencial", async () => {
   const cookie = cookies(response);
   assert.deepEqual(
     await (await request("/api/onboarding", undefined, cookie)).json(),
-    { etapa: "organizacao" },
+    { etapa: "igreja" },
   );
   const rows = await observer.client.query<Record<string, unknown>>(
     'SELECT id FROM "user" WHERE email=$1',
@@ -622,7 +620,7 @@ void test("conta existente retoma o fluxo sem exigir credencial", async () => {
     await (
       await request("/api/onboarding", undefined, cookies(promoted))
     ).json(),
-    { etapa: "organizacao" },
+    { etapa: "igreja" },
   );
   assert.equal((await provision(cookie)).status, 401); // Better Auth revogou a sessão anterior
 });
@@ -830,35 +828,33 @@ void test("provisionamento é atômico, gera UUIDs e grava somente auditoria mí
   const account = await provisionedAccount();
   const uuid =
     /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
-  for (const id of [account.id, account.organizationId, account.churchId])
+  for (const id of [account.id, account.churchId, account.churchId])
     assert.match(id, uuid);
   // Observador é outra conexão, sem compartilhar a transação da aplicação.
   const counts = await observer.client.query<Record<string, unknown>>(
     `SELECT
-    (SELECT count(*)::int FROM tenants WHERE id=$1) AS tenants,
-    (SELECT count(*)::int FROM churches WHERE tenant_id=$1) AS churches,
-    (SELECT count(*)::int FROM tenant_memberships WHERE tenant_id=$1 AND user_id=$2) AS memberships,
-    (SELECT count(*)::int FROM onboarding_provisions WHERE tenant_id=$1 AND user_id=$2) AS receipts,
-    (SELECT count(*)::int FROM audit_events WHERE tenant=$1) AS audit`,
-    [account.organizationId, account.id],
+    (SELECT count(*)::int FROM churches WHERE id=$1) AS churches,
+    (SELECT count(*)::int FROM church_memberships WHERE church_id=$1 AND user_id=$2) AS memberships,
+    (SELECT count(*)::int FROM church_creation_requests WHERE church_id=$1 AND user_id=$2) AS receipts,
+    (SELECT count(*)::int FROM audit_events WHERE church_id=$1) AS audit`,
+    [account.churchId, account.id],
   );
   assert.deepEqual(counts.rows[0], {
-    tenants: 1,
     churches: 1,
     memberships: 1,
     receipts: 1,
     audit: 1,
   });
   const events = await observer.client.query<Record<string, unknown>>(
-    "SELECT * FROM audit_events WHERE tenant=$1",
-    [account.organizationId],
+    "SELECT * FROM audit_events WHERE church_id=$1",
+    [account.churchId],
   );
   const event = events.rows[0];
   assert.ok(event);
   assert.deepEqual(event.metadata, {});
   assert.equal(event.actor, account.id);
-  assert.equal(event.target, account.organizationId);
-  assert.equal(event.action, "organization.provisioned");
+  assert.equal(event.target, account.churchId);
+  assert.equal(event.action, "church.created");
   assert.equal(event.request_id, null);
   assert.equal(event.result, "success");
   assert.ok(event.timestamp instanceof Date);
@@ -867,7 +863,7 @@ void test("provisionamento é atômico, gera UUIDs e grava somente auditoria mí
   for (const table of [
     "session",
     "account",
-    "tenant_memberships",
+    "church_memberships",
     "audit_events",
   ]) {
     const rows = await observer.client.query<{ id: string }>(
@@ -878,21 +874,21 @@ void test("provisionamento é atômico, gera UUIDs e grava somente auditoria mí
   assert.equal(
     (
       await observer.client.query<Record<string, unknown>>(
-        "SELECT count(*)::int AS members FROM members WHERE tenant_id=$1",
-        [account.organizationId],
+        "SELECT count(*)::int AS members FROM members WHERE church_id=$1",
+        [account.churchId],
       )
     ).rows[0]?.members,
     0,
   );
   await assert.rejects(
     observer.client.query(
-      "UPDATE audit_events SET result='changed' WHERE tenant=$1",
-      [account.organizationId],
+      "UPDATE audit_events SET result='changed' WHERE church_id=$1",
+      [account.churchId],
     ),
   );
   await assert.rejects(
-    observer.client.query("DELETE FROM audit_events WHERE tenant=$1", [
-      account.organizationId,
+    observer.client.query("DELETE FROM audit_events WHERE church_id=$1", [
+      account.churchId,
     ]),
   );
   assert.deepEqual(
@@ -913,15 +909,15 @@ void test("repetições concorrentes serializam o primeiro onboarding sem duplic
   const bodies = await Promise.all(results.map((response) => response.json()));
   for (const body of bodies) assert.deepEqual(body, bodies[0]);
   const receipt = await observer.client.query<Record<string, unknown>>(
-    "SELECT tenant_id FROM onboarding_provisions WHERE user_id=$1",
+    "SELECT church_id FROM church_creation_requests WHERE user_id=$1",
     [account.id],
   );
   assert.equal(receipt.rowCount, 1);
   assert.equal(
     (
       await observer.client.query(
-        "SELECT id FROM audit_events WHERE tenant=$1",
-        [receipt.rows[0]?.tenant_id],
+        "SELECT id FROM audit_events WHERE church_id=$1",
+        [receipt.rows[0]?.church_id],
       )
     ).rowCount,
     1,
@@ -930,14 +926,14 @@ void test("repetições concorrentes serializam o primeiro onboarding sem duplic
     (
       await provision(account.cookie, key, {
         ...provisionBody,
-        churchName: "Outra igreja",
+        name: "Outra igreja",
       })
     ).status,
     409,
   );
-  assert.equal((await provision(account.cookie, randomUUID())).status, 409);
+  assert.equal((await provision(account.cookie, randomUUID())).status, 201);
   assert.equal(
-    (await request("/api/organizations", provisionBody, account.cookie)).status,
+    (await request("/api/churches", provisionBody, account.cookie)).status,
     400,
   );
 });
@@ -946,11 +942,11 @@ for (const failure of ["audit", "domain"] as const) {
   void test(`rollback observado por outra conexão após falha real de ${failure}`, async () => {
     const account = await readyAccount();
     const countsBefore = await observer.client.query<Record<string, unknown>>(
-      "SELECT (SELECT count(*)::int FROM tenants) tenants, (SELECT count(*)::int FROM churches) churches, (SELECT count(*)::int FROM audit_events) audit",
+      "SELECT (SELECT count(*)::int FROM churches) churches, (SELECT count(*)::int FROM audit_events) audit",
     );
     // A falha de domínio acontece depois das escritas de organização/igreja/vínculo.
     const table =
-      failure === "audit" ? "audit_events" : "onboarding_provisions";
+      failure === "audit" ? "audit_events" : "church_creation_requests";
     const column = failure === "audit" ? "actor" : "user_id";
     await observer.client.query(
       `CREATE FUNCTION test_fail_provision() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.${column}='${account.id}'::uuid THEN RAISE EXCEPTION 'falha sintética'; END IF; RETURN NEW; END; $$`,
@@ -968,7 +964,7 @@ for (const failure of ["audit", "domain"] as const) {
       assert.equal(
         (
           await observer.client.query(
-            "SELECT id FROM tenant_memberships WHERE user_id=$1",
+            "SELECT id FROM church_memberships WHERE user_id=$1",
             [account.id],
           )
         ).rowCount,
@@ -977,7 +973,7 @@ for (const failure of ["audit", "domain"] as const) {
       assert.equal(
         (
           await observer.client.query(
-            "SELECT user_id FROM onboarding_provisions WHERE user_id=$1",
+            "SELECT user_id FROM church_creation_requests WHERE user_id=$1",
             [account.id],
           )
         ).rowCount,
@@ -986,7 +982,7 @@ for (const failure of ["audit", "domain"] as const) {
       assert.equal(
         (
           await observer.client.query(
-            "SELECT ts.session_id FROM tenant_sessions ts JOIN session s ON s.id=ts.session_id WHERE s.user_id=$1",
+            "SELECT ts.session_id FROM church_sessions ts JOIN session s ON s.id=ts.session_id WHERE s.user_id=$1",
             [account.id],
           )
         ).rowCount,
@@ -995,7 +991,7 @@ for (const failure of ["audit", "domain"] as const) {
       assert.deepEqual(
         (
           await observer.client.query<Record<string, unknown>>(
-            "SELECT (SELECT count(*)::int FROM tenants) tenants, (SELECT count(*)::int FROM churches) churches, (SELECT count(*)::int FROM audit_events) audit",
+            "SELECT (SELECT count(*)::int FROM churches) churches, (SELECT count(*)::int FROM audit_events) audit",
           )
         ).rows,
         countsBefore.rows,
@@ -1016,165 +1012,85 @@ for (const failure of ["audit", "domain"] as const) {
   });
 }
 
-void test("duas organizações ficam isoladas e administrador acessa múltiplas igrejas da sua organização", async () => {
-  const first = await provisionedAccount();
-  const second = await provisionedAccount();
-  const church = await observer.client.query<Record<string, unknown>>(
-    "INSERT INTO churches(tenant_id,name) VALUES($1,'Segunda igreja sintética') RETURNING id",
-    [first.organizationId],
-  );
-  const listed = await request("/api/churches", undefined, first.cookie);
-  assert.equal(listed.status, 200);
-  const listing = (await listed.json()) as {
-    organizationId: string;
-    churches: { id: string }[];
-  };
-  assert.equal(listing.organizationId, first.organizationId);
-  assert.deepEqual(
-    new Set(listing.churches.map((c) => c.id)),
-    new Set([first.churchId, church.rows[0]?.id]),
-  );
+void test("igrejas independentes: conta administra A, colabora em B e IDs não concedem acesso", async () => {
+  const first = await provisionedAccount(),
+    second = await provisionedAccount();
   assert.equal(
     (await request(`/api/churches/${second.churchId}`, undefined, first.cookie))
       .status,
-    404,
-  );
-  assert.equal(
-    (
-      await request(
-        "/api/tenant",
-        { organizationId: second.organizationId },
-        first.cookie,
-      )
-    ).status,
     403,
   );
-  assert.equal(
-    (await request("/api/context", undefined, first.cookie)).status,
-    200,
-  );
-  assert.deepEqual(
-    await (await request("/api/context", undefined, first.cookie)).json(),
-    {
-      organizationId: first.organizationId,
-      organizationName: provisionBody.organizationName,
-      role: "admin",
-      membersEnabled: true,
-    },
-  );
-  // Contexto adulterado no banco também não concede autoridade sem vínculo.
   await observer.client.query(
-    "UPDATE tenant_sessions SET active_tenant_id=$1 WHERE session_id IN (SELECT id FROM session WHERE user_id=$2)",
-    [second.organizationId, first.id],
-  );
-  assert.equal(
-    (await request("/api/churches", undefined, first.cookie)).status,
-    403,
+    "INSERT INTO church_memberships(church_id,user_id,role) VALUES($1,$2,'collaborator')",
+    [second.churchId, first.id],
   );
   assert.equal(
     (
       await request(
-        "/api/tenant",
-        { organizationId: first.organizationId },
+        "/api/context/church",
+        { churchId: second.churchId },
         first.cookie,
       )
     ).status,
     200,
   );
   assert.equal(
-    (await request("/api/churches/id-invalido", undefined, first.cookie))
-      .status,
-    400,
+    (
+      (await (
+        await request("/api/context", undefined, first.cookie)
+      ).json()) as { role: string }
+    ).role,
+    "collaborator",
   );
-  await assert.rejects(
-    observer.client.query(
-      "INSERT INTO tenant_memberships(tenant_id,user_id,role) VALUES($1,$2,'admin')",
-      [first.organizationId, randomUUID()],
-    ),
-    { code: "23503" },
+  assert.equal(
+    (
+      await request(
+        "/api/context/church",
+        { churchId: randomUUID() },
+        first.cookie,
+      )
+    ).status,
+    403,
   );
-  await assert.rejects(
-    observer.client.query(
-      "INSERT INTO churches(tenant_id,name) VALUES($1,'Órfã')",
-      [randomUUID()],
-    ),
-    { code: "23503" },
-  );
-  await assert.rejects(
-    observer.client.query(
-      "UPDATE onboarding_provisions SET church_id=$1 WHERE user_id=$2",
-      [second.churchId, first.id],
-    ),
-    { code: "23503" },
-  );
-  await assert.rejects(
-    observer.client.query(
-      "INSERT INTO tenant_sessions(session_id,active_tenant_id) VALUES($1,$2)",
-      [randomUUID(), first.organizationId],
-    ),
-    { code: "23503" },
+  assert.equal(
+    (await request("/api/organizations", {}, first.cookie)).status,
+    404,
   );
 });
 
-void test("nova sessão retoma organização existente; revogação e roles desconhecidas nunca concedem acesso", async () => {
-  const account = await provisionedAccount();
+void test("nova sessão lista igrejas, exige seleção e recusa vínculo revogado", async () => {
+  const who = await provisionedAccount(),
+    backup = await readyAccount();
   const login = await request("/api/auth/sign-in/email", {
-    email: account.email,
+    email: who.email,
     password: "synthetic-password",
   });
   const cookie = cookies(login);
-  assert.equal((await request("/api/churches", undefined, cookie)).status, 403);
-  const organizations = (await (
-    await request("/api/organizations", undefined, cookie)
-  ).json()) as { organizations: { id: string }[] };
-  assert.deepEqual(
-    organizations.organizations.map((o) => o.id),
-    [account.organizationId],
-  );
-  assert.equal(
-    (
-      await request(
-        "/api/tenant",
-        { organizationId: account.organizationId },
-        cookie,
-      )
-    ).status,
-    200,
-  );
   assert.equal((await request("/api/churches", undefined, cookie)).status, 200);
+  assert.equal((await request("/api/context", undefined, cookie)).status, 403);
   await observer.client.query(
-    "UPDATE tenant_memberships SET role='desconhecida' WHERE user_id=$1",
-    [account.id],
+    "INSERT INTO church_memberships(church_id,user_id,role) VALUES($1,$2,'admin')",
+    [who.churchId, backup.id],
   );
-  assert.equal((await request("/api/churches", undefined, cookie)).status, 403);
-  assert.equal(
-    (
-      await request(
-        "/api/tenant",
-        { organizationId: account.organizationId },
-        cookie,
-      )
-    ).status,
-    403,
+  await assert.rejects(
+    observer.client.query(
+      "UPDATE church_memberships SET role='unknown' WHERE user_id=$1",
+      [who.id],
+    ),
   );
-  assert.equal((await provision(cookie, account.key)).status, 403);
   await observer.client.query(
-    "DELETE FROM tenant_memberships WHERE user_id=$1",
-    [account.id],
+    "DELETE FROM church_memberships WHERE user_id=$1",
+    [who.id],
   );
-  assert.equal((await request("/api/churches", undefined, cookie)).status, 403);
-  assert.equal((await provision(cookie, account.key)).status, 403);
-  assert.deepEqual(
-    await (await request("/api/organizations", undefined, cookie)).json(),
-    { organizations: [] },
-  );
+  assert.equal((await provision(who.cookie, who.key)).status, 403);
+  assert.equal((await provision(who.cookie)).status, 201);
 });
 
 void test("CSRF, falha de autenticação e falha de banco não viram autorização", async () => {
   const account = await provisionedAccount();
   const malicious = await request(
-    "/api/tenant",
-    { organizationId: account.organizationId },
+    "/api/context/church",
+    { churchId: account.churchId },
     account.cookie,
     { origin: "https://malicioso.example" },
   );
@@ -1182,13 +1098,13 @@ void test("CSRF, falha de autenticação e falha de banco não viram autorizaç�
   assert.equal(
     (
       await app.request(
-        new Request(`${origin}/api/tenant`, {
+        new Request(`${origin}/api/context/church`, {
           method: "POST",
           headers: {
             cookie: account.cookie,
             "content-type": "application/json",
           },
-          body: JSON.stringify({ organizationId: account.organizationId }),
+          body: JSON.stringify({ churchId: account.churchId }),
         }),
       )
     ).status,
@@ -1304,15 +1220,14 @@ for (const failDelete of [false, true])
         assert.equal(
           (
             await observer.client.query(
-              "SELECT session_id FROM tenant_sessions WHERE active_tenant_id=$1",
-              [account.organizationId],
+              "SELECT session_id FROM church_sessions WHERE active_church_id=$1",
+              [account.churchId],
             )
           ).rowCount,
           0,
         );
         assert.equal(
-          (await request("/api/organizations", undefined, account.cookie))
-            .status,
+          (await request("/api/churches", undefined, account.cookie)).status,
           401,
         );
       }
@@ -1347,7 +1262,7 @@ void test("HEAD autenticado consome a leitura de GET e não contorna seu limite"
   );
   const send = (method: string, cookie = account.cookie) =>
     publicApp.request(
-      new Request(`${origin}/api/organizations`, {
+      new Request(`${origin}/api/churches`, {
         method,
         headers: { origin, cookie, "cf-connecting-ip": "192.0.2.213" },
       }),
@@ -1406,7 +1321,7 @@ void test("cookies de renovação e logout nativos são preservados", async () =
   assert.equal(
     (
       await observer.client.query(
-        "SELECT ts.session_id FROM tenant_sessions ts JOIN session s ON s.id=ts.session_id WHERE s.user_id=$1",
+        "SELECT ts.session_id FROM church_sessions ts JOIN session s ON s.id=ts.session_id WHERE s.user_id=$1",
         [account.id],
       )
     ).rowCount,
@@ -1507,12 +1422,9 @@ void test("API executa por HTTP Node e não executa migrations na inicializaçã
       ).status,
       200,
     );
-    const provisioned = await send(
-      "/api/organizations",
-      provisionBody,
-      cookie,
-      { "Idempotency-Key": randomUUID() },
-    );
+    const provisioned = await send("/api/churches", provisionBody, cookie, {
+      "Idempotency-Key": randomUUID(),
+    });
     assert.equal(provisioned.status, 201);
     const ids = (await provisioned.json()) as { churchId: string };
     const listed = await send("/api/churches", undefined, cookie);
@@ -1534,15 +1446,16 @@ void test("sessão revogada enquanto o provisionamento aguarda lock não pode cr
   const account = await readyAccount();
   const blocker = await createPostgresDatabase(databaseUrl);
   await blocker.client.query("BEGIN");
-  await blocker.client.query('SELECT id FROM "user" WHERE id=$1 FOR UPDATE', [
-    account.id,
-  ]);
+  await blocker.client.query(
+    "SELECT id FROM session WHERE user_id=$1 FOR UPDATE",
+    [account.id],
+  );
   const pending = provision(account.cookie);
   try {
     let waiting = false;
     for (let attempt = 0; attempt < 200; attempt++) {
       const locks = await observer.client.query<Record<string, unknown>>(
-        "SELECT pid FROM pg_stat_activity WHERE wait_event_type='Lock' AND query ILIKE '%for update%'",
+        "SELECT pid FROM pg_stat_activity WHERE wait_event_type='Lock' AND query ILIKE '%for share%'",
       );
       if (locks.rowCount) {
         waiting = true;
@@ -1554,9 +1467,10 @@ void test("sessão revogada enquanto o provisionamento aguarda lock não pode cr
       waiting,
       "A requisição deve aguardar o lock real antes da revogação",
     );
-    await observer.client.query("DELETE FROM session WHERE user_id=$1", [
+    await blocker.client.query("DELETE FROM session WHERE user_id=$1", [
       account.id,
     ]);
+    await blocker.client.query("COMMIT");
   } finally {
     await blocker.client.query("ROLLBACK");
     await blocker.client.end();
@@ -1565,7 +1479,7 @@ void test("sessão revogada enquanto o provisionamento aguarda lock não pode cr
   assert.equal(
     (
       await observer.client.query(
-        "SELECT user_id FROM onboarding_provisions WHERE user_id=$1",
+        "SELECT user_id FROM church_creation_requests WHERE user_id=$1",
         [account.id],
       )
     ).rowCount,
@@ -1574,7 +1488,7 @@ void test("sessão revogada enquanto o provisionamento aguarda lock não pode cr
   assert.equal(
     (
       await observer.client.query(
-        "SELECT id FROM tenant_memberships WHERE user_id=$1",
+        "SELECT id FROM church_memberships WHERE user_id=$1",
         [account.id],
       )
     ).rowCount,
@@ -1594,11 +1508,10 @@ void test("troca do segredo invalida cookie antigo sem perder senha, vínculos o
     (
       await observer.client.query<Record<string, unknown>>(
         `SELECT
-      (SELECT to_jsonb(t) FROM tenants t WHERE id=$1) AS organization,
-      (SELECT jsonb_agg(to_jsonb(c) ORDER BY c.id) FROM churches c WHERE tenant_id=$1) AS churches,
-      (SELECT jsonb_agg(to_jsonb(m) ORDER BY m.id) FROM tenant_memberships m WHERE tenant_id=$1) AS memberships,
-      (SELECT jsonb_agg(to_jsonb(a) ORDER BY a.id) FROM audit_events a WHERE tenant=$1) AS audit`,
-        [account.organizationId],
+      (SELECT jsonb_agg(to_jsonb(c) ORDER BY c.id) FROM churches c WHERE id=$1) AS churches,
+      (SELECT jsonb_agg(to_jsonb(m) ORDER BY m.id) FROM church_memberships m WHERE church_id=$1) AS memberships,
+      (SELECT jsonb_agg(to_jsonb(a) ORDER BY a.id) FROM audit_events a WHERE church_id=$1) AS audit`,
+        [account.churchId],
       )
     ).rows;
   const persisted = await snapshot();
@@ -1631,8 +1544,7 @@ void test("troca do segredo invalida cookie antigo sem perder senha, vínculos o
       }),
     );
   assert.equal(
-    (await rotatedRequest("/api/organizations", undefined, account.cookie))
-      .status,
+    (await rotatedRequest("/api/churches", undefined, account.cookie)).status,
     401,
   );
   assert.equal(
@@ -1641,7 +1553,7 @@ void test("troca do segredo invalida cookie antigo sem perder senha, vínculos o
   );
   // A assinatura deixou de ser aceita; não houve DELETE/revogação durável das sessões.
   assert.equal(
-    (await request("/api/organizations", undefined, account.cookie)).status,
+    (await request("/api/churches", undefined, account.cookie)).status,
     200,
   );
   const login = await rotatedRequest("/api/auth/sign-in/email", {
@@ -1652,13 +1564,10 @@ void test("troca do segredo invalida cookie antigo sem perder senha, vínculos o
   const cookie = cookies(login);
   assert.ok(cookie.includes("session_token="));
   assert.equal(
-    (await rotatedRequest("/api/organizations", undefined, cookie)).status,
+    (await rotatedRequest("/api/churches", undefined, cookie)).status,
     200,
   );
-  assert.equal(
-    (await request("/api/organizations", undefined, cookie)).status,
-    401,
-  );
+  assert.equal((await request("/api/churches", undefined, cookie)).status, 401);
   assert.equal(await passwordHash(), previousHash);
   assert.deepEqual(await snapshot(), persisted);
   // Os tokens de link são aleatórios e persistidos; a troca de segredo não os revoga.
@@ -1721,90 +1630,24 @@ function readObject(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-void test("etapa autoritativa: conta nova, múltiplos vínculos, revogação e isolamento de recibos", async () => {
-  const existing = await provisionedAccount();
-  const fresh = await readyAccount();
-  async function stage(cookie: string, query = "") {
-    const result = await request(`/api/onboarding${query}`, undefined, cookie);
-    assert.equal(result.status, 200);
-    assert.match(result.headers.get("cache-control") ?? "", /no-store/);
-    const value: unknown = await result.json();
-    return value;
-  }
-  assert.deepEqual(await stage(""), { etapa: "email" });
-  assert.deepEqual(await stage(fresh.cookie, `?userId=${existing.id}`), {
-    etapa: "organizacao",
-  });
-  assert.deepEqual(await stage(existing.cookie), { etapa: "concluido" });
-  const second = (
-    await observer.client.query<{ id: string }>(
-      "INSERT INTO tenants(name) VALUES('Segundo vínculo sintético') RETURNING id",
-    )
-  ).rows[0]!;
-  await observer.client.query(
-    "INSERT INTO tenant_memberships(tenant_id,user_id,role) VALUES($1,$2,'admin')",
-    [second.id, existing.id],
-  );
-  const organizations = await request(
-    "/api/organizations",
-    undefined,
-    existing.cookie,
-  );
+void test("conta autenticada sem igreja pode criar e repetir criação com chaves novas", async () => {
+  const who = await readyAccount();
   assert.deepEqual(
-    readObject(await organizations.json()).organizations,
-    [
-      { id: existing.organizationId, nome: "Organização sintética" },
-      { id: second.id, nome: "Segundo vínculo sintético" },
-    ].sort((a, b) => a.id.localeCompare(b.id)),
+    await (await request("/api/onboarding", undefined, who.cookie)).json(),
+    { etapa: "igreja" },
   );
-  assert.deepEqual(await stage(existing.cookie), { etapa: "concluido" });
-  await observer.client.query(
-    "DELETE FROM tenant_memberships WHERE tenant_id=$1 AND user_id=$2",
-    [existing.organizationId, existing.id],
-  );
-  assert.deepEqual(await stage(existing.cookie), { etapa: "concluido" });
-  assert.equal(
-    (await request("/api/context", undefined, existing.cookie)).status,
-    403,
-  );
-  await observer.client.query(
-    "UPDATE tenant_memberships SET role='desconhecida' WHERE user_id=$1",
-    [existing.id],
-  );
-  assert.deepEqual(await stage(existing.cookie), { etapa: "sem-acesso" });
-  await observer.client.query(
-    "DELETE FROM tenant_memberships WHERE user_id=$1",
-    [existing.id],
-  );
-  assert.deepEqual(await stage(existing.cookie, `?userId=${fresh.id}`), {
-    etapa: "sem-acesso",
-  });
-  assert.deepEqual(await stage(fresh.cookie), { etapa: "organizacao" });
+  const one = await provision(who.cookie),
+    two = await provision(who.cookie);
+  assert.equal(one.status, 201);
+  assert.equal(two.status, 201);
+  const page = (await (
+    await request("/api/churches", undefined, who.cookie)
+  ).json()) as { churches: unknown[] };
+  assert.equal(page.churches.length, 2);
   assert.deepEqual(
-    await (
-      await request("/api/organizations", undefined, existing.cookie)
-    ).json(),
-    { organizations: [] },
+    await (await request("/api/onboarding", undefined, who.cookie)).json(),
+    { etapa: "concluido" },
   );
-  assert.equal(
-    (
-      await request(
-        "/api/tenant",
-        { organizationId: second.id },
-        existing.cookie,
-      )
-    ).status,
-    403,
-  );
-  assert.equal((await provision(existing.cookie, existing.key)).status, 403);
-  assert.equal((await provision(existing.cookie)).status, 409);
-  const receipt = await observer.client.query<{ count: number }>(
-    "SELECT count(*)::int AS count FROM onboarding_provisions WHERE user_id=$1",
-    [existing.id],
-  );
-  assert.equal(receipt.rows[0]?.count, 1);
-  // Conta independente continua apta a provisionar apesar do recibo da outra.
-  assert.equal((await provision(fresh.cookie)).status, 201);
 });
 
 void test("contexto de sessão: autenticação, IDs internos, isolamento, expiração e logout", async () => {
@@ -1855,4 +1698,146 @@ void test("contexto de sessão: autenticação, IDs internos, isolamento, expira
     (await request("/api/session-context", undefined, second.cookie)).status,
     401,
   );
+});
+
+void test("HTTP de igrejas: edição validada, vínculos por papel, versão e último administrador", async () => {
+  const owner = await provisionedAccount(),
+    collaborator = await readyAccount();
+  await observer.client.query(
+    "INSERT INTO church_memberships(church_id,user_id,role) VALUES($1,$2,'collaborator')",
+    [owner.churchId, collaborator.id],
+  );
+  const mutate = (
+    path: string,
+    method: string,
+    body: object,
+    cookie = owner.cookie,
+  ) =>
+    app.request(
+      new Request(origin + path, {
+        method,
+        headers: { origin, cookie, "content-type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    );
+  const path = `/api/churches/${owner.churchId}`;
+  assert.equal(
+    (
+      await mutate(
+        path,
+        "PATCH",
+        { name: "Atualizada", version: 1 },
+        collaborator.cookie,
+      )
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await mutate(path, "PATCH", {
+        name: "Atualizada",
+        version: 1,
+        unknown: true,
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await mutate(path, "PATCH", {
+        name: "Atualizada",
+        version: 1,
+        email: "inválido",
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (await mutate(path, "PATCH", { name: "Atualizada", version: 1 })).status,
+    200,
+  );
+  assert.equal(
+    (await mutate(path, "PATCH", { name: "Perdida", version: 1 })).status,
+    409,
+  );
+  for (const field of ["address", "phone", "email"])
+    for (const value of [123, {}, [], false]) {
+      assert.equal(
+        (
+          await mutate(path, "PATCH", {
+            name: "Inválida",
+            version: 2,
+            [field]: value,
+          })
+        ).status,
+        400,
+      );
+    }
+  const minimal: unknown = await (
+    await request(path, undefined, collaborator.cookie)
+  ).json();
+  assert.ok(minimal && typeof minimal === "object");
+  assert.deepEqual(Object.keys(minimal).sort(), ["id", "nome", "version"]);
+  assert.equal(
+    (await request(path + "/accesses", undefined, collaborator.cookie)).status,
+    403,
+  );
+  const result = (await (
+    await request(path + "/accesses", undefined, owner.cookie)
+  ).json()) as { accesses: { id: string; userId: string; version: number }[] };
+  const admin = result.accesses.find((row) => row.userId === owner.id),
+    other = result.accesses.find((row) => row.userId === collaborator.id);
+  assert.ok(admin && other);
+  assert.equal(
+    (await mutate(path + "/accesses/" + admin.id, "DELETE", { version: 1 }))
+      .status,
+    409,
+  );
+  assert.equal(
+    (
+      await mutate(path + "/accesses/" + admin.id, "PATCH", {
+        version: 1,
+        role: "collaborator",
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (
+      await mutate(path + "/accesses/" + other.id, "PATCH", {
+        version: 1,
+        role: "unknown",
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await mutate(path + "/accesses/" + other.id, "PATCH", {
+        version: 1,
+        role: "admin",
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await mutate(path + "/accesses/" + other.id, "PATCH", {
+        version: 1,
+        role: "collaborator",
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (await mutate(path + "/accesses/" + admin.id, "DELETE", { version: 1 }))
+      .status,
+    200,
+  );
+  assert.equal(
+    (await request("/api/context", undefined, owner.cookie)).status,
+    403,
+  );
+  assert.equal((await provision(owner.cookie)).status, 201);
+  assert.equal((await mutate(path, "DELETE", {})).status, 404);
 });

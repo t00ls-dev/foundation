@@ -47,6 +47,9 @@ if (!restricted) {
     await readFile("ops/administracao-bootstrap-acls.sql", "utf8"),
   );
 }
+await observer.client.query(
+  await readFile("ops/etapa3/bootstrap-acls.sql", "utf8"),
+);
 const bootstrap = await createPostgresDatabase(bootstrapUrl.toString());
 
 // Reset exclusivo do cluster sintético: somente seu owner pode desligar o trigger.
@@ -56,7 +59,7 @@ async function resetAdministrativeFixtures() {
   );
   try {
     await observer.client.query(
-      "TRUNCATE feature_flag_organizations, feature_flags, global_administrators, admin_bootstrap",
+      "TRUNCATE feature_flag_churches, feature_flags, global_administrators, admin_bootstrap",
     );
   } finally {
     await observer.client.query(
@@ -95,10 +98,23 @@ const options = {
 };
 const app = createApp(options);
 async function send(path: string, body?: object, cookie = "") {
+  let expected = "";
+  if (path.startsWith("/api/members")) {
+    const result = await app.request(
+      new Request(origin + "/api/context", { headers: { cookie } }),
+    );
+    const value = (await result.json()) as { churchId?: string };
+    expected = value.churchId ?? "";
+  }
   return app.request(
     new Request(new URL(path, origin), {
       method: body ? "POST" : "GET",
-      headers: { origin, cookie, "content-type": "application/json" },
+      headers: {
+        origin,
+        cookie,
+        "content-type": "application/json",
+        "X-Levi-Church": expected,
+      },
       ...(body ? { body: JSON.stringify(body) } : {}),
     }),
   );
@@ -357,7 +373,7 @@ void test("flags: catálogo fechado, seleção validada, all inclui tenant futur
   await boot(owner);
   const orgs = (
     await observer.client.query<Record<string, unknown>>(
-      "INSERT INTO tenants(name) VALUES('Flag A'),('Flag B') RETURNING id",
+      `WITH added AS (INSERT INTO churches(name) VALUES('Flag A'),('Flag B') RETURNING id) INSERT INTO church_memberships(church_id,user_id,role) SELECT id,'${owner.userId}'::uuid,'admin' FROM added RETURNING church_id AS id`,
     )
   ).rows.map((r) => String(r.id));
   const [orgA, orgB] = orgs;
@@ -366,7 +382,7 @@ void test("flags: catálogo fechado, seleção validada, all inclui tenant futur
     await featureAvailable({
       database: runtime,
       key: "unknown",
-      organizationId: orgA,
+      churchId: orgA,
     }),
     false,
   );
@@ -374,7 +390,7 @@ void test("flags: catálogo fechado, seleção validada, all inclui tenant futur
     await featureAvailable({
       database: runtime,
       key: "members",
-      organizationId: orgA,
+      churchId: orgA,
     }),
     false,
   );
@@ -393,19 +409,16 @@ void test("flags: catálogo fechado, seleção validada, all inclui tenant futur
       operationId: randomUUID(),
     });
   await assert.rejects(
-    update({ kind: "selected", organizationIds: [randomUUID()] }, 0),
+    update({ kind: "selected", churchIds: [randomUUID()] }, 0),
     denied(400),
   );
-  const selected = await update(
-    { kind: "selected", organizationIds: [orgA] },
-    0,
-  );
+  const selected = await update({ kind: "selected", churchIds: [orgA] }, 0);
   assert.equal(selected.version, 1);
   assert.equal(
     await featureAvailable({
       database: runtime,
       key: "members",
-      organizationId: orgA,
+      churchId: orgA,
     }),
     true,
   );
@@ -413,14 +426,14 @@ void test("flags: catálogo fechado, seleção validada, all inclui tenant futur
     await featureAvailable({
       database: runtime,
       key: "members",
-      organizationId: orgB,
+      churchId: orgB,
     }),
     false,
   );
   const future = String(
     (
       await observer.client.query<Record<string, unknown>>(
-        "INSERT INTO tenants(name) VALUES('Flag futura') RETURNING id",
+        `WITH added AS (INSERT INTO churches(name) VALUES('Flag futura') RETURNING id) INSERT INTO church_memberships(church_id,user_id,role) SELECT id,'${owner.userId}'::uuid,'admin' FROM added RETURNING church_id AS id`,
       )
     ).rows[0]?.id,
   );
@@ -428,7 +441,7 @@ void test("flags: catálogo fechado, seleção validada, all inclui tenant futur
     await featureAvailable({
       database: runtime,
       key: "members",
-      organizationId: future,
+      churchId: future,
     }),
     false,
   );
@@ -445,7 +458,7 @@ void test("flags: catálogo fechado, seleção validada, all inclui tenant futur
     await featureAvailable({
       database: runtime,
       key: "members",
-      organizationId: future,
+      churchId: future,
     }),
     true,
   );
@@ -453,7 +466,7 @@ void test("flags: catálogo fechado, seleção validada, all inclui tenant futur
     await featureAvailable({
       database: runtime,
       key: "members",
-      organizationId: randomUUID(),
+      churchId: randomUUID(),
     }),
     false,
   );
@@ -462,7 +475,7 @@ void test("flags: catálogo fechado, seleção validada, all inclui tenant futur
     await featureAvailable({
       database: runtime,
       key: "members",
-      organizationId: orgA,
+      churchId: orgA,
     }),
     false,
   );
@@ -472,11 +485,11 @@ void test("flags: catálogo fechado, seleção validada, all inclui tenant futur
     adminEmail: options.adminEmail,
   });
   assert.equal(listed[0]?.version, disabled.version);
-  assert.deepEqual(listed[0]?.organizationIds, []);
+  assert.deepEqual(listed[0]?.churchIds, []);
   assert.equal(
     (
       await observer.client.query<Record<string, unknown>>(
-        "SELECT count(*)::int AS n FROM feature_flag_organizations",
+        "SELECT count(*)::int AS n FROM feature_flag_churches",
       )
     ).rows[0]?.n,
     0,
@@ -522,7 +535,7 @@ void test("auditoria e persistência: rollback conjunto e negação diante de ba
   const org = String(
     (
       await observer.client.query<Record<string, unknown>>(
-        "INSERT INTO tenants(name) VALUES('Flag rollback') RETURNING id",
+        `WITH added AS (INSERT INTO churches(name) VALUES('Flag rollback') RETURNING id) INSERT INTO church_memberships(church_id,user_id,role) SELECT id,'${owner.userId}'::uuid,'admin' FROM added RETURNING church_id AS id`,
       )
     ).rows[0]?.id,
   );
@@ -531,7 +544,7 @@ void test("auditoria e persistência: rollback conjunto e negação diante de ba
     identity: owner.identity,
     adminEmail: options.adminEmail,
     key: "members",
-    policy: { kind: "selected", organizationIds: [org] },
+    policy: { kind: "selected", churchIds: [org] },
     expectedVersion: 0,
     operationId: randomUUID(),
   });
@@ -561,7 +574,7 @@ void test("auditoria e persistência: rollback conjunto e negação diante de ba
       await featureAvailable({
         database: runtime,
         key: "members",
-        organizationId: org,
+        churchId: org,
       }),
       true,
     );
@@ -593,7 +606,7 @@ void test("auditoria e persistência: rollback conjunto e negação diante de ba
       featureAvailable({
         database: runtime,
         key: "members",
-        organizationId: org,
+        churchId: org,
       }),
     );
   } finally {
@@ -606,13 +619,13 @@ void test("auditoria e persistência: rollback conjunto e negação diante de ba
 void test("escopo da auditoria preserva eventos organizacionais e append-only", async () => {
   const insert = (action: string, tenant: string | null) =>
     observer.client.query<Record<string, unknown>>(
-      "INSERT INTO audit_events(actor,action,target,tenant,timestamp,metadata,result) VALUES($1,$2,$3,$4,now(),'{}','success')",
+      "INSERT INTO audit_events(actor,action,target,church_id,timestamp,metadata,result) VALUES($1,$2,$3,$4,now(),'{}','success')",
       [owner.userId, action, owner.userId, tenant],
     );
   const tenant = String(
     (
       await observer.client.query<Record<string, unknown>>(
-        "INSERT INTO tenants(name) VALUES('Audit sintético') RETURNING id",
+        `WITH added AS (INSERT INTO churches(name) VALUES('Audit sintético') RETURNING id) INSERT INTO church_memberships(church_id,user_id,role) SELECT id,'${owner.userId}'::uuid,'admin' FROM added RETURNING church_id AS id`,
       )
     ).rows[0]?.id,
   );
@@ -621,7 +634,7 @@ void test("escopo da auditoria preserva eventos organizacionais e append-only", 
   for (const action of [
     "member.created",
     "unknown",
-    "feature_flag.organization_added",
+    "feature_flag.church_added",
   ])
     await assert.rejects(insert(action, null), { code: "23514" });
   await assert.rejects(insert("admin.granted", tenant), { code: "23514" });
@@ -677,7 +690,7 @@ void test("ACL bootstrap separa privilégios; runtime restrita não altera recib
     'UPDATE "user" SET email=email',
     'UPDATE "user" SET email_verified=true',
     "UPDATE account SET password=password",
-    "INSERT INTO tenants(name) VALUES('forbidden')",
+    "INSERT INTO churches(name) VALUES('forbidden')",
     "SELECT * FROM feature_flags",
     "SELECT * FROM audit_events",
     "CREATE TABLE forbidden_admin_fixture(id int)",
@@ -752,6 +765,7 @@ void test("ACLs administrativas exatas por coluna, sem grant option e sem amplia
         "action",
         "target",
         "tenant",
+        "church_id",
         "timestamp",
         "metadata",
         "request_id",
@@ -774,16 +788,8 @@ void test("ACLs administrativas exatas por coluna, sem grant option e sem amplia
       "UPDATE",
       ["policy", "version", "updated_at", "updated_by"],
     ],
-    [
-      "feature_flag_organizations",
-      "SELECT",
-      ["feature_flag_id", "organization_id"],
-    ],
-    [
-      "feature_flag_organizations",
-      "INSERT",
-      ["feature_flag_id", "organization_id"],
-    ],
+    ["feature_flag_churches", "SELECT", ["feature_flag_id", "church_id"]],
+    ["feature_flag_churches", "INSERT", ["feature_flag_id", "church_id"]],
   ];
   const roles = restricted
     ? ["levi_dev_bootstrap", "levi_dev_runtime"]
@@ -801,7 +807,7 @@ void test("ACLs administrativas exatas por coluna, sem grant option e sem amplia
       SELECT c.relname AS table, a.attname AS column, x.privilege_type AS privilege, x.is_grantable AS grantable
       FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid CROSS JOIN LATERAL aclexplode(a.attacl) x
       WHERE c.relnamespace='public'::regnamespace AND a.attnum>0 AND x.grantee=$1::text::regrole
-      AND ($1 = 'levi_dev_bootstrap' OR c.relname IN ('global_administrators','feature_flags','feature_flag_organizations','admin_bootstrap'))`,
+      AND ($1 = 'levi_dev_bootstrap' OR c.relname IN ('global_administrators','feature_flags','feature_flag_churches','admin_bootstrap'))`,
       [role],
     );
     assert.deepEqual(
@@ -820,14 +826,14 @@ void test("ACLs administrativas exatas por coluna, sem grant option e sem amplia
       `
       SELECT c.relname AS table,x.privilege_type AS privilege FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) x
       WHERE c.relnamespace='public'::regnamespace AND x.grantee=$1::text::regrole
-      AND ($1 = 'levi_dev_bootstrap' OR c.relname IN ('global_administrators','feature_flags','feature_flag_organizations','admin_bootstrap'))`,
+      AND ($1 = 'levi_dev_bootstrap' OR c.relname IN ('global_administrators','feature_flags','feature_flag_churches','admin_bootstrap'))`,
       [role],
     );
     assert.deepEqual(
       tableAcl.rows,
       role === "levi_dev_bootstrap"
         ? []
-        : [{ table: "feature_flag_organizations", privilege: "DELETE" }],
+        : [{ table: "feature_flag_churches", privilege: "DELETE" }],
     );
   }
 });
@@ -900,7 +906,11 @@ void test("upgrade 0000–0004 para schema administrativo preserva dados e não 
         result.push(
           (
             await old.client.query<Record<string, unknown>>(
-              `SELECT * FROM "${table}"`,
+              table === "churches"
+                ? `SELECT to_jsonb(t) - ARRAY['version','updated_at'] AS data FROM churches t`
+                : table === "audit_events"
+                  ? `SELECT to_jsonb(t) - 'church_id' AS data FROM audit_events t`
+                  : `SELECT * FROM "${table}"`,
             )
           ).rows,
         );
@@ -930,6 +940,8 @@ void test("upgrade 0000–0004 para schema administrativo preserva dados e não 
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+// O lock é PostgreSQL real; somente a passagem do tempo é acelerada no teste.
 
 // O lock é PostgreSQL real; somente a passagem do tempo é acelerada no teste.
 async function denyAfterAuditWait(input: {
@@ -1044,7 +1056,7 @@ void test("bootstrap: recência vencida durante a auditoria não consome recibo 
 void test("HTTP administrativo oculta HTML, métodos, aliases e validação antes de autorizar", async () => {
   const common = await account();
   const provisioned = await app.request(
-    new Request(origin + "/api/organizations", {
+    new Request(origin + "/api/churches", {
       method: "POST",
       headers: {
         cookie: common.cookie,
@@ -1053,8 +1065,7 @@ void test("HTTP administrativo oculta HTML, métodos, aliases e validação ante
         "Idempotency-Key": randomUUID(),
       },
       body: JSON.stringify({
-        organizationName: "Owner sem concessão global",
-        churchName: "Igreja",
+        name: "Igreja",
       }),
     }),
   );
@@ -1140,7 +1151,7 @@ void test("HTTP administrativo permite conta sem organização e não concede ac
     sessionId: actor.sessionId,
   });
   const organizations = await send(
-    "/api/admin/organizations",
+    "/api/admin/churches",
     undefined,
     actor.cookie,
   );
@@ -1154,12 +1165,12 @@ void test("HTTP administrativo permite conta sem organização e não concede ac
   );
   assert.equal(
     (await send("/api/churches", undefined, actor.cookie)).status,
-    403,
+    200,
   );
   const catalog = await send("/api/admin/features", undefined, actor.cookie);
   assert.deepEqual(await catalog.json(), {
     features: [
-      { key: "members", policy: "disabled", version: 0, organizationIds: [] },
+      { key: "members", policy: "disabled", version: 0, churchIds: [] },
     ],
   });
   const csrf = await protectedApp.request(
@@ -1212,14 +1223,14 @@ void test("API de flags valida catálogo, confirmação all, seleções e versã
   options.adminEmail = actor.email;
   const owner = await account();
   const organization = await send(
-    "/api/organizations",
-    { organizationName: "Organização de seleção", churchName: "Igreja" },
+    "/api/churches",
+    { organizationName: "Organização de seleção", name: "Igreja" },
     owner.cookie,
   );
   // Provisionamento exige chave de idempotência; usa o contrato público existente.
   assert.equal(organization.status, 400);
   const provision = await app.request(
-    new Request(origin + "/api/organizations", {
+    new Request(origin + "/api/churches", {
       method: "POST",
       headers: {
         cookie: owner.cookie,
@@ -1228,14 +1239,13 @@ void test("API de flags valida catálogo, confirmação all, seleções e versã
         "Idempotency-Key": randomUUID(),
       },
       body: JSON.stringify({
-        organizationName: "Organização de seleção",
-        churchName: "Igreja",
+        name: "Igreja",
       }),
     }),
   );
   assert.equal(provision.status, 201);
-  const { organizationId } = (await provision.json()) as {
-    organizationId: string;
+  const { churchId: churchId } = (await provision.json()) as {
+    churchId: string;
   };
   const path = "/api/admin/features/members";
   assert.equal(
@@ -1266,7 +1276,7 @@ void test("API de flags valida catálogo, confirmação all, seleções e versã
         path,
         "PUT",
         {
-          policy: { kind: "selected", organizationIds: [randomUUID()] },
+          policy: { kind: "selected", churchIds: [randomUUID()] },
           expectedVersion: 0,
         },
         actor,
@@ -1280,7 +1290,7 @@ void test("API de flags valida catálogo, confirmação all, seleções e versã
         path,
         "PUT",
         {
-          policy: { kind: "selected", organizationIds: [organizationId] },
+          policy: { kind: "selected", churchIds: [churchId] },
           expectedVersion: 0,
         },
         actor,
@@ -1312,9 +1322,7 @@ void test("API de flags valida catálogo, confirmação all, seleções e versã
   );
   const flags = await send("/api/admin/features", undefined, actor.cookie);
   assert.deepEqual(await flags.json(), {
-    features: [
-      { key: "members", policy: "all", version: 2, organizationIds: [] },
-    ],
+    features: [{ key: "members", policy: "all", version: 2, churchIds: [] }],
   });
   assert.equal(
     (await send("/api/members", undefined, owner.cookie)).status,
@@ -1322,11 +1330,11 @@ void test("API de flags valida catálogo, confirmação all, seleções e versã
   );
   assert.equal(
     (await send("/api/churches", undefined, actor.cookie)).status,
-    403,
+    200,
   );
   const delta = await observer.client.query<Record<string, unknown>>(
-    "SELECT tenant FROM audit_events WHERE action='feature_flag.organization_added' AND tenant=$1",
-    [organizationId],
+    "SELECT church_id FROM audit_events WHERE action='feature_flag.church_added' AND church_id=$1",
+    [churchId],
   );
   assert.equal(delta.rowCount, 1);
 });
@@ -1360,20 +1368,20 @@ void test("API preserva seleção de 1000 organizações e falha fechada se não
   options.adminEmail = actor.email;
   const ids = Array.from({ length: 1000 }, () => randomUUID());
   await observer.client.query(
-    "INSERT INTO tenants(id,name) SELECT id,'Seleção sintética' FROM unnest($1::uuid[]) AS id",
+    `WITH added AS (INSERT INTO churches(id,name) SELECT id,'Seleção sintética' FROM unnest($1::uuid[]) AS id RETURNING id) INSERT INTO church_memberships(church_id,user_id,role) SELECT id,'${owner.userId}'::uuid,'admin' FROM added`,
     [ids],
   );
   const response = await adminMutation(
     "/api/admin/features/members",
     "PUT",
-    { policy: { kind: "selected", organizationIds: ids }, expectedVersion: 0 },
+    { policy: { kind: "selected", churchIds: ids }, expectedVersion: 0 },
     actor,
   );
   assert.equal(response.status, 200);
   const result = (await response.json()) as {
-    feature: { organizationIds: string[] };
+    feature: { churchIds: string[] };
   };
-  assert.deepEqual(result.feature.organizationIds, [...ids].sort());
+  assert.deepEqual(result.feature.churchIds, [...ids].sort());
   const unavailableUrl = new URL(runtimeUrl);
   unavailableUrl.pathname = "/levi_admin_nonexistent_test";
   const unavailable = createApp({

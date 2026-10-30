@@ -76,8 +76,6 @@ const checks = {
   "onboarding-read": "requisição do onboarding anônimo",
   "onboarding-response": "status e cabeçalhos do onboarding anônimo",
   "onboarding-body": "estado anônimo do onboarding",
-  "organizations-read": "requisição anônima de organizações",
-  "organizations-response": "bloqueio anônimo e cabeçalhos de organizações",
   "churches-read": "requisição anônima de igrejas",
   "churches-response": "bloqueio anônimo e cabeçalhos de igrejas",
   "members-read": "requisição anônima de membros",

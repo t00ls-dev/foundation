@@ -50,6 +50,13 @@
       "when": 1793028204694,
       "tag": "0006_recibo-bootstrap-permanente",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793316000000,
+      "tag": "0007_igrejas-expand",
+      "breakpoints": true
     }
   ]
 }

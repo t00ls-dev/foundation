@@ -6,28 +6,28 @@ test("Vite e Hono completam o fluxo real em mesma origem, sem liberar CORS", asy
   context,
 }) => {
   await readyAccount(page);
-  await provision(page, "Organização pelo proxy");
+  await provision(page, "Igreja pelo proxy");
   await showOrganizations(page);
   await page
     .getByRole("button", {
-      name: "Acessar organização Organização pelo proxy",
+      name: "Acessar igreja Igreja pelo proxy",
       exact: true,
     })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Igrejas da organização" }),
+    page.getByRole("heading", { name: "Igreja selecionada" }),
   ).toBeVisible();
   await expect(
-    page.getByText("Primeira igreja sintética", { exact: true }),
+    page.getByText("Igreja pelo proxy", { exact: true }).first(),
   ).toBeVisible();
   expect(
     (await context.cookies()).some(
       (cookie) => cookie.httpOnly && cookie.name.includes("session_token"),
     ),
   ).toBe(true);
-  const response = await context.request.post("/api/tenant", {
+  const response = await context.request.post("/api/context/church", {
     headers: { Origin: "https://malicioso.example" },
-    data: { organizationId: "11111111-1111-4111-8111-111111111111" },
+    data: { churchId: "11111111-1111-4111-8111-111111111111" },
   });
   expect(response.status()).toBe(403);
   const unknown = await context.request.get("/api/nao-existe");

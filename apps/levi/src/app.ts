@@ -51,16 +51,17 @@ import {
   requireUuid,
   RequestError,
 } from "./contracts.js";
-import { tenants, verification } from "./data/schema.js";
+import { verification } from "./data/schema.js";
 import {
   findChurch,
   listChurches,
-  listOrganizations,
-  organizationContext,
-  organizationStage,
-  provisionOrganization,
-  selectOrganization,
-} from "./organizations.js";
+  churchContext,
+  createChurch,
+  selectChurch,
+  editChurch,
+  listAccesses,
+  changeAccess,
+} from "./churches.js";
 
 type Environment = {
   Variables: {
@@ -69,7 +70,7 @@ type Environment = {
     identity: FoundationSession | null;
     abuse: ReturnType<typeof createAbuseProtection> | null;
     memberIdentity: FoundationSession;
-    memberContext: Awaited<ReturnType<typeof organizationContext>>;
+    memberContext: Awaited<ReturnType<typeof churchContext>>;
   };
 };
 
@@ -227,7 +228,7 @@ export function createApp(options: AppOptions) {
     if (!identity) administrativeNotFound();
     return c.json({ userId: identity.user.id, sessionId: identity.session.id });
   });
-  app.get("/api/admin/organizations", async (c) => {
+  app.get("/api/admin/churches", async (c) => {
     const after = c.req.query("after");
     const items = await administrativeDirectory({
       database: c.get("database"),
@@ -253,7 +254,7 @@ export function createApp(options: AppOptions) {
           key,
           policy: row?.policy ?? "disabled",
           version: row?.version ?? 0,
-          organizationIds: row?.organizationIds ?? [],
+          churchIds: row?.churchIds ?? [],
         };
       }),
     });
@@ -392,95 +393,128 @@ export function createApp(options: AppOptions) {
     if (!identity.user.emailVerified)
       return c.json({ etapa: "verificar-email" });
     return c.json({
-      etapa: await organizationStage(c.get("database"), identity),
+      etapa: (await listChurches(c.get("database"), identity)).churches.length
+        ? "concluido"
+        : "igreja",
     });
   });
-  app.post("/api/organizations", async (c) => {
-    const database = c.get("database");
-    const identity = await readySession(database, c.get("identity"));
+  app.post("/api/churches", async (c) => {
+    const identity = await readySession(c.get("database"), c.get("identity"));
     const body = await readObject(c.req.raw, [
-      "organizationName",
-      "churchName",
-      "churchAddress",
-      "churchPhone",
-      "churchEmail",
+      "name",
+      "address",
+      "phone",
+      "email",
     ]);
-    const optional = (key: string, max: number) =>
-      body[key] == null ? null : readString(body, key, 0, max) || null;
-    const churchEmail = optional("churchEmail", 254);
-    if (churchEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(churchEmail))
-      throw new RequestError(
-        400,
-        "ENTRADA_INVALIDA",
-        "Informe um e-mail válido para a igreja.",
-      );
-    const requestKey = c.req.header("Idempotency-Key") ?? "";
-    if (!/^[a-zA-Z0-9_-]{16,128}$/.test(requestKey))
+    const key = c.req.header("Idempotency-Key") ?? "";
+    if (!/^[a-zA-Z0-9_-]{16,128}$/.test(key))
       throw new RequestError(
         400,
         "CHAVE_NECESSARIA",
-        "Envie uma chave de idempotência de 16 a 128 caracteres.",
+        "Informe uma chave de idempotência válida.",
       );
     return c.json(
-      await provisionOrganization(database, identity, {
-        organizationName: readString(body, "organizationName", 1, 160),
-        churchName: readString(body, "churchName", 1, 160),
-        churchAddress: optional("churchAddress", 500),
-        churchPhone: optional("churchPhone", 40),
-        churchEmail,
-        requestKey,
-      }),
+      await createChurch(
+        c.get("database"),
+        identity,
+        readChurchInput(body),
+        key,
+      ),
       201,
     );
   });
-  app.get("/api/organizations", async (c) =>
-    c.json({
-      organizations: await listOrganizations(
+  app.post("/api/context/church", async (c) => {
+    const identity = await readySession(c.get("database"), c.get("identity"));
+    const body = await readObject(c.req.raw, ["churchId"]);
+    return c.json(
+      await selectChurch(
+        c.get("database"),
+        identity,
+        requireUuid(readString(body, "churchId", 36, 36)),
+      ),
+    );
+  });
+  app.get("/api/context", async (c) =>
+    c.json(
+      await churchContext(
         c.get("database"),
         await readySession(c.get("database"), c.get("identity")),
       ),
-    }),
+    ),
   );
-  app.post("/api/tenant", async (c) => {
+  app.patch("/api/churches/:id", async (c) => {
     const identity = await readySession(c.get("database"), c.get("identity"));
-    const body = await readObject(c.req.raw, ["organizationId"]);
+    const body = await readObject(c.req.raw, [
+      "name",
+      "address",
+      "phone",
+      "email",
+      "version",
+    ]);
     return c.json(
-      await selectOrganization(
+      await editChurch(
         c.get("database"),
         identity,
-        requireUuid(readString(body, "organizationId", 36, 36)),
+        requireUuid(c.req.param("id")),
+        readChurchInput(body),
+        readExpectedVersion(
+          typeof body.version === "number" ? body.version : -1,
+        ),
       ),
     );
   });
-  app.get("/api/context", async (c) => {
-    const context = await organizationContext(
-      c.get("database"),
-      await readySession(c.get("database"), c.get("identity")),
-    );
-    const [organization] = await c
-      .get("database")
-      .db.select({ name: tenants.name })
-      .from(tenants)
-      .where(eq(tenants.id, context.tenantId))
-      .limit(1);
-    if (!organization)
-      throw new RequestError(
-        404,
-        "NAO_ENCONTRADO",
-        "Organização não encontrada.",
+  app.get("/api/churches/:id/accesses", async (c) =>
+    c.json(
+      await listAccesses(
+        c.get("database"),
+        await readySession(c.get("database"), c.get("identity")),
+        requireUuid(c.req.param("id")),
+        c.req.query("after")
+          ? requireUuid(c.req.query("after") ?? "")
+          : undefined,
+      ),
+    ),
+  );
+  for (const method of ["PATCH", "DELETE"])
+    app.on(method, "/api/churches/:id/accesses/:accessId", async (c) => {
+      const identity = await readySession(c.get("database"), c.get("identity"));
+      const body = await readObject(
+        c.req.raw,
+        method === "PATCH" ? ["role", "version"] : ["version"],
       );
-    return c.json({
-      organizationId: context.tenantId,
-      organizationName: organization.name,
-      role: context.role,
-      membersEnabled: true,
+      if (
+        method === "PATCH" &&
+        body.role !== "admin" &&
+        body.role !== "collaborator"
+      )
+        throw new RequestError(400, "ENTRADA_INVALIDA", "Papel inválido.");
+      const role =
+        method === "DELETE"
+          ? null
+          : body.role === "admin"
+            ? "admin"
+            : "collaborator";
+      return c.json(
+        await changeAccess(
+          c.get("database"),
+          identity,
+          requireUuid(c.req.param("id")),
+          requireUuid(c.req.param("accessId")),
+          readExpectedVersion(
+            typeof body.version === "number" ? body.version : -1,
+          ),
+          role,
+        ),
+      );
     });
-  });
   app.get("/api/churches", async (c) =>
     c.json(
       await listChurches(
         c.get("database"),
         await readySession(c.get("database"), c.get("identity")),
+        c.req.query("after")
+          ? requireUuid(c.req.query("after") ?? "")
+          : undefined,
       ),
     ),
   );
@@ -496,10 +530,15 @@ export function createApp(options: AppOptions) {
   app.use("/api/members*", async (c, next) => {
     const identity = await readySession(c.get("database"), c.get("identity"));
     c.set("memberIdentity", identity);
-    c.set(
-      "memberContext",
-      await organizationContext(c.get("database"), identity),
-    );
+    const context = await churchContext(c.get("database"), identity);
+    const expected = requireUuid(c.req.header("X-Levi-Church") ?? "");
+    if (expected !== context.churchId)
+      throw new RequestError(
+        409,
+        "CONTEXTO_ALTERADO",
+        "A igreja selecionada foi alterada.",
+      );
+    c.set("memberContext", context);
     await next();
   });
   app.post("/api/members", async (c) =>
@@ -591,4 +630,30 @@ export function createApp(options: AppOptions) {
         ),
   );
   return app;
+}
+
+function readChurchInput(body: Record<string, unknown>) {
+  const optional = (key: string, max: number) => {
+    if (body[key] == null) return null;
+    if (typeof body[key] !== "string")
+      throw new RequestError(
+        400,
+        "ENTRADA_INVALIDA",
+        "Informe um contato textual válido.",
+      );
+    return readString(body, key, 0, max) || null;
+  };
+  const email = optional("email", 254);
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    throw new RequestError(
+      400,
+      "ENTRADA_INVALIDA",
+      "Informe um e-mail válido.",
+    );
+  return {
+    name: readString(body, "name", 1, 160),
+    address: optional("address", 500),
+    phone: optional("phone", 40),
+    email,
+  };
 }

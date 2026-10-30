@@ -4,7 +4,7 @@ export const featureKeys = ["members"] as const;
 export type FeatureKey = (typeof featureKeys)[number];
 export type FeaturePolicy =
   | { kind: "all" | "disabled" }
-  | { kind: "selected"; organizationIds: [string, ...string[]] };
+  | { kind: "selected"; churchIds: [string, ...string[]] };
 
 export function knownFeature(value: string): value is FeatureKey {
   return featureKeys.some((key) => key === value);
@@ -35,14 +35,14 @@ export function readFeaturePolicy(value: unknown): FeaturePolicy {
     case "selected": {
       if (
         Object.keys(value).some(
-          (key) => !["kind", "organizationIds"].includes(key),
+          (key) => !["kind", "churchIds"].includes(key),
         ) ||
-        !("organizationIds" in value) ||
-        !Array.isArray(value.organizationIds) ||
-        value.organizationIds.length > 1000
+        !("churchIds" in value) ||
+        !Array.isArray(value.churchIds) ||
+        value.churchIds.length > 1000
       )
         invalidAdministrativeInput();
-      const ids = value.organizationIds
+      const ids = value.churchIds
         .map((id: unknown) => {
           if (typeof id !== "string") invalidAdministrativeInput();
           return requireUuid(id).toLowerCase();
@@ -51,7 +51,7 @@ export function readFeaturePolicy(value: unknown): FeaturePolicy {
       const [first, ...rest] = ids;
       if (!first || new Set(ids).size !== ids.length)
         invalidAdministrativeInput();
-      return { kind: "selected", organizationIds: [first, ...rest] };
+      return { kind: "selected", churchIds: [first, ...rest] };
     }
     default:
       return invalidAdministrativeInput();

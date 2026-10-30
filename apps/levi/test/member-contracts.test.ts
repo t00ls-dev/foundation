@@ -113,7 +113,7 @@ await test("membros: cliente não aceita listas ou fichas sem tenant e contrato 
   globalThis.fetch = () =>
     Promise.resolve(
       Response.json({
-        organizationId: churchId,
+        churchId: churchId,
         member: {
           ...body,
           id: churchId,
@@ -133,7 +133,7 @@ await test("membros: criação usa cookies de mesma origem e chave opaca", async
     assert.equal(options?.cache, "no-store");
     headers = new Headers(options?.headers);
     return Promise.resolve(
-      Response.json({ organizationId: churchId, memberId: churchId }),
+      Response.json({ churchId: churchId, memberId: churchId }),
     );
   };
   await memberApi.create({ ...body, status: "Ativo" }, "synthetic-request-key");

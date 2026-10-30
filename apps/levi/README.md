@@ -1,8 +1,8 @@
 # Levi
 
 Aplicação de gestão de igrejas da t00ls-dev, incorporada ao Foundation em
-`apps/levi`. Organização é a fronteira de tenant; igreja é contexto funcional
-interno; membro não é conta de usuário. API, UI, schema, migrations, ACLs e
+`apps/levi`. Igreja é a única raiz operacional; a conta pode acessar várias igrejas
+com papéis independentes. Membro da congregação não é conta de usuário. API, UI, schema, migrations, ACLs e
 recursos operacionais pertencem à aplicação.
 
 ## Origem e histórico
@@ -24,8 +24,10 @@ Para manter esse grafo na master, a integração do PR exige merge commit, sem s
 ## Estado e limites operacionais
 
 A aplicação inclui entrada única por Magic Link para contas novas e existentes, com senha opcional posterior,
-provisionamento atômico de organização/igreja/membership/auditoria, contexto
-organizacional, gestão de membros e interface React. Os testes usam PostgreSQL
+criação idempotente de igrejas, vínculos admin/collaborator, seleção por sessão,
+gestão de acessos e membros com isolamento por igreja e interface React. O
+[núcleo da etapa 3](docs/nucleo-igrejas.md) descreve os contratos e as fases de
+expand/conversão/contract, validadas somente em ambiente descartável. Os testes usam PostgreSQL
 descartável e runtime workerd local.
 
 O Foundation é o publicador DEV autorizado. O [publicador manual](../../.github/workflows/deploy-levi-dev.yml)
@@ -105,6 +107,7 @@ não exige banco, sessão ou deploy compartilhado com outro aplicativo.
 ## Documentação
 
 - [Decisões do MVP](docs/decisoes-mvp.md).
+- [Núcleo de igrejas e corte de schema](docs/nucleo-igrejas.md).
 - [Instruções da aplicação](AGENTS.md).
 - [Onboarding e provisionamento](docs/onboarding-provisionamento.md).
 - [Cloudflare Workers](docs/cloudflare-workers.md).
@@ -112,4 +115,4 @@ não exige banco, sessão ou deploy compartilhado com outro aplicativo.
 - [Interface e onboarding](docs/interface-onboarding.md).
 - [Gestão de membros](docs/gestao-membros.md).
 
-A entrada por Magic Link não exige senha nem vínculo organizacional. A conta sem igrejas oferece o cadastro atual da primeira igreja e orientação para solicitar convite ao responsável; os novos serviços de igrejas e convites ainda não estão implementados. A primeira senha é opcional, configurada posteriormente com sessão verificada recente; credenciais existentes e recuperação por e-mail permanecem disponíveis. A administração global mantém a autoridade configurada e seus gates de sessão, sem exigir senha.
+A entrada por Magic Link não exige senha nem igreja. A conta pode criar igrejas independentes mesmo quando já possui outros vínculos ou teve um acesso revogado. A primeira senha é opcional, configurada posteriormente com sessão verificada recente; credenciais existentes e recuperação por e-mail permanecem disponíveis. A administração global mantém a autoridade configurada e seus gates de sessão, sem exigir senha e sem receber acesso automático às igrejas. A experiência completa de gestão visual pertence à etapa 4; convites ainda não estão implementados.

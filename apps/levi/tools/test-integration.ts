@@ -8,6 +8,26 @@ import {
   prepareRuntimeRoles,
 } from "../test/runtime-acl-fixture.js";
 
+// A conversão sintética exige seu próprio histórico anterior ao corte.
+if (
+  !process.argv.some((arg) =>
+    ["--churches", "--files", "--browser", "--worker"].includes(arg),
+  )
+) {
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--import",
+      "tsx",
+      "tools/test-integration.ts",
+      "--churches",
+      ...(process.argv.includes("--runtime-acls") ? ["--runtime-acls"] : []),
+    ],
+    { stdio: "inherit", env: process.env },
+  );
+  if (result.status !== 0)
+    throw new Error("O ensaio sintético de igrejas falhou.");
+}
 // Somente este container recém-criado é usado e removido. Sem banco externo.
 const image =
   "postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73";
@@ -95,7 +115,23 @@ try {
     run(["tools/migrate.ts"]);
     run(["tools/migrate.ts"]); // reaplicação do journal deve ser inócua
   }
-  if (process.argv.includes("--browser")) {
+  if (!process.argv.includes("--churches"))
+    run(["tools/prepare-church-test.ts"]);
+  if (process.argv.includes("--files")) {
+    run([
+      "--test",
+      "--test-concurrency=1",
+      ...process.argv
+        .slice(process.argv.indexOf("--files") + 1)
+        .filter((arg) => arg !== "--runtime-acls"),
+    ]);
+  } else if (process.argv.includes("--churches")) {
+    run([
+      "--test",
+      "--test-concurrency=1",
+      "test/churches.integration.test.ts",
+    ]);
+  } else if (process.argv.includes("--browser")) {
     mailDirectory = await mkdtemp(join(tmpdir(), "levi-browser-"));
     const result = spawnSync(
       process.execPath,

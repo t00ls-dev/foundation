@@ -1,20 +1,22 @@
 import { createHash } from "node:crypto";
 import type { FoundationSession } from "@t00ls-dev/auth";
-import { createAuditEvent } from "@t00ls-dev/audit";
-import { createPostgresAuditStore } from "@t00ls-dev/audit/postgres";
-import { and, asc, eq, gt, ilike } from "drizzle-orm";
+
+import { and, asc, eq, ilike, sql } from "drizzle-orm";
 import type { Database } from "./auth.js";
 import { RequestError } from "./contracts.js";
-import { access, organizationContext } from "./organizations.js";
+import {
+  access,
+  churchContext,
+  lockChurch,
+  lockSession,
+  appendChurchAudit,
+} from "./churches.js";
 import {
   churches,
   members,
   memberHistory,
   memberProfileHistory,
   memberCreationRequests,
-  session,
-  tenantMemberships,
-  tenantSessions,
 } from "./data/schema.js";
 import type {
   MemberInput,
@@ -23,15 +25,15 @@ import type {
 } from "./member-types.js";
 import type { readMemberFilters } from "./member-contracts.js";
 
-type ResolvedContext = Awaited<ReturnType<typeof organizationContext>>;
+type ResolvedContext = Awaited<ReturnType<typeof churchContext>>;
 async function context(
   database: Database,
   identity: FoundationSession,
   permission: "members:read" | "members:create" | "members:update",
   resolved?: ResolvedContext,
 ) {
-  const current = resolved ?? (await organizationContext(database, identity));
-  if (current.role !== "admin" || !access.can(current.role, permission))
+  const current = resolved ?? (await churchContext(database, identity));
+  if (!access.can(current.role, permission))
     throw new RequestError(
       403,
       "ACESSO_NEGADO",
@@ -39,10 +41,7 @@ async function context(
     );
   return current;
 }
-const churchJoin = and(
-  eq(members.churchId, churches.id),
-  eq(members.tenantId, churches.tenantId),
-);
+const churchJoin = eq(members.churchId, churches.id);
 function notFound(): never {
   throw new RequestError(404, "NAO_ENCONTRADO", "Recurso não encontrado.");
 }
@@ -53,36 +52,39 @@ export async function listMembers(
   resolved?: ResolvedContext,
 ) {
   const current = await context(database, identity, "members:read", resolved);
-  // Escapa curingas: nome é trecho literal, sem distinção de caixa e sem busca global.
-  const literalName = filters.name.replace(/[\\%_]/g, "\\$&");
-  const rows = await database.db
-    .select({
-      id: members.id,
-      name: members.name,
-      churchId: members.churchId,
-      churchName: churches.name,
-      status: members.status,
-    })
-    .from(members)
-    .innerJoin(churches, churchJoin)
-    .where(
-      and(
-        eq(members.tenantId, current.tenantId),
-        filters.name ? ilike(members.name, `%${literalName}%`) : undefined,
-        filters.churchId ? eq(members.churchId, filters.churchId) : undefined,
-        filters.status ? eq(members.status, filters.status) : undefined,
-      ),
-    )
-    .orderBy(asc(members.name), asc(members.id))
-    .limit(filters.pageSize + 1)
-    .offset((filters.page - 1) * filters.pageSize);
-  return {
-    organizationId: current.tenantId,
-    members: rows.slice(0, filters.pageSize),
-    page: filters.page,
-    pageSize: filters.pageSize,
-    hasNext: rows.length > filters.pageSize,
-  };
+  return database.db.transaction(async (tx) => {
+    await lockChurch(tx, identity, current.churchId, "members:read", true);
+    // Escapa curingas: nome é trecho literal, sem distinção de caixa e sem busca global.
+    const literalName = filters.name.replace(/[\\%_]/g, "\\$&");
+    const rows = await tx
+      .select({
+        id: members.id,
+        name: members.name,
+        churchId: members.churchId,
+        churchName: churches.name,
+        status: members.status,
+      })
+      .from(members)
+      .innerJoin(churches, churchJoin)
+      .where(
+        and(
+          eq(members.churchId, current.churchId),
+          filters.name ? ilike(members.name, `%${literalName}%`) : undefined,
+          filters.churchId ? eq(members.churchId, filters.churchId) : undefined,
+          filters.status ? eq(members.status, filters.status) : undefined,
+        ),
+      )
+      .orderBy(asc(members.name), asc(members.id))
+      .limit(filters.pageSize + 1)
+      .offset((filters.page - 1) * filters.pageSize);
+    return {
+      churchId: current.churchId,
+      members: rows.slice(0, filters.pageSize),
+      page: filters.page,
+      pageSize: filters.pageSize,
+      hasNext: rows.length > filters.pageSize,
+    };
+  });
 }
 export async function findMember(
   database: Database,
@@ -91,21 +93,24 @@ export async function findMember(
   resolved?: ResolvedContext,
 ) {
   const current = await context(database, identity, "members:read", resolved);
-  const [row] = await database.db
-    .select({ member: members, churchName: churches.name })
-    .from(members)
-    .innerJoin(churches, churchJoin)
-    .where(and(eq(members.tenantId, current.tenantId), eq(members.id, id)));
-  if (!row) notFound();
-  const { tenantId, ...member } = row.member;
-  return {
-    organizationId: tenantId,
-    member: {
-      ...member,
-      churchName: row.churchName,
-      createdAt: member.createdAt.toISOString(),
-    },
-  };
+  return database.db.transaction(async (tx) => {
+    await lockChurch(tx, identity, current.churchId, "members:read", true);
+    const [row] = await tx
+      .select({ member: members, churchName: churches.name })
+      .from(members)
+      .innerJoin(churches, churchJoin)
+      .where(and(eq(members.churchId, current.churchId), eq(members.id, id)));
+    if (!row) notFound();
+    const member = row.member;
+    return {
+      churchId: current.churchId,
+      member: {
+        ...member,
+        churchName: row.churchName,
+        createdAt: member.createdAt.toISOString(),
+      },
+    };
+  });
 }
 export async function createMember(
   database: Database,
@@ -120,17 +125,16 @@ export async function createMember(
     .digest("hex");
   return database.db.transaction(async (tx) => {
     // Uma mesma tentativa concorre somente consigo; o lock é liberado no rollback/commit.
-    await database.client.query(
-      "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
-      [JSON.stringify([current.tenantId, identity.user.id, requestKey])],
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtextextended(${JSON.stringify([current.churchId, identity.user.id, requestKey])},0))`,
     );
-    await lockWriteContext(tx, identity, current.tenantId);
+    await lockChurch(tx, identity, current.churchId, "members:create", true);
     const [previous] = await tx
       .select()
       .from(memberCreationRequests)
       .where(
         and(
-          eq(memberCreationRequests.tenantId, current.tenantId),
+          eq(memberCreationRequests.churchId, current.churchId),
           eq(memberCreationRequests.actorId, identity.user.id),
           eq(memberCreationRequests.requestKey, requestKey),
         ),
@@ -142,51 +146,44 @@ export async function createMember(
           "TENTATIVA_DIVERGENTE",
           "Esta tentativa já foi usada com outros dados. Consulte o resultado antes de cadastrar novamente.",
         );
-      return { organizationId: current.tenantId, memberId: previous.memberId };
+      return { churchId: current.churchId, memberId: previous.memberId };
     }
     const [church] = await tx
       .select()
       .from(churches)
       .where(
-        and(
-          eq(churches.id, input.churchId),
-          eq(churches.tenantId, current.tenantId),
-        ),
+        and(eq(churches.id, input.churchId), eq(churches.id, current.churchId)),
       )
       .for("share");
     if (!church) notFound();
     const [member] = await tx
       .insert(members)
-      .values({ ...input, tenantId: current.tenantId })
+      .values({ ...input, churchId: current.churchId })
       .returning({ id: members.id });
     if (!member) throw new Error("Cadastro não confirmado.");
     await tx.insert(memberHistory).values({
-      tenantId: current.tenantId,
+      churchId: current.churchId,
       memberId: member.id,
       actorId: identity.user.id,
       churchName: church.name,
       initialStatus: input.status,
     });
-    await createPostgresAuditStore(database.client).append(
-      createAuditEvent({
-        actor: identity.user.id,
-        action: "member.created",
-        target: member.id,
-        tenant: current.tenantId,
-        timestamp: new Date(),
-        metadata: {},
-        requestId: null,
-        result: "success",
-      }),
+    await appendChurchAudit(
+      tx,
+      identity,
+      current.churchId,
+      "member.created",
+      member.id,
     );
     await tx.insert(memberCreationRequests).values({
-      tenantId: current.tenantId,
+      churchId: current.churchId,
       actorId: identity.user.id,
       requestKey,
       requestHash,
       memberId: member.id,
     });
-    return { organizationId: current.tenantId, memberId: member.id };
+    await lockSession(tx, identity);
+    return { churchId: current.churchId, memberId: member.id };
   });
 }
 
@@ -197,66 +194,23 @@ export async function findMemberRequest(
   resolved?: ResolvedContext,
 ) {
   const current = await context(database, identity, "members:read", resolved);
-  const [receipt] = await database.db
-    .select({ memberId: memberCreationRequests.memberId })
-    .from(memberCreationRequests)
-    .where(
-      and(
-        eq(memberCreationRequests.tenantId, current.tenantId),
-        eq(memberCreationRequests.actorId, identity.user.id),
-        eq(memberCreationRequests.requestKey, requestKey),
-      ),
-    );
-  if (!receipt) notFound();
-  return { organizationId: current.tenantId, memberId: receipt.memberId };
+  return database.db.transaction(async (tx) => {
+    await lockChurch(tx, identity, current.churchId, "members:read", true);
+    const [receipt] = await tx
+      .select({ memberId: memberCreationRequests.memberId })
+      .from(memberCreationRequests)
+      .where(
+        and(
+          eq(memberCreationRequests.churchId, current.churchId),
+          eq(memberCreationRequests.actorId, identity.user.id),
+          eq(memberCreationRequests.requestKey, requestKey),
+        ),
+      );
+    if (!receipt) notFound();
+    return { churchId: current.churchId, memberId: receipt.memberId };
+  });
 }
 
-type Transaction = Parameters<Parameters<Database["db"]["transaction"]>[0]>[0];
-async function lockWriteContext(
-  tx: Transaction,
-  identity: FoundationSession,
-  tenantId: string,
-) {
-  // Revalida após aguardar e impede revogação/troca de contexto durante a escrita.
-  const [validSession] = await tx
-    .select({ id: session.id })
-    .from(session)
-    .where(
-      and(
-        eq(session.id, identity.session.id),
-        eq(session.userId, identity.user.id),
-        gt(session.expiresAt, new Date()),
-      ),
-    )
-    .for("share");
-  if (!validSession)
-    throw new RequestError(
-      401,
-      "SESSAO_NECESSARIA",
-      "Entre na sua conta para continuar.",
-    );
-  const [active] = await tx
-    .select()
-    .from(tenantSessions)
-    .where(eq(tenantSessions.sessionId, identity.session.id))
-    .for("share");
-  const [membership] = await tx
-    .select()
-    .from(tenantMemberships)
-    .where(
-      and(
-        eq(tenantMemberships.userId, identity.user.id),
-        eq(tenantMemberships.tenantId, tenantId),
-      ),
-    )
-    .for("share");
-  if (active?.activeTenantId !== tenantId || membership?.role !== "admin")
-    throw new RequestError(
-      403,
-      "ACESSO_NEGADO",
-      "Selecione uma organização com vínculo administrativo atual.",
-    );
-}
 export async function editMember(
   database: Database,
   identity: FoundationSession,
@@ -266,11 +220,11 @@ export async function editMember(
 ) {
   const current = await context(database, identity, "members:update", resolved);
   return database.db.transaction(async (tx) => {
-    await lockWriteContext(tx, identity, current.tenantId);
+    await lockChurch(tx, identity, current.churchId, "members:update", true);
     const [previous] = await tx
       .select()
       .from(members)
-      .where(and(eq(members.tenantId, current.tenantId), eq(members.id, id)))
+      .where(and(eq(members.churchId, current.churchId), eq(members.id, id)))
       .for("update");
     if (!previous) notFound();
     if (previous.version !== input.version)
@@ -296,33 +250,29 @@ export async function editMember(
       .set({ ...profile, version: version + 1 })
       .where(
         and(
-          eq(members.tenantId, current.tenantId),
+          eq(members.churchId, current.churchId),
           eq(members.churchId, previous.churchId),
           eq(members.id, id),
           eq(members.version, version),
         ),
       );
     await tx.insert(memberProfileHistory).values({
-      tenantId: current.tenantId,
+      churchId: current.churchId,
       memberId: id,
       actorId: identity.user.id,
       version,
       previousProfile,
     });
-    await createPostgresAuditStore(database.client).append(
-      createAuditEvent({
-        actor: identity.user.id,
-        action: "member.updated",
-        target: id,
-        tenant: current.tenantId,
-        timestamp: new Date(),
-        metadata: {},
-        requestId: null,
-        result: "success",
-      }),
+    await appendChurchAudit(
+      tx,
+      identity,
+      current.churchId,
+      "member.updated",
+      id,
     );
+    await lockSession(tx, identity);
     return {
-      organizationId: current.tenantId,
+      churchId: current.churchId,
       memberId: id,
       version: version + 1,
     };

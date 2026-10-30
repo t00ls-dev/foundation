@@ -18,20 +18,20 @@ await test("contratos administrativos: catálogo fechado e três políticas sem 
   assert.deepEqual(
     readFeaturePolicy({
       kind: "selected",
-      organizationIds: [id.toUpperCase()],
+      churchIds: [id.toUpperCase()],
     }),
-    { kind: "selected", organizationIds: [id] },
+    { kind: "selected", churchIds: [id] },
   );
   for (const input of [
     null,
     true,
     { kind: "unknown" },
     { kind: "selected" },
-    { kind: "selected", organizationIds: [] },
-    { kind: "selected", organizationIds: [id, id] },
-    { kind: "selected", organizationIds: ["*"] },
-    { kind: "selected", organizationIds: [id], extra: true },
-    { kind: "all", organizationIds: [id] },
+    { kind: "selected", churchIds: [] },
+    { kind: "selected", churchIds: [id, id] },
+    { kind: "selected", churchIds: ["*"] },
+    { kind: "selected", churchIds: [id], extra: true },
+    { kind: "all", churchIds: [id] },
     { kind: "disabled", enabled: true },
   ])
     assert.throws(() => readFeaturePolicy(input));

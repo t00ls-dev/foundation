@@ -33,7 +33,7 @@ export interface MemberFilters {
   pageSize?: number;
 }
 export interface MemberPage {
-  organizationId: string;
+  churchId: string;
   members: Pick<Member, "id" | "name" | "churchId" | "churchName" | "status">[];
   page: number;
   pageSize: number;

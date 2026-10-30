@@ -1,3 +1,4 @@
+import { seedChurchRows, revokeChurchAccess } from "./helpers.js";
 import { test, expect } from "@playwright/test";
 import { AxeBuilder } from "@axe-core/playwright";
 import { createPostgresDatabase } from "@t00ls-dev/db/postgres";
@@ -28,7 +29,7 @@ test("429 de navegação mostra espera, evita novas chamadas e permite sair", as
   await provision(page);
   await showOrganizations(page);
   let blocked = 0;
-  await page.route("**/api/organizations", (route) => {
+  await page.route("**/api/churches", (route) => {
     if (route.request().method() !== "GET") return route.continue();
     blocked++;
     return route.fulfill({
@@ -39,7 +40,7 @@ test("429 de navegação mostra espera, evita novas chamadas e permite sair", as
     });
   });
   await page
-    .getByRole("button", { name: "Atualizar organizações", exact: true })
+    .getByRole("button", { name: "Atualizar igrejas", exact: true })
     .click();
   await expect(page.getByRole("alert")).toContainText(
     /Muitas solicitações\. Tente novamente em \d+ segundos\./,
@@ -144,9 +145,7 @@ test("fluxo real completo, login, seleção e retomada por refresh", async ({
   await expect(
     page.getByRole("heading", { name: "Um lugar para sua comunidade" }),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Criar organização e primeira igreja" })
-    .click();
+  await page.getByRole("button", { name: "Criar igreja" }).click();
   await expect(
     page.getByText("Informe um nome para continuar.").first(),
   ).toBeVisible();
@@ -154,19 +153,19 @@ test("fluxo real completo, login, seleção e retomada por refresh", async ({
   await showOrganizations(page);
   await page
     .getByRole("button", {
-      name: "Acessar organização Comunidade sintética",
+      name: "Acessar igreja Comunidade sintética",
       exact: true,
     })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Igrejas da organização" }),
+    page.getByRole("heading", { name: "Igreja selecionada" }),
   ).toBeVisible();
   await expect(
-    page.getByText("Primeira igreja sintética", { exact: true }),
+    page.getByText("Comunidade sintética", { exact: true }).first(),
   ).toBeVisible();
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "Igrejas da organização" }),
+    page.getByRole("heading", { name: "Igreja selecionada" }),
   ).toBeVisible();
   const cookies = await context.cookies();
   expect(
@@ -201,7 +200,7 @@ test("fluxo real completo, login, seleção e retomada por refresh", async ({
     .fill("synthetic-browser-password");
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Suas organizações" }),
+    page.getByRole("heading", { name: "Suas igrejas" }),
   ).toBeVisible();
   await context.clearCookies();
   await page.goto("/igrejas");
@@ -209,7 +208,7 @@ test("fluxo real completo, login, seleção e retomada por refresh", async ({
     page.getByRole("heading", { name: "Comece pelo seu e-mail" }),
   ).toBeVisible();
   await expect(
-    page.getByText("Primeira igreja sintética", { exact: true }),
+    page.getByText("Comunidade sintética", { exact: true }).first(),
   ).toHaveCount(0);
 });
 
@@ -288,35 +287,33 @@ test("falha de rede antes de gravar conserva a chave depois de refresh", async (
 }) => {
   await readyAccount(page);
   let firstKey = "";
-  await page.route("**/api/organizations", async (route) => {
+  await page.route("**/api/churches", async (route) => {
     if (route.request().method() !== "POST") return route.continue();
     firstKey = route.request().headers()["idempotency-key"] ?? "";
     await route.abort();
   });
   await page
-    .getByLabel("Nome da organização", { exact: true })
-    .fill("Organização de retomada");
-  await page
-    .getByLabel("Nome da primeira igreja", { exact: true })
+    .getByLabel("Nome da igreja", { exact: true })
     .fill("Igreja de retomada");
   await page
-    .getByRole("button", { name: "Criar organização e primeira igreja" })
-    .click();
+    .getByLabel("Nome da igreja", { exact: true })
+    .fill("Igreja de retomada");
+  await page.getByRole("button", { name: "Criar igreja" }).click();
   await expect(
     page.getByRole("button", { name: "Verificar resultado", exact: true }),
   ).toBeVisible();
   expect(firstKey.length).toBeGreaterThanOrEqual(16);
-  await page.unroute("**/api/organizations");
+  await page.unroute("**/api/churches");
   await page.reload();
   await expect(
     page.getByRole("heading", { name: "Um lugar para sua comunidade" }),
   ).toBeVisible();
   const posted = page.waitForRequest(
     (request) =>
-      new URL(request.url()).pathname === "/api/organizations" &&
+      new URL(request.url()).pathname === "/api/churches" &&
       request.method() === "POST",
   );
-  await provision(page, "Organização de retomada");
+  await provision(page, "Igreja de retomada");
   await showOrganizations(page);
   expect((await posted).headers()["idempotency-key"]).toBe(firstKey);
 });
@@ -330,7 +327,7 @@ test("resposta perdida após commit recupera o resultado sem outro provisionamen
   const gate = new Promise<void>((resolve) => {
     release = resolve;
   });
-  await page.route("**/api/organizations", async (route) => {
+  await page.route("**/api/churches", async (route) => {
     if (route.request().method() !== "POST") return route.continue();
     posts++;
     const result = await route.fetch();
@@ -339,19 +336,17 @@ test("resposta perdida após commit recupera o resultado sem outro provisionamen
     await route.abort();
   });
   await page
-    .getByLabel("Nome da organização", { exact: true })
-    .fill("Organização com resposta perdida");
+    .getByLabel("Nome da igreja", { exact: true })
+    .fill("Igreja com resposta perdida");
   await page
-    .getByLabel("Nome da primeira igreja", { exact: true })
+    .getByLabel("Nome da igreja", { exact: true })
     .fill("Igreja sintética");
-  await page
-    .getByRole("button", { name: "Criar organização e primeira igreja" })
-    .click();
+  await page.getByRole("button", { name: "Criar igreja" }).click();
   await expect(
     page.getByRole("button", { name: "Aguarde…", exact: true }),
   ).toBeDisabled();
   await page
-    .getByRole("form", { name: "Criar organização", exact: true })
+    .getByRole("form", { name: "Criar igreja", exact: true })
     .evaluate((form) => {
       form.dispatchEvent(
         new Event("submit", { bubbles: true, cancelable: true }),
@@ -375,17 +370,17 @@ test("resposta perdida após commit recupera o resultado sem outro provisionamen
     provisions: number;
     audit: number;
   }>(
-    'SELECT (SELECT count(*)::int FROM onboarding_provisions p WHERE p.user_id=u.id) provisions, (SELECT count(*)::int FROM audit_events a WHERE a.actor=u.id) audit FROM "user" u WHERE email=$1',
+    'SELECT (SELECT count(*)::int FROM church_creation_requests p WHERE p.user_id=u.id) provisions, (SELECT count(*)::int FROM audit_events a WHERE a.actor=u.id) audit FROM "user" u WHERE email=$1',
     [email],
   );
   expect(result.rows[0]).toEqual({ provisions: 1, audit: 1 });
 });
 
-test("troca real entre organizações não conserva igrejas anteriores e revogação remove acesso", async ({
+test("troca real entre igrejas não conserva igrejas anteriores e revogação remove acesso", async ({
   page,
 }) => {
   const email = await readyAccount(page);
-  await provision(page, "Organização inicial");
+  await provision(page, "Igreja inicial");
   await showOrganizations(page);
   const user = (
     await observer.client.query<{ id: string }>(
@@ -394,84 +389,73 @@ test("troca real entre organizações não conserva igrejas anteriores e revoga�
     )
   ).rows[0]!;
   const second = (
-    await observer.client.query<{ id: string }>(
-      "INSERT INTO tenants(name) VALUES('Outra organização permitida') RETURNING id",
-    )
+    await seedChurchRows(observer, "Outra igreja permitida", user.id)
   ).rows[0]!;
+  await observer.client.query("SELECT id FROM churches WHERE id=$1", [
+    second.id,
+  ]);
   await observer.client.query(
-    "INSERT INTO churches(tenant_id,name) VALUES($1,'Igreja da outra organização')",
-    [second.id],
-  );
-  await observer.client.query(
-    "INSERT INTO tenant_memberships(tenant_id,user_id,role) VALUES($1,$2,'admin')",
+    "INSERT INTO church_memberships(church_id,user_id,role) VALUES($1,$2,'admin') ON CONFLICT(church_id,user_id) DO NOTHING",
     [second.id, user.id],
   );
   const foreign = (
-    await observer.client.query<{ id: string }>(
-      "INSERT INTO tenants(name) VALUES('Organização sem vínculo') RETURNING id",
-    )
+    await seedChurchRows(observer, "Igreja sem vínculo", undefined)
   ).rows[0]!;
-  await observer.client.query(
-    "INSERT INTO churches(tenant_id,name) VALUES($1,'Igreja sem vínculo')",
-    [foreign.id],
-  );
-  await page
-    .getByRole("button", { name: "Atualizar organizações", exact: true })
-    .click();
-  await expect(
-    page.getByText("Organização sem vínculo", { exact: true }),
-  ).toHaveCount(0);
-  await page
-    .getByRole("button", {
-      name: "Acessar organização Organização inicial",
-      exact: true,
-    })
-    .click();
-  await expect(
-    page.getByText("Primeira igreja sintética", { exact: true }),
-  ).toBeVisible();
-  await page.locator(".navigation-more summary").click();
-  await page
-    .getByRole("link", { name: "Trocar organização", exact: true })
-    .click();
-  await page
-    .getByRole("button", {
-      name: "Acessar organização Outra organização permitida",
-      exact: true,
-    })
-    .click();
-  await expect(
-    page.getByText("Igreja da outra organização", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("Primeira igreja sintética", { exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByText("Igreja sem vínculo", { exact: true }),
-  ).toHaveCount(0);
-  await observer.client.query(
-    "DELETE FROM tenant_memberships WHERE tenant_id=$1 AND user_id=$2",
-    [second.id, user.id],
-  );
+  await observer.client.query("SELECT id FROM churches WHERE id=$1", [
+    foreign.id,
+  ]);
   await page
     .getByRole("button", { name: "Atualizar igrejas", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Suas organizações" }),
+    page.getByText("Igreja sem vínculo", { exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", {
+      name: "Acessar igreja Igreja inicial",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByText("Igreja inicial", { exact: true }).first(),
+  ).toBeVisible();
+  await page.locator(".navigation-more summary").click();
+  await page.getByRole("link", { name: "Trocar igreja", exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: "Acessar igreja Outra igreja permitida",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByText("Outra igreja permitida", { exact: true }).first(),
   ).toBeVisible();
   await expect(
-    page.getByText("Igreja da outra organização", { exact: true }),
+    page.getByText("Igreja inicial", { exact: true }).first(),
   ).toHaveCount(0);
   await expect(
-    page.getByText("Outra organização permitida", { exact: true }),
+    page.getByText("Igreja sem vínculo", { exact: true }),
+  ).toHaveCount(0);
+  await revokeChurchAccess(observer, second.id, user.id);
+  await page
+    .getByRole("button", { name: "Atualizar igrejas", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Suas igrejas" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Outra igreja permitida", { exact: true }).first(),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Outra igreja permitida", { exact: true }).first(),
   ).toHaveCount(0);
 });
 
-test("mudança de tenant entre leituras não mistura o nome da organização e suas igrejas", async ({
+test("mudança de tenant entre leituras não mistura o nome da igreja e suas igrejas", async ({
   page,
 }) => {
   const email = await readyAccount(page);
-  await provision(page, "Organização escolhida");
+  await provision(page, "Igreja escolhida");
   await showOrganizations(page);
   const user = (
     await observer.client.query<{ id: string }>(
@@ -479,40 +463,34 @@ test("mudança de tenant entre leituras não mistura o nome da organização e s
       [email],
     )
   ).rows[0]!;
-  const second = (
-    await observer.client.query<{ id: string }>(
-      "INSERT INTO tenants(name) VALUES('Outra aba') RETURNING id",
-    )
-  ).rows[0]!;
+  const second = (await seedChurchRows(observer, "Outra aba", user.id))
+    .rows[0]!;
+  await observer.client.query("SELECT id FROM churches WHERE id=$1", [
+    second.id,
+  ]);
   await observer.client.query(
-    "INSERT INTO churches(tenant_id,name) VALUES($1,'Igreja da outra aba')",
-    [second.id],
-  );
-  await observer.client.query(
-    "INSERT INTO tenant_memberships(tenant_id,user_id,role) VALUES($1,$2,'admin')",
+    "INSERT INTO church_memberships(church_id,user_id,role) VALUES($1,$2,'admin') ON CONFLICT(church_id,user_id) DO NOTHING",
     [second.id, user.id],
   );
   await page.route("**/api/context", async (route) => {
     const original = await route.fetch();
-    const switched = await page.context().request.post("/api/tenant", {
+    const switched = await page.context().request.post("/api/context/church", {
       headers: { Origin: new URL(page.url()).origin },
-      data: { organizationId: second.id },
+      data: { churchId: second.id },
     });
     expect(switched.status()).toBe(200);
     await route.fulfill({ response: original });
   });
   await page
     .getByRole("button", {
-      name: "Acessar organização Organização escolhida",
+      name: "Acessar igreja Igreja escolhida",
       exact: true,
     })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Suas organizações" }),
+    page.getByRole("heading", { name: "Suas igrejas" }),
   ).toBeVisible();
-  await expect(
-    page.getByText("Igreja da outra aba", { exact: true }),
-  ).toHaveCount(0);
+  await expect(page.getByText("Outra aba", { exact: true })).toHaveCount(0);
 });
 
 test("401 e 403 interceptados removem igrejas exibidas e reconsultam o servidor", async ({
@@ -523,15 +501,15 @@ test("401 e 403 interceptados removem igrejas exibidas e reconsultam o servidor"
   await showOrganizations(page);
   await page
     .getByRole("button", {
-      name: "Acessar organização Comunidade sintética",
+      name: "Acessar igreja Comunidade sintética",
       exact: true,
     })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Igrejas da organização" }),
+    page.getByRole("heading", { name: "Igreja selecionada" }),
   ).toBeVisible();
   for (const status of [401, 403]) {
-    await page.route("**/api/churches", (route) =>
+    await page.route("**/api/churches/*", (route) =>
       route.fulfill({
         status,
         contentType: "application/json",
@@ -545,21 +523,21 @@ test("401 e 403 interceptados removem igrejas exibidas e reconsultam o servidor"
       .getByRole("button", { name: "Atualizar igrejas", exact: true })
       .click();
     await expect(
-      page.getByRole("heading", { name: "Suas organizações" }),
+      page.getByRole("heading", { name: "Suas igrejas" }),
     ).toBeVisible();
     await expect(
-      page.getByText("Primeira igreja sintética", { exact: true }),
+      page.getByRole("heading", { name: "Igreja selecionada", exact: true }),
     ).toHaveCount(0);
-    await page.unroute("**/api/churches");
+    await page.unroute("**/api/churches/*");
     if (status === 401) {
       await page
         .getByRole("button", {
-          name: "Acessar organização Comunidade sintética",
+          name: "Acessar igreja Comunidade sintética",
           exact: true,
         })
         .click();
       await expect(
-        page.getByRole("heading", { name: "Igrejas da organização" }),
+        page.getByRole("heading", { name: "Igreja selecionada" }),
       ).toBeVisible();
     }
   }
@@ -569,7 +547,7 @@ test("409 interceptado não mostra provisionamento fictício e impede nova tenta
   page,
 }) => {
   await readyAccount(page);
-  await page.route("**/api/organizations", (route) =>
+  await page.route("**/api/churches", (route) =>
     route.request().method() === "POST"
       ? route.fulfill({
           status: 409,
@@ -582,22 +560,20 @@ test("409 interceptado não mostra provisionamento fictício e impede nova tenta
       : route.continue(),
   );
   await page
-    .getByLabel("Nome da organização", { exact: true })
+    .getByLabel("Nome da igreja", { exact: true })
     .fill("Conflito sintético");
   await page
-    .getByLabel("Nome da primeira igreja", { exact: true })
+    .getByLabel("Nome da igreja", { exact: true })
     .fill("Igreja sintética");
-  await page
-    .getByRole("button", { name: "Criar organização e primeira igreja" })
-    .click();
+  await page.getByRole("button", { name: "Criar igreja" }).click();
   await expect(
     page.getByRole("heading", {
       name: "Sua conta está pronta. Você ainda não tem igrejas.",
     }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Criar organização e primeira igreja" }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Criar igreja" })).toHaveCount(
+    0,
+  );
 });
 
 test("sem API disponível não há navegação protegida; recuperação consulta dados reais", async ({
@@ -652,14 +628,14 @@ test("responsividade, teclado e acessibilidade básica da interface real", async
   await provision(page);
   await showOrganizations(page);
   const organization = page.getByRole("button", {
-    name: "Acessar organização Comunidade sintética",
+    name: "Acessar igreja Comunidade sintética",
     exact: true,
   });
   await expect(organization).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await organization.click();
   await expect(
-    page.getByRole("heading", { name: "Igrejas da organização" }),
+    page.getByRole("heading", { name: "Igreja selecionada" }),
   ).toBeVisible();
   expect(
     await page.evaluate(
@@ -676,12 +652,12 @@ test("onboarding: contatos opcionais, validação e rascunho preservado ao recup
   page,
 }, info) => {
   await readyAccount(page);
-  const organization = page.getByLabel("Nome da organização", { exact: true });
-  const church = page.getByLabel("Nome da primeira igreja", { exact: true });
-  await organization.fill("Organização com contatos sintéticos");
+  const organization = page.getByLabel("Nome da igreja", { exact: true });
+  const church = page.getByLabel("Nome da igreja", { exact: true });
+  await organization.fill("Igreja com contatos sintéticos");
   await church.fill("Igreja com contatos sintéticos");
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await expect(organization).toHaveValue("Organização com contatos sintéticos");
+  await expect(organization).toHaveValue("Igreja com contatos sintéticos");
   const { mkdir } = await import("node:fs/promises");
   await mkdir(join(tmpdir(), "levi-ui-e2e"), { recursive: true });
   await page.screenshot({
@@ -702,7 +678,7 @@ test("onboarding: contatos opcionais, validação e rascunho preservado ao recup
   await page.locator(".optional-details summary").click();
   await page
     .getByRole("button", {
-      name: "Criar organização e primeira igreja",
+      name: "Criar igreja",
       exact: true,
     })
     .focus();
@@ -714,7 +690,7 @@ test("onboarding: contatos opcionais, validação e rascunho preservado ao recup
   await page.locator(".optional-details summary").click();
   await page
     .getByRole("button", {
-      name: "Criar organização e primeira igreja",
+      name: "Criar igreja",
       exact: true,
     })
     .focus();
@@ -724,7 +700,7 @@ test("onboarding: contatos opcionais, validação e rascunho preservado ao recup
   await email.fill("igreja@example.test");
   await page
     .getByRole("button", {
-      name: "Criar organização e primeira igreja",
+      name: "Criar igreja",
       exact: true,
     })
     .click();
@@ -733,7 +709,7 @@ test("onboarding: contatos opcionais, validação e rascunho preservado ao recup
   ).toBeVisible();
   await page.getByRole("link", { name: "Igrejas", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Igrejas da organização" }),
+    page.getByRole("heading", { name: "Igreja selecionada" }),
   ).toBeVisible();
 
   await expect(
@@ -839,7 +815,7 @@ test("e-mail em memória: conferência, reenvio, 429 e alteração explícita", 
   await expect(page).toHaveTitle("Bem-vindo de volta · Levi");
 });
 
-test("acesso revogado permanece sem acesso após reload e novo login, sem criar organização", async ({
+test("acesso revogado permanece sem acesso após reload e novo login, sem criar igreja", async ({
   page,
 }) => {
   const email = await readyAccount(page);
@@ -850,12 +826,14 @@ test("acesso revogado permanece sem acesso após reload e novo login, sem criar 
       [email],
     )
   ).rows[0]!;
-  await observer.client.query(
-    "DELETE FROM tenant_memberships WHERE user_id=$1",
+  const memberships = await observer.client.query<{ church_id: string }>(
+    "SELECT church_id FROM church_memberships WHERE user_id=$1",
     [account.id],
   );
+  for (const row of memberships.rows)
+    await revokeChurchAccess(observer, row.church_id, account.id);
   let posts = 0;
-  await page.route("**/api/organizations", (route) => {
+  await page.route("**/api/churches", (route) => {
     if (route.request().method() === "POST") posts++;
     return route.continue();
   });
@@ -868,10 +846,10 @@ test("acesso revogado permanece sem acesso após reload e novo login, sem criar 
       }),
     ).toBeVisible();
     await expect(
-      page.getByRole("form", { name: "Criar organização", exact: true }),
+      page.getByRole("form", { name: "Criar igreja", exact: true }),
     ).toHaveCount(0);
     await expect(
-      page.getByText("Primeira igreja sintética", { exact: true }),
+      page.getByText("Comunidade sintética", { exact: true }).first(),
     ).toHaveCount(0);
     await page
       .getByRole("button", { name: "Atualizar acesso", exact: true })
@@ -898,7 +876,7 @@ test("acesso revogado permanece sem acesso após reload e novo login, sem criar 
   ).toBeVisible();
   expect(posts).toBe(0);
   const count = await observer.client.query<{ count: number }>(
-    "SELECT count(*)::int AS count FROM onboarding_provisions WHERE user_id=$1",
+    "SELECT count(*)::int AS count FROM church_creation_requests WHERE user_id=$1",
     [account.id],
   );
   expect(count.rows[0]?.count).toBe(1);
@@ -909,9 +887,9 @@ test("carregamento conserva só moldura pública e descarta dados quando a sess�
   context,
 }) => {
   await readyAccount(page);
-  await provision(page, "Organização privada da sessão anterior");
+  await provision(page, "Igreja privada da sessão anterior");
   await expect(page.locator(".context-label")).toContainText(
-    "Organização privada da sessão anterior",
+    "Igreja privada da sessão anterior",
   );
   let release!: () => void;
   const waiting = new Promise<void>((resolve) => {
@@ -925,10 +903,10 @@ test("carregamento conserva só moldura pública e descarta dados quando a sess�
   await expect(page.locator(".loading-sidebar")).toBeVisible();
   await expect(page.locator(".context-label")).toHaveCount(0);
   await expect(
-    page.getByText("Organização privada da sessão anterior", { exact: true }),
+    page.getByText("Igreja privada da sessão anterior", { exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("navigation", { name: "Navegação da organização" }),
+    page.getByRole("navigation", { name: "Navegação da igreja" }),
   ).toHaveCount(0);
   await expect(page.getByRole("alert")).toHaveCount(0);
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -958,27 +936,27 @@ test("provisionamento confirmado exige contexto autorizado antes de abrir painel
     route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
-        organizationId: "11111111-1111-4111-8111-111111111111",
-        organizationName: "Organização sintética",
+        churchId: "11111111-1111-4111-8111-111111111111",
+        churchName: "Igreja sintética",
         role: "admin",
         membersEnabled: true,
       }),
     }),
   );
   await page
-    .getByLabel("Nome da organização", { exact: true })
-    .fill("Organização cuja sessão mudou");
+    .getByLabel("Nome da igreja", { exact: true })
+    .fill("Igreja cuja sessão mudou");
   await page
-    .getByLabel("Nome da primeira igreja", { exact: true })
+    .getByLabel("Nome da igreja", { exact: true })
     .fill("Igreja confirmada");
   await page
     .getByRole("button", {
-      name: "Criar organização e primeira igreja",
+      name: "Criar igreja",
       exact: true,
     })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Suas organizações", exact: true }),
+    page.getByRole("heading", { name: "Suas igrejas", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Visão geral", exact: true }),
@@ -987,7 +965,7 @@ test("provisionamento confirmado exige contexto autorizado antes de abrir painel
     "Sua sessão ou seu acesso mudou",
   );
   await expect(
-    page.getByRole("form", { name: "Criar organização", exact: true }),
+    page.getByRole("form", { name: "Criar igreja", exact: true }),
   ).toHaveCount(0);
 });
 
@@ -1009,7 +987,7 @@ test("resposta de provisionamento da sessão anterior não restaura nomes no nov
   });
   try {
     await readyAccount(await otherContext.newPage());
-    await page.route("**/api/organizations", async (route) => {
+    await page.route("**/api/churches", async (route) => {
       if (route.request().method() !== "POST") return route.continue();
       const response = await route.fetch();
       expect(response.status()).toBe(201);
@@ -1018,14 +996,14 @@ test("resposta de provisionamento da sessão anterior não restaura nomes no nov
       return route.fulfill({ response });
     });
     await page
-      .getByLabel("Nome da organização", { exact: true })
-      .fill("Organização privada da primeira sessão");
+      .getByLabel("Nome da igreja", { exact: true })
+      .fill("Igreja privada da primeira sessão");
     await page
-      .getByLabel("Nome da primeira igreja", { exact: true })
+      .getByLabel("Nome da igreja", { exact: true })
       .fill("Igreja privada da primeira sessão");
     await page
       .getByRole("button", {
-        name: "Criar organização e primeira igreja",
+        name: "Criar igreja",
         exact: true,
       })
       .click();
@@ -1034,20 +1012,20 @@ test("resposta de provisionamento da sessão anterior não restaura nomes no nov
     await context.addCookies(await otherContext.cookies());
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
     await expect(
-      page.getByLabel("Nome da organização", { exact: true }),
+      page.getByLabel("Nome da igreja", { exact: true }),
     ).toHaveValue("");
     gate.release();
     await expect(
       page.getByRole("button", {
-        name: "Criar organização e primeira igreja",
+        name: "Criar igreja",
         exact: true,
       }),
     ).toBeEnabled();
     await expect(
-      page.getByLabel("Nome da organização", { exact: true }),
+      page.getByLabel("Nome da igreja", { exact: true }),
     ).toHaveValue("");
     await expect(
-      page.getByLabel("Nome da primeira igreja", { exact: true }),
+      page.getByLabel("Nome da igreja", { exact: true }),
     ).toHaveValue("");
     await expect(
       page.getByRole("heading", { name: "Visão geral", exact: true }),
@@ -1067,7 +1045,7 @@ test("shell mantém navegação e reflow nas cinco larguras aprovadas", async ({
   for (const width of [360, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     const nav = page.getByRole("navigation", {
-      name: "Navegação da organização",
+      name: "Navegação da igreja",
     });
     await expect(nav).toBeVisible();
     await expect(
@@ -1086,7 +1064,7 @@ test("shell mantém navegação e reflow nas cinco larguras aprovadas", async ({
     await nav.locator("summary").focus();
     await page.keyboard.press("Enter");
     await expect(
-      nav.getByRole("link", { name: "Trocar organização", exact: true }),
+      nav.getByRole("link", { name: "Trocar igreja", exact: true }),
     ).toBeVisible();
     await page.keyboard.press("Enter");
   }

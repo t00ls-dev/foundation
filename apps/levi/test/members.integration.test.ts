@@ -32,12 +32,21 @@ const options = {
   },
 };
 const app = createApp(options);
-function request(path: string, body?: object, cookie = "", key?: string) {
+async function request(path: string, body?: object, cookie = "", key?: string) {
+  let expected = "";
+  if (path.startsWith("/api/members")) {
+    const response = await app.request(
+      new Request(new URL("/api/context", origin), { headers: { cookie } }),
+    );
+    const context = readObject(await response.json());
+    if (typeof context.churchId === "string") expected = context.churchId;
+  }
   return app.request(
     new Request(new URL(path, origin), {
       method: body ? "POST" : "GET",
       headers: {
         origin,
+        "X-Levi-Church": expected,
         cookie,
         "Content-Type": "application/json",
         ...(key ? { "Idempotency-Key": key } : {}),
@@ -86,10 +95,9 @@ async function account(contacts: object = {}) {
     200,
   );
   const provision = await request(
-    "/api/organizations",
+    "/api/churches",
     {
-      organizationName: "Organização sintética de membros",
-      churchName: "Igreja sintética de membros",
+      name: "Igreja sintética de membros",
       ...contacts,
     },
     cookie,
@@ -97,9 +105,17 @@ async function account(contacts: object = {}) {
   );
   assert.equal(provision.status, 201);
   const result = (await provision.json()) as {
-    organizationId: string;
     churchId: string;
   };
+  const backup = randomUUID();
+  await observer.client.query(
+    `INSERT INTO "user"(id,name,email,email_verified,created_at,updated_at) VALUES($1,'Backup',$2,true,now(),now())`,
+    [backup, `${backup}@example.test`],
+  );
+  await observer.client.query(
+    "INSERT INTO church_memberships(church_id,user_id,role) VALUES($1,$2,'admin')",
+    [result.churchId, backup],
+  );
   return { id, cookie, email, ...result };
 }
 type Account = Awaited<ReturnType<typeof account>>;
@@ -120,14 +136,14 @@ async function created(who: Account, input: object = {}) {
   const response = await create(who, input);
   assert.equal(response.status, 201);
   return (await response.json()) as {
-    organizationId: string;
+    churchId: string;
     memberId: string;
   };
 }
 async function count(tenantId: string) {
   return (
     await observer.client.query<Record<string, unknown>>(
-      `SELECT (SELECT count(*)::int FROM members WHERE tenant_id=$1) members, (SELECT count(*)::int FROM member_history WHERE tenant_id=$1) history, (SELECT count(*)::int FROM audit_events WHERE tenant=$1 AND action='member.created') audit, (SELECT count(*)::int FROM member_creation_requests WHERE tenant_id=$1) receipts`,
+      `SELECT (SELECT count(*)::int FROM members WHERE church_id=$1) members, (SELECT count(*)::int FROM member_history WHERE church_id=$1) history, (SELECT count(*)::int FROM audit_events WHERE church_id=$1 AND action='member.created') audit, (SELECT count(*)::int FROM member_creation_requests WHERE church_id=$1) receipts`,
       [tenantId],
     )
   ).rows[0];
@@ -137,7 +153,7 @@ void test("membros PostgreSQL: cadastro mínimo, opcionais, homônimos e contato
   const who = await account();
   const before = (
     await observer.client.query<Record<string, unknown>>(
-      'SELECT (SELECT count(*) FROM "user") users, (SELECT count(*) FROM account) accounts, (SELECT count(*) FROM tenant_memberships) memberships',
+      'SELECT (SELECT count(*) FROM "user") users, (SELECT count(*) FROM account) accounts, (SELECT count(*) FROM church_memberships) memberships',
     )
   ).rows[0];
   const minimal = await created(who);
@@ -189,11 +205,11 @@ void test("membros PostgreSQL: cadastro mínimo, opcionais, homônimos e contato
     assert.equal(value[key], field);
   const afterCounts = (
     await observer.client.query<Record<string, unknown>>(
-      'SELECT (SELECT count(*) FROM "user") users, (SELECT count(*) FROM account) accounts, (SELECT count(*) FROM tenant_memberships) memberships',
+      'SELECT (SELECT count(*) FROM "user") users, (SELECT count(*) FROM account) accounts, (SELECT count(*) FROM church_memberships) memberships',
     )
   ).rows[0];
   assert.deepEqual(afterCounts, before);
-  assert.deepEqual(await count(who.organizationId), {
+  assert.deepEqual(await count(who.churchId), {
     members: 3,
     history: 3,
     audit: 3,
@@ -218,7 +234,7 @@ void test("membros PostgreSQL: cadastro mínimo, opcionais, homônimos e contato
     )
   ).rows[0];
   assert.ok(history);
-  assert.equal(history.tenant_id, who.organizationId);
+  assert.equal(history.church_id, who.churchId);
   assert.equal(history.initial_status, "Inativo");
   assert.equal(history.church_name, "Igreja sintética de membros");
 });
@@ -246,7 +262,7 @@ void test("membros PostgreSQL: anônimo, campos inválidos, igreja obrigatória 
     { churchId: "inválido" },
     { birthDate: "2023-02-29" },
     { id: randomUUID() },
-    { organizationId: second.organizationId },
+    { organizationId: second.churchId },
     { email: "invalido" },
     { churchRole: { role: "admin" } },
   ])
@@ -289,26 +305,26 @@ void test("membros PostgreSQL: anônimo, campos inválidos, igreja obrigatória 
   );
   await assert.rejects(
     observer.client.query(
-      "INSERT INTO members(tenant_id,church_id,name,status) VALUES($1,$2,'Sintético','Ativo')",
-      [first.organizationId, second.churchId],
+      "INSERT INTO members(church_id,name,status) VALUES($1,'Sintético','Ativo')",
+      [randomUUID()],
     ),
     { code: "23503" },
   );
   await assert.rejects(
     observer.client.query(
-      "INSERT INTO members(tenant_id,church_id,name,status) VALUES($1,$2,'Sintético','Outro')",
-      [first.organizationId, first.churchId],
+      "INSERT INTO members(church_id,name,status) VALUES($1,'Sintético','Outro')",
+      [first.churchId],
     ),
     { code: "23514" },
   );
   await assert.rejects(
     observer.client.query(
-      "INSERT INTO member_history(tenant_id,member_id,actor_id,church_name,initial_status) VALUES($1,$2,$3,'Sintética','Ativo')",
-      [first.organizationId, foreign.memberId, first.id],
+      "INSERT INTO member_history(church_id,member_id,actor_id,church_name,initial_status) VALUES($1,$2,$3,'Sintética','Ativo')",
+      [first.churchId, foreign.memberId, first.id],
     ),
     { code: "23503" },
   );
-  assert.deepEqual(await count(first.organizationId), {
+  assert.deepEqual(await count(first.churchId), {
     members: 0,
     history: 0,
     audit: 0,
@@ -322,17 +338,18 @@ void test("membros PostgreSQL: revogação e role desconhecida bloqueiam leitura
   const result = await create(who, {}, key);
   const { memberId } = readObject(await result.json());
   assert.ok(typeof memberId === "string");
-  for (const role of ["unknown", null]) {
-    if (role)
-      await observer.client.query(
-        "UPDATE tenant_memberships SET role=$1 WHERE tenant_id=$2 AND user_id=$3",
-        [role, who.organizationId, who.id],
-      );
-    else
-      await observer.client.query(
-        "DELETE FROM tenant_memberships WHERE tenant_id=$1 AND user_id=$2",
-        [who.organizationId, who.id],
-      );
+  await assert.rejects(
+    observer.client.query(
+      "UPDATE church_memberships SET role='unknown' WHERE church_id=$1 AND user_id=$2",
+      [who.churchId, who.id],
+    ),
+  );
+  for (const role of [null]) {
+    void role;
+    await observer.client.query(
+      "DELETE FROM church_memberships WHERE church_id=$1 AND user_id=$2",
+      [who.churchId, who.id],
+    );
     for (const path of [
       "/api/members",
       `/api/members/${memberId}`,
@@ -341,7 +358,7 @@ void test("membros PostgreSQL: revogação e role desconhecida bloqueiam leitura
       assert.equal((await request(path, undefined, who.cookie)).status, 403);
     assert.equal((await create(who, {}, key)).status, 403);
   }
-  assert.deepEqual(await count(who.organizationId), {
+  assert.deepEqual(await count(who.churchId), {
     members: 1,
     history: 1,
     audit: 1,
@@ -352,13 +369,7 @@ void test("membros PostgreSQL: revogação e role desconhecida bloqueiam leitura
 void test("membros PostgreSQL: filtros literais, ordenação estável e paginação sempre organizacionais", async () => {
   const who = await account();
   const second = await account();
-  const church = (
-    await observer.client.query<{ id: string }>(
-      "INSERT INTO churches(tenant_id,name) VALUES($1,'Outra igreja sintética') RETURNING id",
-      [who.organizationId],
-    )
-  ).rows[0]?.id;
-  assert.ok(church);
+  const church = second.churchId;
   const ids = [];
   for (const name of ["Alfa", "Alfa", "Beta", "100%_literal", "Outra"])
     ids.push(
@@ -366,7 +377,7 @@ void test("membros PostgreSQL: filtros literais, ordenação estável e paginaç
         await created(who, {
           name,
           status: name === "Beta" ? "Inativo" : "Ativo",
-          churchId: name === "Outra" ? church : who.churchId,
+          churchId: who.churchId,
         })
       ).memberId,
     );
@@ -381,7 +392,7 @@ void test("membros PostgreSQL: filtros literais, ordenação estável e paginaç
     assert.equal(response.status, 200);
     const value = readObject(await response.json());
     pages.push(value);
-    assert.equal(value.organizationId, who.organizationId);
+    assert.equal(value.churchId, who.churchId);
     assert.equal(value.hasNext, page < 3);
   }
   const ordered = pages.flatMap((page) =>
@@ -399,7 +410,7 @@ void test("membros PostgreSQL: filtros literais, ordenação estável e paginaç
     ["name=alfa", 2],
     ["name=%25_", 1],
     ["status=Inativo", 1],
-    [`churchId=${church}`, 1],
+    [`churchId=${church}`, 0],
     [`churchId=${church}&name=Alfa`, 0],
     ["page=10", 0],
   ] as const)
@@ -429,7 +440,7 @@ void test("membros PostgreSQL: reenvios concorrentes retornam um membro, histór
   for (const result of results) assert.equal(result.status, 201);
   const bodies = await Promise.all(results.map((result) => result.json()));
   for (const value of bodies) assert.deepEqual(value, bodies[0]);
-  assert.deepEqual(await count(who.organizationId), {
+  assert.deepEqual(await count(who.churchId), {
     members: 1,
     history: 1,
     audit: 1,
@@ -449,12 +460,12 @@ void test("membros PostgreSQL: reenvios concorrentes retornam um membro, histór
     404,
   );
   await observer.client.query(
-    "INSERT INTO tenant_memberships(tenant_id,user_id,role) VALUES($1,$2,'admin')",
-    [who.organizationId, other.id],
+    "INSERT INTO church_memberships(church_id,user_id,role) VALUES($1,$2,'admin')",
+    [who.churchId, other.id],
   );
   await request(
-    "/api/tenant",
-    { organizationId: who.organizationId },
+    "/api/context/church",
+    { churchId: who.churchId },
     other.cookie,
   );
   assert.equal(
@@ -472,9 +483,9 @@ for (const table of [
   void test(`membros PostgreSQL: rollback integral após falha tardia em ${table}`, async () => {
     const who = await account();
     const key = randomUUID();
-    const column = table === "audit_events" ? "tenant" : "tenant_id";
+    const column = table === "audit_events" ? "church_id" : "church_id";
     await observer.client.query(
-      `CREATE FUNCTION fail_member_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.${column}='${who.organizationId}'::uuid THEN RAISE EXCEPTION 'falha sintética'; END IF; RETURN NEW; END; $$`,
+      `CREATE FUNCTION fail_member_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.${column}='${who.churchId}'::uuid THEN RAISE EXCEPTION 'falha sintética'; END IF; RETURN NEW; END; $$`,
     );
     await observer.client.query(
       `CREATE TRIGGER fail_member BEFORE INSERT ON ${table} FOR EACH ROW EXECUTE FUNCTION fail_member_test()`,
@@ -485,7 +496,7 @@ for (const table of [
       assert.ok(
         !JSON.stringify(await response.json()).includes("falha sintética"),
       );
-      assert.deepEqual(await count(who.organizationId), {
+      assert.deepEqual(await count(who.churchId), {
         members: 0,
         history: 0,
         audit: 0,
@@ -496,7 +507,7 @@ for (const table of [
       await observer.client.query("DROP FUNCTION fail_member_test()");
     }
     assert.equal((await create(who, {}, key)).status, 201);
-    assert.deepEqual(await count(who.organizationId), {
+    assert.deepEqual(await count(who.churchId), {
       members: 1,
       history: 1,
       audit: 1,
@@ -546,7 +557,7 @@ void test("membros PostgreSQL: datas DATE não mudam com fuso da sessão e hist�
   );
   // Prova de FK/cascade em banco sintético; nenhuma API de exclusão é introduzida.
   await observer.client.query("DELETE FROM members WHERE id=$1", [memberId]);
-  assert.deepEqual(await count(who.organizationId), {
+  assert.deepEqual(await count(who.churchId), {
     members: 0,
     history: 0,
     audit: 1,
@@ -574,6 +585,7 @@ void test("membros PostgreSQL: disponibilidade padrão exige sessão e permite c
           headers: {
             Origin: origin,
             Cookie: who.cookie,
+            "X-Levi-Church": who.churchId,
             "Content-Type": "application/json",
             "Idempotency-Key": randomUUID(),
           },
@@ -614,6 +626,7 @@ void test("membros PostgreSQL: cadastro e ficha preservam datas com fusos difere
           headers: {
             origin,
             cookie: who.cookie,
+            "X-Levi-Church": who.churchId,
             "Content-Type": "application/json",
             "Idempotency-Key": randomUUID(),
           },
@@ -648,7 +661,7 @@ void test("membros PostgreSQL: cadastro e ficha preservam datas com fusos difere
       },
     );
   }
-  assert.deepEqual(await count(who.organizationId), {
+  assert.deepEqual(await count(who.churchId), {
     members: 3,
     history: 3,
     audit: 3,
@@ -664,7 +677,7 @@ for (const revoke of ["session", "membership", "context"] as const)
     await blocker.client.query("BEGIN");
     await blocker.client.query(
       "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
-      [JSON.stringify([who.organizationId, who.id, key])],
+      [JSON.stringify([who.churchId, who.id, key])],
     );
     const pending = create(who, {}, key);
     try {
@@ -689,20 +702,23 @@ for (const revoke of ["session", "membership", "context"] as const)
         ]);
       else if (revoke === "membership")
         await observer.client.query(
-          "DELETE FROM tenant_memberships WHERE tenant_id=$1 AND user_id=$2",
-          [who.organizationId, who.id],
+          "DELETE FROM church_memberships WHERE church_id=$1 AND user_id=$2",
+          [who.churchId, who.id],
         );
       else
         await observer.client.query(
-          "UPDATE tenant_sessions SET active_tenant_id=NULL WHERE session_id IN (SELECT id FROM session WHERE user_id=$1)",
+          "UPDATE church_sessions SET active_church_id=NULL WHERE session_id IN (SELECT id FROM session WHERE user_id=$1)",
           [who.id],
         );
     } finally {
       await blocker.client.query("ROLLBACK");
       await blocker.client.end();
     }
-    assert.equal((await pending).status, revoke === "session" ? 401 : 403);
-    assert.deepEqual(await count(who.organizationId), {
+    assert.equal(
+      (await pending).status,
+      revoke === "session" ? 401 : revoke === "context" ? 409 : 403,
+    );
+    assert.deepEqual(await count(who.churchId), {
       members: 0,
       history: 0,
       audit: 0,
@@ -730,6 +746,8 @@ void test("edição: allowlist, isolamento, versão, persistência e histórico/
         headers: {
           origin: originHeader,
           cookie,
+          "X-Levi-Church":
+            cookie === who.cookie ? who.churchId : other.churchId,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(body),
@@ -758,7 +776,7 @@ void test("edição: allowlist, isolamento, versão, persistência e histórico/
     403,
   );
   for (const forbidden of [
-    "tenant_id",
+    "church_id",
     "tenantId",
     "id",
     "churchId",
@@ -798,7 +816,7 @@ void test("edição: allowlist, isolamento, versão, persistência e histórico/
   ).rows[0];
   assert.ok(stored && before);
   assert.equal(stored.version, 2);
-  for (const column of ["id", "tenant_id", "church_id", "status", "created_at"])
+  for (const column of ["id", "church_id", "church_id", "status", "created_at"])
     assert.deepEqual(stored[column], before[column]);
   const history = (
     await observer.client.query<Record<string, unknown>>(
@@ -856,45 +874,41 @@ void test("edição: allowlist, isolamento, versão, persistência e histórico/
     );
     await observer.client.query("DROP FUNCTION fail_profile_audit()");
   }
-  await observer.client.query(
-    "UPDATE tenant_memberships SET role='unknown' WHERE tenant_id=$1 AND user_id=$2",
-    [who.organizationId, who.id],
+  await assert.rejects(
+    observer.client.query(
+      "UPDATE church_memberships SET role='unknown' WHERE church_id=$1 AND user_id=$2",
+      [who.churchId, who.id],
+    ),
   );
-  assert.equal((await edit({ ...profile, version: 2 })).status, 403);
   await observer.client.query(
-    "DELETE FROM tenant_memberships WHERE tenant_id=$1 AND user_id=$2",
-    [who.organizationId, who.id],
+    "DELETE FROM church_memberships WHERE church_id=$1 AND user_id=$2",
+    [who.churchId, who.id],
   );
   assert.equal((await edit({ ...profile, version: 2 })).status, 403);
 });
 
 void test("onboarding: contatos da igreja opcionais persistem normalizados e são isolados", async () => {
   const who = await account({
-    churchAddress: " Endereço sintético ",
-    churchPhone: " 00 0000-0000 ",
-    churchEmail: " igreja@example.test ",
+    address: " Endereço sintético ",
+    phone: " 00 0000-0000 ",
+    email: " igreja@example.test ",
   });
-  const response = await request("/api/churches", undefined, who.cookie);
+  const response = await request(
+    `/api/churches/${who.churchId}`,
+    undefined,
+    who.cookie,
+  );
   assert.equal(response.status, 200);
   const result = readObject(await response.json());
-  assert.equal(result.organizationId, who.organizationId);
-  assert.equal(
-    readObject(readObjects(result.churches)[0]).address,
-    "Endereço sintético",
-  );
-  assert.equal(
-    readObject(readObjects(result.churches)[0]).phone,
-    "00 0000-0000",
-  );
-  assert.equal(
-    readObject(readObjects(result.churches)[0]).email,
-    "igreja@example.test",
-  );
+  assert.equal(result.id, who.churchId);
+  assert.equal(result.address, "Endereço sintético");
+  assert.equal(result.phone, "00 0000-0000");
+  assert.equal(result.email, "igreja@example.test");
   const other = await account();
   assert.equal(
     (await request(`/api/churches/${who.churchId}`, undefined, other.cookie))
       .status,
-    404,
+    403,
   );
   assert.equal(
     (

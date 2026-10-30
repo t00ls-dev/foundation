@@ -71,16 +71,12 @@ void test("cliente usa caminhos relativos, cookies de mesma origem e contrato id
     });
     return Promise.resolve(
       Response.json({
-        organizationId: "11111111-1111-4111-8111-111111111111",
         churchId: "22222222-2222-4222-8222-222222222222",
       }),
     );
   };
-  await api.provision(
-    { organizationName: "Organização", churchName: "Igreja" },
-    "synthetic-request-key",
-  );
-  assert.equal(calls[0]?.path, "/api/organizations");
+  await api.provision({ churchName: "Igreja" }, "synthetic-request-key");
+  assert.equal(calls[0]?.path, "/api/churches");
   assert.equal(calls[0]?.init?.credentials, "same-origin");
   assert.equal(
     new Headers(calls[0]?.init?.headers).get("Idempotency-Key"),
@@ -88,7 +84,12 @@ void test("cliente usa caminhos relativos, cookies de mesma origem e contrato id
   );
   assert.equal(
     calls[0]?.init?.body,
-    JSON.stringify({ organizationName: "Organização", churchName: "Igreja" }),
+    JSON.stringify({
+      name: "Igreja",
+      address: undefined,
+      phone: undefined,
+      email: undefined,
+    }),
   );
 });
 
@@ -138,17 +139,30 @@ void test("contratos inesperados não abrem uma etapa ou organização", async (
   );
 });
 
-void test("listagem de igrejas exige o identificador do contexto consultado", async () => {
-  const organizationId = "11111111-1111-4111-8111-111111111111";
-  globalThis.fetch = async () =>
-    Promise.resolve(Response.json({ organizationId, churches: [] }));
-  assert.deepEqual(await api.churches(), { organizationId, churches: [] });
-  globalThis.fetch = async () =>
-    Promise.resolve(Response.json({ churches: [] }));
-  await assert.rejects(
-    api.churches(),
-    (error: unknown) => error instanceof ApiError && error.status === 502,
-  );
+void test("consulta de igreja exige contexto capturado e identificador correspondente", async () => {
+  const churchId = "11111111-1111-4111-8111-111111111111";
+  await assert.rejects(api.churches());
+  globalThis.fetch = () =>
+    Promise.resolve(
+      Response.json({
+        churchId,
+        churchName: "Igreja",
+        role: "collaborator",
+        membersEnabled: true,
+      }),
+    );
+  await api.context();
+  globalThis.fetch = () =>
+    Promise.resolve(Response.json({ id: churchId, nome: "Igreja" }));
+  assert.deepEqual(await api.churches(), {
+    churchId,
+    churches: [
+      { id: churchId, nome: "Igreja", address: null, phone: null, email: null },
+    ],
+  });
+  globalThis.fetch = () =>
+    Promise.resolve(Response.json({ nome: "Sem identificador" }));
+  await assert.rejects(api.churches());
 });
 
 for (const [headers, seconds] of [
@@ -202,7 +216,7 @@ void test("espera de leitura permite seleção e logout, sem retry de autentica�
     const url = path instanceof Request ? path.url : path.toString();
     calls.push(url);
     return Promise.resolve(
-      url === "/api/tenant" || url === "/api/auth/sign-out"
+      url === "/api/context/church" || url === "/api/auth/sign-out"
         ? Response.json({ ok: true })
         : Response.json({}, { status: 429, headers: { "Retry-After": "20" } }),
     );
@@ -212,21 +226,17 @@ void test("espera de leitura permite seleção e logout, sem retry de autentica�
   for (const task of [
     () => api.email("synthetic@example.test"),
     () => api.login("synthetic@example.test", "synthetic-password"),
-    () =>
-      api.provision(
-        { organizationName: "Sintética", churchName: "Sintética" },
-        "synthetic-request-key",
-      ),
+    () => api.provision({ churchName: "Sintética" }, "synthetic-request-key"),
   ]) {
     await assert.rejects(task());
     await assert.rejects(task());
   }
   assert.deepEqual(calls, [
     "/api/onboarding",
-    "/api/tenant",
+    "/api/context/church",
     "/api/onboarding/email",
     "/api/auth/sign-in/email",
-    "/api/organizations",
+    "/api/churches",
   ]);
   await api.logout();
   assert.equal(calls.at(-1), "/api/auth/sign-out");
@@ -275,17 +285,16 @@ void test("cliente administrativo valida catálogo e não aceita políticas ou i
   const { adminApi } = await import("../web/src/admin-api.js");
   const signal = new AbortController().signal;
   for (const features of [
-    [{ key: "arbitrary", policy: "all", version: 1, organizationIds: [] }],
-    [{ key: "members", policy: "selected", version: 1, organizationIds: [] }],
+    [{ key: "arbitrary", policy: "all", version: 1, churchIds: [] }],
     [
       {
         key: "members",
         policy: "disabled",
         version: 1,
-        organizationIds: ["11111111-1111-4111-8111-111111111111"],
+        churchIds: ["11111111-1111-4111-8111-111111111111"],
       },
     ],
-    [{ key: "members", policy: "all", version: -1, organizationIds: [] }],
+    [{ key: "members", policy: "all", version: -1, churchIds: [] }],
   ]) {
     globalThis.fetch = async () => Promise.resolve(Response.json({ features }));
     await assert.rejects(
@@ -318,7 +327,7 @@ void test("cliente administrativo mantém versões e confirmação, sem gestão 
     return Promise.resolve(Response.json({}));
   };
   await adminApi.update(
-    { key: "members", policy: "all", version: 3, organizationIds: [] },
+    { key: "members", policy: "all", version: 3, churchIds: [] },
     signal,
   );
   assert.deepEqual(body, {
@@ -423,4 +432,19 @@ void test("troca de sessão descarta somente chaves transitórias do Levi", () =
     },
   });
   assert.deepEqual([...values], [["unrelated", "preservar"]]);
+});
+
+void test("política selecionada preservada na conversão pode não ter igrejas correspondentes", async () => {
+  const { adminApi } = await import("../web/src/admin-api.js");
+  globalThis.fetch = () =>
+    Promise.resolve(
+      Response.json({
+        features: [
+          { key: "members", policy: "selected", version: 3, churchIds: [] },
+        ],
+      }),
+    );
+  assert.deepEqual(await adminApi.features(new AbortController().signal), [
+    { key: "members", policy: "selected", version: 3, churchIds: [] },
+  ]);
 });

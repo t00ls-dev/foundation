@@ -1,3 +1,4 @@
+import { seedChurchRows, revokeChurchAccess } from "./helpers.js";
 import { test, expect, type Page } from "@playwright/test";
 import { AxeBuilder } from "@axe-core/playwright";
 import { createPostgresDatabase } from "@t00ls-dev/db/postgres";
@@ -20,11 +21,11 @@ test.afterAll(async () => {
 test.use({ timezoneId: "Pacific/Kiritimati" });
 async function openMembers(page: Page) {
   const email = await readyAccount(page);
-  await provision(page, "Organização sintética de pessoas");
+  await provision(page, "Igreja sintética de pessoas");
   await showOrganizations(page);
   await page
     .getByRole("button", {
-      name: "Acessar organização Organização sintética de pessoas",
+      name: "Acessar igreja Igreja sintética de pessoas",
       exact: true,
     })
     .click();
@@ -39,21 +40,20 @@ async function openMembers(page: Page) {
     )
   ).rows[0]!;
   const tenant = (
-    await observer.client.query<{ tenant_id: string }>(
-      "SELECT tenant_id FROM tenant_memberships WHERE user_id=$1",
+    await observer.client.query<{ church_id: string }>(
+      "SELECT church_id FROM church_memberships WHERE user_id=$1",
       [user.id],
     )
   ).rows[0]!;
   const church = (
     await observer.client.query<{ id: string }>(
-      "SELECT id FROM churches WHERE tenant_id=$1",
-      [tenant.tenant_id],
+      "SELECT id FROM churches WHERE id=$1",
+      [tenant.church_id],
     )
   ).rows[0]!;
   return {
     email,
     userId: user.id,
-    organizationId: tenant.tenant_id,
     churchId: church.id,
   };
 }
@@ -192,6 +192,7 @@ test("membros: cadastro mínimo, paginação e nenhuma persistência pessoal no 
       headers: {
         Origin: new URL(page.url()).origin,
         "Idempotency-Key": randomUUID(),
+        "X-Levi-Church": who.churchId,
       },
       data: {
         name: `Pessoa sintética ${String(index).padStart(2, "0")}`,
@@ -274,8 +275,8 @@ test("membros: resposta perdida após commit é recuperada no refresh sem duplic
   ).toBeVisible();
   const count = (
     await observer.client.query<{ count: number }>(
-      "SELECT count(*)::int AS count FROM members WHERE tenant_id=$1",
-      [who.organizationId],
+      "SELECT count(*)::int AS count FROM members WHERE church_id=$1",
+      [who.churchId],
     )
   ).rows[0]!.count;
   expect(count).toBe(1);
@@ -285,36 +286,31 @@ test("membros: troca organizacional e revogação removem ficha e listagem anter
   page,
 }) => {
   const who = await openMembers(page);
-  await startCreate(page, "Pessoa da primeira organização");
+  await startCreate(page, "Pessoa da primeira igreja");
   await page
     .getByRole("button", { name: "Salvar membro", exact: true })
     .click();
   await expect(
-    page.getByText("Pessoa da primeira organização", { exact: true }),
+    page.getByText("Pessoa da primeira igreja", { exact: true }),
   ).toBeVisible();
   const tenant = (
-    await observer.client.query<{ id: string }>(
-      "INSERT INTO tenants(name) VALUES('Outra organização de pessoas') RETURNING id",
-    )
+    await seedChurchRows(observer, "Outra igreja de pessoas", who.userId)
   ).rows[0]!;
+  await observer.client.query("SELECT id FROM churches WHERE id=$1", [
+    tenant.id,
+  ]);
   await observer.client.query(
-    "INSERT INTO churches(tenant_id,name) VALUES($1,'Outra igreja de pessoas')",
-    [tenant.id],
-  );
-  await observer.client.query(
-    "INSERT INTO tenant_memberships(tenant_id,user_id,role) VALUES($1,$2,'admin')",
+    "INSERT INTO church_memberships(church_id,user_id,role) VALUES($1,$2,'admin') ON CONFLICT(church_id,user_id) DO NOTHING",
     [tenant.id, who.userId],
   );
   await page.locator(".navigation-more summary").click();
-  await page
-    .getByRole("link", { name: "Trocar organização", exact: true })
-    .click();
+  await page.getByRole("link", { name: "Trocar igreja", exact: true }).click();
   await expect(
-    page.getByText("Pessoa da primeira organização", { exact: true }),
+    page.getByText("Pessoa da primeira igreja", { exact: true }),
   ).toHaveCount(0);
   await page
     .getByRole("button", {
-      name: "Acessar organização Outra organização de pessoas",
+      name: "Acessar igreja Outra igreja de pessoas",
       exact: true,
     })
     .click();
@@ -323,25 +319,22 @@ test("membros: troca organizacional e revogação removem ficha e listagem anter
     page.getByText("Nenhum membro cadastrado.", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("Pessoa da primeira organização", { exact: true }),
+    page.getByText("Pessoa da primeira igreja", { exact: true }),
   ).toHaveCount(0);
-  await startCreate(page, "Pessoa da segunda organização");
+  await startCreate(page, "Pessoa da segunda igreja");
   await page
     .getByRole("button", { name: "Salvar membro", exact: true })
     .click();
   await expect(
-    page.getByText("Pessoa da segunda organização", { exact: true }),
+    page.getByText("Pessoa da segunda igreja", { exact: true }),
   ).toBeVisible();
-  await observer.client.query(
-    "DELETE FROM tenant_memberships WHERE tenant_id=$1 AND user_id=$2",
-    [tenant.id, who.userId],
-  );
+  await revokeChurchAccess(observer, tenant.id, who.userId);
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(
-    page.getByRole("heading", { name: "Suas organizações", exact: true }),
+    page.getByRole("heading", { name: "Suas igrejas", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("Pessoa da segunda organização", { exact: true }),
+    page.getByText("Pessoa da segunda igreja", { exact: true }),
   ).toHaveCount(0);
 });
 
@@ -361,14 +354,14 @@ test("membros: resposta de tenant divergente e perda de sessão não mantêm dad
     const data = (await response.json()) as Record<string, unknown>;
     await route.fulfill({
       response,
-      json: { ...data, organizationId: randomUUID() },
+      json: { ...data, churchId: randomUUID() },
     });
   });
   await page
     .getByRole("link", { name: "Voltar aos membros", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Suas organizações", exact: true }),
+    page.getByRole("heading", { name: "Suas igrejas", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByText("Pessoa protegida sintética", { exact: true }),
@@ -376,7 +369,7 @@ test("membros: resposta de tenant divergente e perda de sessão não mantêm dad
   await page.unroute("**/api/members?*");
   await page
     .getByRole("button", {
-      name: "Acessar organização Organização sintética de pessoas",
+      name: "Acessar igreja Igreja sintética de pessoas",
       exact: true,
     })
     .click();
@@ -405,7 +398,7 @@ test("membros: capacidade desabilitada remove dados e navegação e impede abert
   await expect(
     page.getByText("Pessoa sintética com acesso removido", { exact: true }),
   ).toBeVisible();
-  // Teste do contrato visual: a política real por organização é exercitada em workerd.
+  // Teste do contrato visual: a política real por igreja é exercitada em workerd.
   await page.route("**/api/context", async (route) => {
     const response = await route.fetch();
     const context = (await response.json()) as Record<string, unknown>;
@@ -416,27 +409,27 @@ test("membros: capacidade desabilitada remove dados e navegação e impede abert
   });
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(
-    page.getByRole("heading", { name: "Suas organizações", exact: true }),
+    page.getByRole("heading", { name: "Suas igrejas", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByText("Pessoa sintética com acesso removido", { exact: true }),
   ).toHaveCount(0);
   await page
     .getByRole("button", {
-      name: "Acessar organização Organização sintética de pessoas",
+      name: "Acessar igreja Igreja sintética de pessoas",
       exact: true,
     })
     .click();
   await page.locator(".navigation-more summary").click();
   await expect(
-    page.getByRole("link", { name: "Trocar organização", exact: true }),
+    page.getByRole("link", { name: "Trocar igreja", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Membros", exact: true }),
   ).toHaveCount(0);
   await page.goto("/membros");
   await expect(
-    page.getByRole("heading", { name: "Suas organizações", exact: true }),
+    page.getByRole("heading", { name: "Suas igrejas", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByText("Pessoa sintética com acesso removido", { exact: true }),
@@ -472,8 +465,8 @@ test("membros: Enter não grava, confirmação explícita, erros locais e ediç�
   expect(
     (
       await observer.client.query<{ n: number }>(
-        "SELECT count(*)::int n FROM members WHERE tenant_id=$1",
-        [who.organizationId],
+        "SELECT count(*)::int n FROM members WHERE church_id=$1",
+        [who.churchId],
       )
     ).rows[0]!.n,
   ).toBe(0);
@@ -548,7 +541,7 @@ test("membros: Enter não grava, confirmação explícita, erros locais e ediç�
       version: number;
       phone: string | null;
       church_id: string;
-    }>("SELECT * FROM members WHERE tenant_id=$1", [who.organizationId])
+    }>("SELECT * FROM members WHERE church_id=$1", [who.churchId])
   ).rows;
   expect(saved).toHaveLength(1);
   expect(saved[0]!.version).toBe(2);
@@ -560,8 +553,8 @@ test("membros: Enter não grava, confirmação explícita, erros locais e ediç�
   await expect(name).toHaveValue("Pessoa com cadastro atualizado");
   await name.fill("Rascunho em conflito");
   await observer.client.query(
-    "UPDATE members SET version=version+1 WHERE tenant_id=$1",
-    [who.organizationId],
+    "UPDATE members SET version=version+1 WHERE church_id=$1",
+    [who.churchId],
   );
   await page
     .getByRole("button", { name: "Salvar alterações", exact: true })
@@ -573,8 +566,8 @@ test("membros: Enter não grava, confirmação explícita, erros locais e ediç�
   expect(
     (
       await observer.client.query<{ name: string }>(
-        "SELECT name FROM members WHERE tenant_id=$1",
-        [who.organizationId],
+        "SELECT name FROM members WHERE church_id=$1",
+        [who.churchId],
       )
     ).rows[0]!.name,
   ).toBe("Pessoa com cadastro atualizado");
@@ -634,8 +627,8 @@ test("membros: cliques repetidos produzem uma única gravação e uma única fic
   expect(
     (
       await observer.client.query<{ n: number }>(
-        "SELECT count(*)::int n FROM members WHERE tenant_id=$1",
-        [who.organizationId],
+        "SELECT count(*)::int n FROM members WHERE church_id=$1",
+        [who.churchId],
       )
     ).rows[0]!.n,
   ).toBe(1);
@@ -663,7 +656,7 @@ test("interface: navegação, listas e formulários em largura estreita e texto 
   });
   await page.getByRole("link", { name: "Igrejas", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Igrejas da organização", exact: true }),
+    page.getByRole("heading", { name: "Igreja selecionada", exact: true }),
   ).toBeVisible();
   await page.screenshot({
     path: join(tmpdir(), `levi-ui-e2e/${info.project.name}-igrejas.png`),
@@ -775,10 +768,7 @@ test("membros: edição com vínculo revogado é negada e remove o rascunho prot
   await page
     .getByLabel("Nome (obrigatório)", { exact: true })
     .fill("Alteração sem autorização");
-  await observer.client.query(
-    "DELETE FROM tenant_memberships WHERE tenant_id=$1 AND user_id=$2",
-    [who.organizationId, who.userId],
-  );
+  await revokeChurchAccess(observer, who.churchId, who.userId);
   await page
     .getByRole("button", { name: "Salvar alterações", exact: true })
     .click();
@@ -793,8 +783,8 @@ test("membros: edição com vínculo revogado é negada e remove o rascunho prot
   ).toHaveCount(0);
   const stored = (
     await observer.client.query<{ name: string; version: number }>(
-      "SELECT name,version FROM members WHERE tenant_id=$1",
-      [who.organizationId],
+      "SELECT name,version FROM members WHERE church_id=$1",
+      [who.churchId],
     )
   ).rows[0]!;
   expect(stored.name).toBe("Pessoa preservada após revogação");
@@ -805,9 +795,9 @@ test("interface: contraste da ficha, nomes longos, tablets e texto a 200%", asyn
   page,
 }) => {
   const account = await openMembers(page);
-  await observer.client.query("UPDATE tenants SET name=$1 WHERE id=$2", [
-    "Organização de comunidades com um nome institucional muito longo para navegação em tablets",
-    account.organizationId,
+  await observer.client.query("UPDATE churches SET name=$1 WHERE id=$2", [
+    "Igreja de comunidades com um nome institucional muito longo para navegação em tablets",
+    account.churchId,
   ]);
   await startCreate(
     page,
@@ -881,15 +871,17 @@ test("igreja: atalho filtra membros, reload mantém ID e vazio permite limpar re
 }) => {
   const who = await openMembers(page);
   const other = (
-    await observer.client.query<{ id: string }>(
-      "INSERT INTO churches(tenant_id,name) VALUES($1,'Outra igreja sintética') RETURNING id",
-      [who.organizationId],
-    )
+    await seedChurchRows(observer, "Outra igreja sintética", who.userId)
   ).rows[0]!;
+  await page.request.post("/api/context/church", {
+    headers: { Origin: new URL(page.url()).origin },
+    data: { churchId: other.id },
+  });
   const created = await page.request.post("/api/members", {
     headers: {
       Origin: new URL(page.url()).origin,
       "Idempotency-Key": randomUUID(),
+      "X-Levi-Church": other.id,
     },
     data: {
       name: "Pessoa da outra igreja",
@@ -898,9 +890,13 @@ test("igreja: atalho filtra membros, reload mantém ID e vazio permite limpar re
     },
   });
   expect(created.status()).toBe(201);
+  await page.request.post("/api/context/church", {
+    headers: { Origin: new URL(page.url()).origin },
+    data: { churchId: who.churchId },
+  });
   await page.getByRole("link", { name: "Igrejas", exact: true }).click();
   const shortcut = page.getByRole("link", {
-    name: "Consultar membros de Primeira igreja sintética",
+    name: "Consultar membros de Igreja sintética de pessoas",
     exact: true,
   });
   await expect(shortcut).toHaveAttribute(
@@ -936,6 +932,17 @@ test("igreja: atalho filtra membros, reload mantém ID e vazio permite limpar re
     .getByRole("button", { name: "Limpar filtros", exact: true })
     .click();
   await expect(page).toHaveURL(/\/membros$/);
+  await expect(
+    page.getByText("Pessoa da outra igreja", { exact: true }),
+  ).toHaveCount(0);
+  await showOrganizations(page);
+  await page
+    .getByRole("button", {
+      name: "Acessar igreja Outra igreja sintética",
+      exact: true,
+    })
+    .click();
+  await page.getByRole("link", { name: "Membros", exact: true }).click();
   await expect(
     page.getByRole("link", {
       name: "Consultar ficha de Pessoa da outra igreja",
@@ -1003,15 +1010,15 @@ test("sessão: duas contas no mesmo tenant descartam rascunho e filtro da conta 
     ).rows[0];
     if (!user) throw new Error("Conta sintética ausente.");
     await observer.client.query(
-      "INSERT INTO tenant_memberships(tenant_id,user_id,role) VALUES($1,$2,'admin')",
-      [who.organizationId, user.id],
+      "INSERT INTO church_memberships(church_id,user_id,role) VALUES($1,$2,'admin') ON CONFLICT(church_id,user_id) DO NOTHING",
+      [who.churchId, user.id],
     );
     const cookies = await otherContext.cookies();
     await context.clearCookies();
     await context.addCookies(cookies);
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
     await expect(
-      page.getByRole("heading", { name: "Suas organizações", exact: true }),
+      page.getByRole("heading", { name: "Suas igrejas", exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("form", { name: "Cadastrar membro", exact: true }),
@@ -1021,7 +1028,7 @@ test("sessão: duas contas no mesmo tenant descartam rascunho e filtro da conta 
     ).toHaveCount(0);
     await page
       .getByRole("button", {
-        name: "Acessar organização Organização sintética de pessoas",
+        name: "Acessar igreja Igreja sintética de pessoas",
         exact: true,
       })
       .click();
@@ -1080,7 +1087,7 @@ test("sessão: resposta atrasada da mesma conta em sessão anterior não restaur
   expect(login.status()).toBe(200);
   gate.release();
   await expect(
-    page.getByRole("heading", { name: "Suas organizações", exact: true }),
+    page.getByRole("heading", { name: "Suas igrejas", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", {
@@ -1091,7 +1098,7 @@ test("sessão: resposta atrasada da mesma conta em sessão anterior não restaur
   await page.unroute("**/api/members?*");
   await page
     .getByRole("button", {
-      name: "Acessar organização Organização sintética de pessoas",
+      name: "Acessar igreja Igreja sintética de pessoas",
       exact: true,
     })
     .click();

@@ -40,15 +40,16 @@
 
 ## Autenticação, isolamento e integridade
 
-- Separe autenticação de autorização. Valide sessão, vínculo organizacional atual
+- Separe autenticação de autorização. Valide sessão, vínculo atual por igreja
   e acesso ao recurso no servidor; IDs e contexto enviados pelo cliente não
   concedem autoridade.
-- Organização é a fronteira de tenant. Todo acesso a dados de domínio deve
+- Igreja é a fronteira operacional. Todo acesso a dados de domínio deve
   carregar e validar esse contexto, inclusive buscas, contagens e histórico.
-  Igreja é contexto funcional dentro da organização, sem permissões locais no MVP.
+  Os papéis por igreja são admin e collaborator; administração global não concede
+  acesso local. Escritas revalidam autoridade na transação e preservam o último admin.
 - Membro e conta de usuário são independentes; contato ou função eclesiástica não
   cria vínculo de login nem concede privilégios.
-- Preserve as invariantes documentadas: integridade organizacional, UUID de
+- Preserve as invariantes documentadas: integridade por igreja, UUID de
   servidor e operações relacionadas atômicas. Não suponha que adapters genéricos
   assegurem sozinhos transações, isolamento ou regras do Levi.
 - Separe histórico pessoal eliminável de auditoria técnica mínima. Minimize dados

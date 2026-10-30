@@ -36,7 +36,7 @@ async function administrator(page: Page) {
   }
 }
 
-test("painel exige guard HTTP real, funciona sem organização e mantém navegação completa", async ({
+test("painel exige guard HTTP real, funciona sem igreja e mantém navegação completa", async ({
   page,
   context,
 }) => {
@@ -93,15 +93,15 @@ test("painel exige guard HTTP real, funciona sem organização e mantém navega�
 test("políticas selected/all/disabled exigem seleção e confirmação e preservam versões", async ({
   page,
 }) => {
-  await administrator(page);
+  const actor = await administrator(page);
   const database = await fixture();
   const orgId = randomUUID();
-  const name = `Organização ${orgId}`;
+  const name = `Igreja ${orgId}`;
   try {
-    await database.client.query("INSERT INTO tenants(id,name) VALUES($1,$2)", [
-      orgId,
-      name,
-    ]);
+    await database.client.query(
+      `WITH added AS (INSERT INTO churches(id,name) VALUES($1,$2) RETURNING id) INSERT INTO church_memberships(church_id,user_id,role) SELECT id,'${actor.id}'::uuid,'admin' FROM added`,
+      [orgId, name],
+    );
     await page.goto("/admin");
     page.on("dialog", (dialog) => dialog.accept());
     await page
@@ -126,7 +126,7 @@ test("políticas selected/all/disabled exigem seleção e confirmação e preser
     await expect(save).toBeDisabled();
     await page
       .getByRole("checkbox", {
-        name: "Confirmo habilitar esta funcionalidade para todas as organizações.",
+        name: "Confirmo habilitar esta funcionalidade para todas as igrejas.",
       })
       .check();
     await save.click();
@@ -138,7 +138,7 @@ test("políticas selected/all/disabled exigem seleção e confirmação e preser
       .selectOption("all");
     await page
       .getByRole("checkbox", {
-        name: "Confirmo habilitar esta funcionalidade para todas as organizações.",
+        name: "Confirmo habilitar esta funcionalidade para todas as igrejas.",
       })
       .check();
     await save.click();

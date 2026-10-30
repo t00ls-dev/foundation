@@ -33,8 +33,7 @@ after(async () => {
   );
 });
 const body = {
-  organizationName: "Organização sintética Worker",
-  churchName: "Igreja sintética Worker",
+  name: "Igreja sintética Worker",
 };
 
 async function verified() {
@@ -105,12 +104,11 @@ async function ready() {
 async function provisioned() {
   const account = await ready();
   const key = randomUUID();
-  const response = await send("/api/organizations", body, account.cookie, {
+  const response = await send("/api/churches", body, account.cookie, {
     "Idempotency-Key": key,
   });
   assert.equal(response.status, 201);
   const result = (await response.json()) as {
-    organizationId: string;
     churchId: string;
   };
   return { ...account, ...result, key };
@@ -136,30 +134,20 @@ void test("workerd: leitura contextual usa sessão real, não bloqueia outra con
       [keys[i], new Date(start + (i + 1) * 60_000)],
     );
   try {
-    const blocked = await send(
-      "/api/organizations",
-      undefined,
-      first.cookie,
-      ip,
-    );
+    const blocked = await send("/api/churches", undefined, first.cookie, ip);
     assert.equal(blocked.status, 429);
     assert.ok(Number(blocked.headers.get("retry-after")) > 0);
     assert.equal(blocked.headers.get("ratelimit-limit"), "300");
     assert.equal(blocked.headers.get("cache-control"), "private, no-store");
     assert.equal(blocked.headers.get("referrer-policy"), "no-referrer");
-    const allowed = await send(
-      "/api/organizations",
-      undefined,
-      second.cookie,
-      ip,
-    );
+    const allowed = await send("/api/churches", undefined, second.cookie, ip);
     assert.equal(allowed.status, 200);
     assert.equal(allowed.headers.get("ratelimit-limit"), "300");
     assert.equal(
       (await send("/api/auth/sign-out", {}, first.cookie, ip)).status,
       200,
     );
-    const revoked = await send("/api/organizations", undefined, first.cookie, {
+    const revoked = await send("/api/churches", undefined, first.cookie, {
       ...ip,
       "x-user-id": second.id,
     });
@@ -224,14 +212,14 @@ for (const failDelete of [false, true])
         assert.equal(
           (
             await observer.client.query(
-              "SELECT session_id FROM tenant_sessions WHERE active_tenant_id=$1",
-              [account.organizationId],
+              "SELECT session_id FROM church_sessions WHERE active_church_id=$1",
+              [account.churchId],
             )
           ).rowCount,
           0,
         );
         assert.equal(
-          (await send("/api/organizations", undefined, account.cookie)).status,
+          (await send("/api/churches", undefined, account.cookie)).status,
           401,
         );
       }
@@ -257,7 +245,7 @@ void test("workerd: HEAD usa leitura de GET, preserva corpo vazio e não contorn
   );
   const ip = { "cf-connecting-ip": "192.0.2.214" };
   const head = (cookie: string) =>
-    mf.dispatchFetch(`${workerOrigin}/api/organizations`, {
+    mf.dispatchFetch(`${workerOrigin}/api/churches`, {
       method: "HEAD",
       headers: { origin: workerOrigin, cookie, ...ip },
     });
@@ -273,7 +261,7 @@ void test("workerd: HEAD usa leitura de GET, preserva corpo vazio e não contorn
         [keys[i], new Date(start + (i + 1) * 60_000)],
       );
     for (const response of [
-      await send("/api/organizations", undefined, account.cookie, ip),
+      await send("/api/churches", undefined, account.cookie, ip),
       await head(account.cookie),
     ]) {
       assert.equal(response.status, 429);
@@ -377,7 +365,7 @@ void test("workerd: onboarding público, dois e-mails, prontidão, cookies e cal
   const account = await verified();
   assert.equal(
     (
-      await send("/api/organizations", body, account.cookie, {
+      await send("/api/churches", body, account.cookie, {
         "Idempotency-Key": randomUUID(),
       })
     ).status,
@@ -430,7 +418,7 @@ void test("workerd: onboarding público, dois e-mails, prontidão, cookies e cal
   assert.equal(login.status, 200);
   assert.ok(cookieFrom(login));
   assert.equal(
-    (await send("/api/organizations", undefined, account.cookie)).status,
+    (await send("/api/churches", undefined, account.cookie)).status,
     401,
   );
   assert.equal(
@@ -450,7 +438,7 @@ void test("workerd: provisionamento concorrente, UUID, isolamento, múltiplas ig
   const results = await Promise.all(
     // Reserva duas das cinco tentativas para conflito e vínculo revogado abaixo.
     Array.from({ length: 3 }, () =>
-      send("/api/organizations", body, first.cookie, {
+      send("/api/churches", body, first.cookie, {
         "Idempotency-Key": key,
       }),
     ),
@@ -458,44 +446,39 @@ void test("workerd: provisionamento concorrente, UUID, isolamento, múltiplas ig
   assert.ok(results.every((response) => response.status === 201));
   const values = (await Promise.all(
     results.map((response) => response.json()),
-  )) as Array<{ organizationId: string; churchId: string }>;
+  )) as Array<{ churchId: string }>;
   assert.ok(
     values.every(
       (value) =>
-        value.organizationId === values[0]!.organizationId &&
+        value.churchId === values[0]!.churchId &&
         value.churchId === values[0]!.churchId,
     ),
   );
-  const tenantId = values[0]!.organizationId;
+  const tenantId = values[0]!.churchId;
   assert.match(tenantId, /^[a-f0-9-]{36}$/);
   assert.equal(
     (
-      await send("/api/organizations", body, first.cookie, {
+      await send("/api/churches", body, first.cookie, {
         "Idempotency-Key": randomUUID(),
       })
     ).status,
-    409,
+    201,
   );
   const second = await provisioned();
-  await observer.client.query(
-    "INSERT INTO churches(tenant_id,name) VALUES($1,'Segunda igreja sintética')",
-    [tenantId],
-  );
   const listed = (await (
     await send("/api/churches", undefined, first.cookie)
-  ).json()) as { organizationId: string; churches: unknown[] };
-  assert.equal(listed.organizationId, tenantId);
+  ).json()) as { churchId: string; churches: unknown[] };
   assert.equal(listed.churches.length, 2);
   assert.equal(
     (await send(`/api/churches/${second.churchId}`, undefined, first.cookie))
       .status,
-    404,
+    403,
   );
   assert.equal(
     (
       await send(
-        "/api/tenant",
-        { organizationId: second.organizationId },
+        "/api/context/church",
+        { churchId: second.churchId },
         first.cookie,
       )
     ).status,
@@ -503,7 +486,7 @@ void test("workerd: provisionamento concorrente, UUID, isolamento, múltiplas ig
   );
   assert.equal(
     (
-      await send("/api/tenant", { organizationId: tenantId }, first.cookie, {
+      await send("/api/context/church", { churchId: tenantId }, first.cookie, {
         origin: "https://untrusted.example",
       })
     ).status,
@@ -516,36 +499,26 @@ void test("workerd: provisionamento concorrente, UUID, isolamento, múltiplas ig
     "SELECT metadata, count(*) OVER()::int AS events FROM audit_events WHERE actor=$1",
     [first.id],
   );
-  assert.equal(audit.rows[0]!.events, 1);
+  assert.equal(audit.rows[0]!.events, 2);
   assert.deepEqual(audit.rows[0]!.metadata, {});
   assert.ok(!JSON.stringify(audit.rows).includes(first.email));
-  await observer.client.query(
-    "UPDATE tenant_memberships SET role='unknown-role' WHERE tenant_id=$1 AND user_id=$2",
-    [tenantId, first.id],
-  );
-  assert.equal(
-    (await send("/api/churches", undefined, first.cookie)).status,
-    403,
-  );
-  assert.deepEqual(
-    await (await send("/api/onboarding", undefined, first.cookie)).json(),
-    { etapa: "sem-acesso" },
+  await assert.rejects(
+    observer.client.query(
+      "UPDATE church_memberships SET role='unknown-role' WHERE church_id=$1 AND user_id=$2",
+      [tenantId, first.id],
+    ),
   );
   await observer.client.query(
-    "DELETE FROM tenant_memberships WHERE tenant_id=$1 AND user_id=$2",
+    "INSERT INTO church_memberships(church_id,user_id,role) VALUES($1,$2,'admin')",
+    [tenantId, second.id],
+  );
+  await observer.client.query(
+    "DELETE FROM church_memberships WHERE church_id=$1 AND user_id=$2",
     [tenantId, first.id],
-  );
-  assert.equal(
-    (await send("/api/churches", undefined, first.cookie)).status,
-    403,
-  );
-  assert.deepEqual(
-    await (await send("/api/onboarding", undefined, first.cookie)).json(),
-    { etapa: "sem-acesso" },
   );
   assert.equal(
     (
-      await send("/api/organizations", body, first.cookie, {
+      await send("/api/churches", body, first.cookie, {
         "Idempotency-Key": key,
       })
     ).status,
@@ -553,12 +526,12 @@ void test("workerd: provisionamento concorrente, UUID, isolamento, múltiplas ig
   );
 });
 
-for (const table of ["audit_events", "onboarding_provisions"])
+for (const table of ["audit_events", "church_creation_requests"])
   void test(`workerd: rollback real após falha em ${table}, observado por outra conexão`, async () => {
     const account = await ready();
     const before = (
       await observer.client.query<Record<string, unknown>>(
-        "SELECT count(*)::int AS count FROM tenants",
+        "SELECT count(*)::int AS count FROM churches",
       )
     ).rows[0]?.count;
     await observer.client.query(
@@ -571,7 +544,7 @@ for (const table of ["audit_events", "onboarding_provisions"])
     try {
       assert.equal(
         (
-          await send("/api/organizations", body, account.cookie, {
+          await send("/api/churches", body, account.cookie, {
             "Idempotency-Key": key,
           })
         ).status,
@@ -580,14 +553,14 @@ for (const table of ["audit_events", "onboarding_provisions"])
       assert.equal(
         (
           await observer.client.query<Record<string, unknown>>(
-            "SELECT count(*)::int AS count FROM tenants",
+            "SELECT count(*)::int AS count FROM churches",
           )
         ).rows[0]?.count,
         before,
       );
       for (const sql of [
-        "SELECT user_id FROM onboarding_provisions WHERE user_id=$1",
-        "SELECT user_id FROM tenant_memberships WHERE user_id=$1",
+        "SELECT user_id FROM church_creation_requests WHERE user_id=$1",
+        "SELECT user_id FROM church_memberships WHERE user_id=$1",
         "SELECT actor FROM audit_events WHERE actor=$1",
       ])
         assert.equal(
@@ -602,7 +575,7 @@ for (const table of ["audit_events", "onboarding_provisions"])
     }
     assert.equal(
       (
-        await send("/api/organizations", body, account.cookie, {
+        await send("/api/churches", body, account.cookie, {
           "Idempotency-Key": key,
         })
       ).status,
@@ -809,14 +782,13 @@ void test("workerd: módulo disponível por padrão para administrador pronto se
   assert.equal(response.status, 201);
 });
 
-void test("workerd: schema anterior preserva onboarding e igrejas e falha fechado em membros sem aplicar migration", async () => {
+void test("workerd: schema anterior mantém autenticação e falha fechado até o corte, sem migration automática", async () => {
   await observer.client.query("CREATE DATABASE levi_worker_previous");
   const url = new URL(databaseUrl);
   url.pathname = "/levi_worker_previous";
   const previous = await createPostgresDatabase(url.toString());
   let runtime: Awaited<ReturnType<typeof workerHarness>> | undefined;
   await withWorkerCleanup(async () => {
-    // Somente as migrations anteriores, no mesmo container sintético do harness.
     for (const path of [
       "migrations/0000_onboarding.sql",
       "migrations/0001_abuse-limits.sql",
@@ -828,114 +800,48 @@ void test("workerd: schema anterior preserva onboarding e igrejas e falha fechad
       (await runtime.send("/api/onboarding/email", { email: address })).status,
       200,
     );
-    const magic = runtime.link(address);
-    const verified = await runtime.send(magic.pathname + magic.search);
-    assert.equal(verified.status, 302);
-    const cookie = cookieFrom(verified);
+    const link = runtime.link(address);
+    const response = await runtime.send(link.pathname + link.search);
+    assert.equal(response.status, 302);
+    const cookie = cookieFrom(response);
     assert.equal(
-      (await runtime.send("/api/onboarding/password-email", {}, cookie)).status,
+      (await runtime.send("/api/session-context", undefined, cookie)).status,
       200,
     );
-    const reset = runtime.link(address);
-    const callback = await runtime.send(reset.pathname + reset.search);
-    assert.equal(callback.status, 302);
-    const token = new URL(
-      callback.headers.get("location")!,
-      workerOrigin,
-    ).searchParams.get("token");
-    assert.ok(token);
-    assert.equal(
-      (
-        await runtime.send(
-          "/api/onboarding/password",
-          { token, newPassword: password },
-          cookie,
-        )
-      ).status,
-      200,
-    );
-    const provision = await runtime.send("/api/organizations", body, cookie, {
-      "Idempotency-Key": randomUUID(),
-    });
-    assert.equal(provision.status, 201);
-    const { organizationId, churchId } = (await provision.json()) as {
-      organizationId: string;
-      churchId: string;
-    };
-    const context = await runtime.send("/api/context", undefined, cookie);
-    assert.deepEqual(await context.json(), {
-      organizationId,
-      organizationName: body.organizationName,
-      role: "admin",
-      membersEnabled: true,
-    });
     assert.equal(
       (await runtime.send("/api/churches", undefined, cookie)).status,
-      200,
+      503,
     );
-    for (const path of [
-      "/api/members",
-      `/api/members/${randomUUID()}`,
-      `/api/members/requests/${randomUUID()}`,
-    ])
-      assert.equal((await runtime.send(path, undefined, cookie)).status, 503);
     assert.equal(
       (
-        await runtime.send(
-          "/api/members",
-          { name: "Pessoa sintética", churchId, status: "Ativo" },
-          cookie,
-          { "Idempotency-Key": randomUUID() },
-        )
+        await runtime.send("/api/churches", body, cookie, {
+          "Idempotency-Key": randomUUID(),
+        })
       ).status,
       503,
     );
-    const html = await runtime.send("/membros");
-    assert.equal(html.status, 200);
-    assert.ok(!(await html.text()).includes(address));
     assert.equal(
-      (await runtime.send("/api/auth/sign-out", {}, cookie)).status,
-      200,
+      (
+        await previous.client.query<{ relation: string | null }>(
+          "SELECT to_regclass('public.church_memberships') AS relation",
+        )
+      ).rows[0]?.relation,
+      null,
     );
-    const login = await runtime.send("/api/auth/sign-in/email", {
-      email: address,
-      password,
-    });
-    assert.equal(login.status, 200);
-    const loginCookie = cookieFrom(login);
-    assert.equal(
-      (await runtime.send("/api/tenant", { organizationId }, loginCookie))
-        .status,
-      200,
-    );
-    const churches = await runtime.send(
-      "/api/churches",
-      undefined,
-      loginCookie,
-    );
-    assert.deepEqual(await churches.json(), {
-      organizationId,
-      churches: [
-        {
-          id: churchId,
-          nome: body.churchName,
-          address: null,
-          phone: null,
-          email: null,
-        },
-      ],
-    });
-    const tables = await previous.client.query<Record<string, unknown>>(
-      "SELECT to_regclass('members') members, to_regclass('member_history') history, to_regclass('member_creation_requests') receipts",
-    );
-    assert.deepEqual(tables.rows[0], {
-      members: null,
-      history: null,
-      receipts: null,
-    });
   }, [
-    { resource: "runtime", close: () => runtime?.mf.dispose() },
-    { resource: "fixture", close: () => previous.client.end() },
+    {
+      resource: "runtime",
+      close: async () => {
+        if (runtime) await runtime.mf.dispose();
+      },
+    },
+    {
+      resource: "fixture",
+      close: async () => {
+        await previous.client.end();
+        await observer.client.query("DROP DATABASE levi_worker_previous");
+      },
+    },
   ]);
 });
 
@@ -960,8 +866,9 @@ void test("workerd: todas as organizações têm membros, com autorização e is
         account.cookie,
       );
       assert.deepEqual(await context.json(), {
-        organizationId: account.organizationId,
-        organizationName: body.organizationName,
+        churchId: account.churchId,
+
+        churchName: body.name,
         role: "admin",
         membersEnabled: true,
       });
@@ -984,10 +891,10 @@ void test("workerd: todas as organizações têm membros, com autorização e is
           typeof result === "object" &&
           "memberId" in result &&
           typeof result.memberId === "string" &&
-          "organizationId" in result &&
-          typeof result.organizationId === "string",
+          "churchId" in result &&
+          typeof result.churchId === "string",
       );
-      assert.equal(result.organizationId, account.organizationId);
+      assert.equal(result.churchId, account.churchId);
       const replay = await runtime.send("/api/members", input, account.cookie, {
         "Idempotency-Key": key,
       });
@@ -1025,13 +932,13 @@ void test("workerd: todas as organizações têm membros, com autorização e is
       );
       results.push({
         memberId: result.memberId,
-        organizationId: result.organizationId,
+        churchId: result.churchId,
         key,
       });
     }
     const first = results[0]!;
     const foreignHeaders = {
-      "x-organization-id": formerlySelected.organizationId,
+      "x-organization-id": formerlySelected.churchId,
       "x-members-enabled": "true",
     };
     for (const path of [
@@ -1050,7 +957,7 @@ void test("workerd: todas as organizações têm membros, com autorização e is
         404,
       );
     const forged = await runtime.send(
-      `/api/members?organizationId=${formerlySelected.organizationId}&membersEnabled=true`,
+      `/api/members?churchId=${formerlySelected.churchId}&membersEnabled=true`,
       undefined,
       formerlyUnselected.cookie,
       foreignHeaders,
@@ -1078,7 +985,7 @@ void test("workerd: todas as organizações têm membros, com autorização e is
           "/api/members",
           {
             ...foreignChurch,
-            organizationId: formerlySelected.organizationId,
+            churchId: formerlySelected.churchId,
             membersEnabled: true,
           },
           formerlyUnselected.cookie,
@@ -1088,14 +995,14 @@ void test("workerd: todas as organizações têm membros, com autorização e is
       400,
     );
     await observer.client.query(
-      "INSERT INTO tenant_memberships(tenant_id,user_id,role) VALUES($1,$2,'admin')",
-      [formerlyUnselected.organizationId, formerlySelected.id],
+      "INSERT INTO church_memberships(church_id,user_id,role) VALUES($1,$2,'admin')",
+      [formerlyUnselected.churchId, formerlySelected.id],
     );
     assert.equal(
       (
         await runtime.send(
-          "/api/tenant",
-          { organizationId: formerlyUnselected.organizationId },
+          "/api/context/church",
+          { churchId: formerlyUnselected.churchId },
           formerlySelected.cookie,
         )
       ).status,
@@ -1130,8 +1037,8 @@ void test("workerd: todas as organizações têm membros, com autorização e is
       200,
     );
     await observer.client.query(
-      "DELETE FROM tenant_memberships WHERE tenant_id=$1 AND user_id=$2",
-      [formerlyUnselected.organizationId, formerlySelected.id],
+      "DELETE FROM church_memberships WHERE church_id=$1 AND user_id=$2",
+      [formerlyUnselected.churchId, formerlySelected.id],
     );
     for (const path of [
       "/api/context",
@@ -1142,9 +1049,24 @@ void test("workerd: todas as organizações têm membros, com autorização e is
         (await runtime.send(path, undefined, formerlySelected.cookie)).status,
         403,
       );
+    await assert.rejects(
+      observer.client.query(
+        "UPDATE church_memberships SET role='reader' WHERE church_id=$1 AND user_id=$2",
+        [formerlyUnselected.churchId, formerlyUnselected.id],
+      ),
+    );
+    const backup = randomUUID();
     await observer.client.query(
-      "UPDATE tenant_memberships SET role='reader' WHERE tenant_id=$1 AND user_id=$2",
-      [formerlyUnselected.organizationId, formerlyUnselected.id],
+      `INSERT INTO "user"(id,name,email,email_verified) VALUES($1,'Backup',$2,true)`,
+      [backup, `${backup}@example.test`],
+    );
+    await observer.client.query(
+      "INSERT INTO church_memberships(church_id,user_id,role) VALUES($1,$2,'admin')",
+      [formerlyUnselected.churchId, backup],
+    );
+    await observer.client.query(
+      "DELETE FROM church_memberships WHERE church_id=$1 AND user_id=$2",
+      [formerlyUnselected.churchId, formerlyUnselected.id],
     );
     assert.equal(
       (await runtime.send("/api/members", undefined, formerlyUnselected.cookie))
@@ -1195,6 +1117,7 @@ void test("workerd: guard administrativo protege HTML antes de Assets, API e val
           method,
           headers: {
             cookie,
+            connection: "close",
             origin: "https://hostil.example",
             "content-type": "text/plain",
           },
@@ -1233,7 +1156,7 @@ void test("workerd: guard administrativo protege HTML antes de Assets, API e val
     assert.equal(administrative.status, 200);
     assert.equal(
       (await configured.send("/api/churches", undefined, common.cookie)).status,
-      403,
+      200,
     );
     const csrf = await configured.send(
       "/api/admin/accounts/find",

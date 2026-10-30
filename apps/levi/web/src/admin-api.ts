@@ -1,11 +1,11 @@
 import { ApiError } from "./api.js";
 
-export type Organization = { id: string; name: string };
+export type Church = { id: string; name: string };
 export type Feature = {
   key: "members";
   policy: "all" | "selected" | "disabled";
   version: number;
-  organizationIds: string[];
+  churchIds: string[];
 };
 export type AdministrativeSession = { userId: string; sessionId: string };
 
@@ -49,17 +49,14 @@ function feature(value: unknown): Feature {
       row.policy !== "selected")
   )
     return invalid();
-  const organizationIds = list(row.organizationIds, id);
-  if (
-    (row.policy === "selected" && !organizationIds.length) ||
-    (row.policy !== "selected" && organizationIds.length)
-  )
-    return invalid();
+  const churchIds = list(row.churchIds, id);
+  // Uma seleção legada de organizações vazias converte para zero igrejas.
+  if (row.policy !== "selected" && churchIds.length) return invalid();
   return {
     key: row.key,
     policy: row.policy,
     version: version(row.version),
-    organizationIds,
+    churchIds,
   };
 }
 async function request(
@@ -107,13 +104,13 @@ export const adminApi = {
     const row = await request("session", signal);
     return { userId: id(row.userId), sessionId: id(row.sessionId) };
   },
-  async organizations(signal: AbortSignal, after: string | null = null) {
+  async churches(signal: AbortSignal, after: string | null = null) {
     const row = await request(
-      `organizations${after ? `?after=${encodeURIComponent(after)}` : ""}`,
+      `churches${after ? `?after=${encodeURIComponent(after)}` : ""}`,
       signal,
     );
     return {
-      items: list(row.items, (item): Organization => {
+      items: list(row.items, (item): Church => {
         const org = record(item);
         return { id: id(org.id), name: text(org.name) };
       }),
@@ -131,7 +128,7 @@ export const adminApi = {
         expectedVersion: flag.version,
         policy:
           flag.policy === "selected"
-            ? { kind: flag.policy, organizationIds: flag.organizationIds }
+            ? { kind: flag.policy, churchIds: flag.churchIds }
             : { kind: flag.policy },
         ...(flag.policy === "all" ? { confirmAll: true } : {}),
       },

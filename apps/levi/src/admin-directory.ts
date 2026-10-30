@@ -2,7 +2,7 @@ import type { FoundationSession } from "@t00ls-dev/auth";
 import { asc, gt } from "drizzle-orm";
 import type { Database } from "./auth.js";
 import { withGlobalAdministrator } from "./admin-access.js";
-import { tenants } from "./data/schema.js";
+import { churches } from "./data/schema.js";
 import { requireUuid } from "./contracts.js";
 
 export function administrativeDirectory(input: {
@@ -16,10 +16,10 @@ export function administrativeDirectory(input: {
     async (tx) => {
       const after = input.after ? requireUuid(input.after).toLowerCase() : null;
       return tx
-        .select({ id: tenants.id, name: tenants.name })
-        .from(tenants)
-        .where(after ? gt(tenants.id, after) : undefined)
-        .orderBy(asc(tenants.id))
+        .select({ id: churches.id, name: churches.name })
+        .from(churches)
+        .where(after ? gt(churches.id, after) : undefined)
+        .orderBy(asc(churches.id))
         .limit(100);
     },
   );

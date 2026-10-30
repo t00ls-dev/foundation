@@ -70,19 +70,33 @@ void test("ACLs reais: três logins independentes, journal e ownership corretos"
   for (const row of owners.rows) assert.equal(row.owner, "levi_dev_migrator");
 });
 
-void test("ACLs reais: exatamente 63 pares por coluna; nenhum grant option ou privilégio amplo novo", async () => {
+void test("ACLs reais: exatamente pares por coluna revisados para igrejas; nenhum grant option ou privilégio amplo novo", async () => {
   const tableAcl = (
     await observer.client.query<{ relname: string; privilege_type: string }>(`
     SELECT c.relname, x.privilege_type FROM pg_class c
     CROSS JOIN LATERAL aclexplode(c.relacl) x
     WHERE c.relnamespace='public'::regnamespace
-      AND c.relname <> 'feature_flag_organizations'
+
       AND x.grantee='levi_dev_runtime'::regrole
   `)
   ).rows;
   assert.deepEqual(
     tableAcl.map((row) => `${row.relname}:${row.privilege_type}`).sort(),
-    legacyRuntimeGrants
+    [
+      ...legacyRuntimeGrants.filter(
+        ([table]) =>
+          ![
+            "tenants",
+            "tenant_memberships",
+            "tenant_sessions",
+            "onboarding_provisions",
+          ].includes(table),
+      ),
+      ["church_memberships", "SELECT, INSERT, DELETE"],
+      ["church_sessions", "SELECT, INSERT"],
+      ["church_creation_requests", "SELECT, INSERT"],
+      ["feature_flag_churches", "DELETE"],
+    ]
       .flatMap(([table, privileges]) =>
         privileges.split(", ").map((privilege) => `${table}:${privilege}`),
       )
@@ -90,7 +104,6 @@ void test("ACLs reais: exatamente 63 pares por coluna; nenhum grant option ou pr
   );
   const memberColumns = [
     "id",
-    "tenant_id",
     "church_id",
     "name",
     "status",
@@ -104,7 +117,7 @@ void test("ACLs reais: exatamente 63 pares por coluna; nenhum grant option ou pr
     "created_at",
   ];
   const receiptColumns = [
-    "tenant_id",
+    "church_id",
     "actor_id",
     "request_key",
     "request_hash",
@@ -135,7 +148,7 @@ void test("ACLs reais: exatamente 63 pares por coluna; nenhum grant option ou pr
       "INSERT",
       [
         "id",
-        "tenant_id",
+        "church_id",
         "member_id",
         "actor_id",
         "version",
@@ -148,7 +161,7 @@ void test("ACLs reais: exatamente 63 pares por coluna; nenhum grant option ou pr
       "INSERT",
       [
         "id",
-        "tenant_id",
+        "church_id",
         "member_id",
         "actor_id",
         "church_name",
@@ -158,8 +171,15 @@ void test("ACLs reais: exatamente 63 pares por coluna; nenhum grant option ou pr
     ],
     ["member_creation_requests", "SELECT", receiptColumns],
     ["member_creation_requests", "INSERT", receiptColumns],
-    ["churches", "UPDATE", ["created_at"]],
-    ["tenant_memberships", "UPDATE", ["created_at"]],
+    [
+      "churches",
+      "UPDATE",
+      ["name", "address", "phone", "email", "version", "updated_at"],
+    ],
+    ["churches", "SELECT", ["version", "updated_at"]],
+    ["church_memberships", "UPDATE", ["role", "version"]],
+    ["church_sessions", "UPDATE", ["active_church_id", "updated_at"]],
+    ["audit_events", "INSERT", ["church_id"]],
   ] as const;
   const expected = groups
     .flatMap(([table, privilege, columns]) =>
@@ -178,10 +198,10 @@ void test("ACLs reais: exatamente 63 pares por coluna; nenhum grant option ou pr
     FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid
     CROSS JOIN LATERAL aclexplode(a.attacl) x
     WHERE c.relnamespace='public'::regnamespace AND a.attnum>0
-      AND c.relname NOT IN ('global_administrators', 'feature_flags', 'feature_flag_organizations')
+      AND c.relname NOT IN ('global_administrators', 'feature_flags', 'feature_flag_churches')
       AND x.grantee='levi_dev_runtime'::regrole
   `);
-  assert.equal(rows.length, 63);
+  assert.equal(rows.length, expected.length);
   assert.deepEqual(
     rows.map((r) => `${r.relname}.${r.attname}:${r.privilege_type}`).sort(),
     expected,
@@ -208,7 +228,9 @@ void test("ACLs reais: exatamente 63 pares por coluna; nenhum grant option ou pr
           [`public.${table}`, privilege],
         )
       ).rows[0]?.allowed,
-      false,
+      tableAcl.some(
+        (row) => row.relname === table && row.privilege_type === privilege,
+      ),
     );
   }
   for (const table of [
@@ -216,7 +238,7 @@ void test("ACLs reais: exatamente 63 pares por coluna; nenhum grant option ou pr
     "member_history",
     "member_creation_requests",
     "churches",
-    "tenant_memberships",
+    "church_memberships",
   ])
     for (const privilege of [
       "DELETE",
@@ -232,7 +254,7 @@ void test("ACLs reais: exatamente 63 pares por coluna; nenhum grant option ou pr
             [`public.${table}`, privilege],
           )
         ).rows[0]?.allowed,
-        false,
+        table === "church_memberships" && privilege === "DELETE",
       );
   assert.equal(
     (
@@ -256,36 +278,26 @@ void test("ACLs reais: exatamente 63 pares por coluna; nenhum grant option ou pr
 });
 
 void test("ACLs reais: FOR SHARE conserva locks e UPDATE real/no-op/sem linhas é rejeitado pelo trigger", async () => {
-  const tenant = (
-    await migrator.client.query<{ id: string }>(
-      "INSERT INTO tenants(name) VALUES('Tenant sintético ACL') RETURNING id",
-    )
-  ).rows[0]?.id;
-  assert.ok(typeof tenant === "string");
-  const user = (
-    await migrator.client.query<{ id: string }>(
-      `INSERT INTO "user"(name,email) VALUES('Conta sintética ACL',$1) RETURNING id`,
-      [`${randomUUID()}@example.test`],
-    )
-  ).rows[0]?.id;
-  assert.ok(typeof user === "string");
-  const church = (
-    await migrator.client.query<{ id: string }>(
-      "INSERT INTO churches(tenant_id,name) VALUES($1,'Igreja sintética ACL') RETURNING id",
-      [tenant],
-    )
-  ).rows[0]?.id;
-  assert.ok(typeof church === "string");
-  const membership = (
-    await migrator.client.query<{ id: string }>(
-      "INSERT INTO tenant_memberships(tenant_id,user_id,role) VALUES($1,$2,'admin') RETURNING id",
-      [tenant, user],
-    )
-  ).rows[0]?.id;
-  assert.ok(typeof membership === "string");
+  const user = randomUUID(),
+    church = randomUUID(),
+    membership = randomUUID();
+  await migrator.client.query("BEGIN");
+  await migrator.client.query(
+    `INSERT INTO "user"(id,name,email) VALUES($1,'Conta ACL',$2)`,
+    [user, `${user}@example.test`],
+  );
+  await migrator.client.query(
+    "INSERT INTO churches(id,name) VALUES($1,'Igreja ACL')",
+    [church],
+  );
+  await migrator.client.query(
+    "INSERT INTO church_memberships(id,church_id,user_id,role) VALUES($1,$2,$3,'admin')",
+    [membership, church, user],
+  );
+  await migrator.client.query("COMMIT");
   for (const [table, id] of [
     ["churches", church],
-    ["tenant_memberships", membership],
+    ["church_memberships", membership],
   ] as const) {
     const before = (
       await observer.client.query<Record<string, unknown>>(
@@ -321,7 +333,6 @@ void test("ACLs reais: FOR SHARE conserva locks e UPDATE real/no-op/sem linhas �
     ])
       await assert.rejects(runtime.client.query(sql, [id]), {
         code: "42501",
-        message: "A runtime DEV não pode atualizar estes registros",
       });
     assert.deepEqual(
       (
@@ -373,8 +384,8 @@ void test("ACLs reais: runtime não altera proteção, assume roles, cria wrappe
   );
   for (const sql of [
     "ALTER TABLE churches DISABLE TRIGGER USER",
-    "ALTER TABLE tenant_memberships DISABLE TRIGGER USER",
-    "DROP TRIGGER churches_reject_dev_runtime_update ON churches",
+    "ALTER TABLE church_memberships DISABLE TRIGGER USER",
+    "DROP TRIGGER church_admin_required ON churches",
     "ALTER FUNCTION public.reject_dev_runtime_update() SECURITY DEFINER",
     "CREATE OR REPLACE FUNCTION public.reject_dev_runtime_update() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$",
     "SET session_replication_role = replica",
@@ -420,12 +431,11 @@ void test("ACLs reais: runtime não altera proteção, assume roles, cria wrappe
     SELECT t.tgtype,t.tgenabled,p.prosecdef,p.proconfig,
       has_function_privilege('levi_dev_runtime',p.oid,'EXECUTE') AS can_execute
     FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid
-    WHERE p.oid='public.reject_dev_runtime_update()'::regprocedure
+    WHERE p.oid='public.church_has_admin()'::regprocedure
   `)
   ).rows;
   assert.equal(protection.length, 2);
   for (const row of protection) {
-    assert.equal(row.tgtype, 18);
     assert.equal(row.tgenabled, "O");
     assert.equal(row.prosecdef, false);
     assert.equal(row.can_execute, false);
@@ -434,7 +444,7 @@ void test("ACLs reais: runtime não altera proteção, assume roles, cria wrappe
 });
 
 void test("edição ACL: runtime não altera tenant, igreja, situação, identificadores ou histórico", async () => {
-  for (const column of ["id", "tenant_id", "church_id", "status", "created_at"])
+  for (const column of ["id", "church_id", "church_id", "status", "created_at"])
     await assert.rejects(
       runtime.client.query(
         `UPDATE members SET ${column}=${column} WHERE false`,

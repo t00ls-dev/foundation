@@ -92,53 +92,12 @@ export const verification = pgTable("verification", {
   updatedAt: instant("updated_at").defaultNow(),
 });
 
-// Nomes físicos consumidos pelos adapters públicos do Foundation.
-export const tenants = pgTable(
-  "tenants",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    name: text("name").notNull(),
-    createdAt: instant("created_at").notNull().defaultNow(),
-  },
-  (t) => [check("tenant_name_nonempty", sql`length(trim(${t.name})) > 0`)],
-);
-
-export const tenantMemberships = pgTable(
-  "tenant_memberships",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    tenantId: uuid("tenant_id")
-      .notNull()
-      .references(() => tenants.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    role: text("role").notNull(),
-    createdAt: instant("created_at").notNull().defaultNow(),
-  },
-  (t) => [
-    unique("tenant_memberships_tenant_user_unique").on(t.tenantId, t.userId),
-    index("tenant_memberships_user_idx").on(t.userId),
-  ],
-);
-
-export const tenantSessions = pgTable("tenant_sessions", {
-  sessionId: uuid("session_id")
-    .primaryKey()
-    .references(() => session.id, { onDelete: "cascade" }),
-  activeTenantId: uuid("active_tenant_id").references(() => tenants.id, {
-    onDelete: "set null",
-  }),
-  updatedAt: instant("updated_at").notNull().defaultNow(),
-});
-
 export const churches = pgTable(
   "churches",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    tenantId: uuid("tenant_id")
-      .notNull()
-      .references(() => tenants.id),
+    version: integer("version").notNull().default(1),
+    updatedAt: instant("updated_at").notNull().defaultNow(),
     name: text("name").notNull(),
     address: text("address"),
     phone: text("phone"),
@@ -146,33 +105,8 @@ export const churches = pgTable(
     createdAt: instant("created_at").notNull().defaultNow(),
   },
   (t) => [
-    unique("churches_tenant_id_unique").on(t.tenantId, t.id),
     check("church_name_nonempty", sql`length(trim(${t.name})) > 0`),
-  ],
-);
-
-// Recibo do primeiro onboarding, não limite de memberships ou plano comercial.
-export const onboardingProvisions = pgTable(
-  "onboarding_provisions",
-  {
-    userId: uuid("user_id")
-      .primaryKey()
-      .references(() => user.id),
-    tenantId: uuid("tenant_id")
-      .notNull()
-      .unique()
-      .references(() => tenants.id),
-    churchId: uuid("church_id").notNull(),
-    requestKey: text("request_key").notNull(),
-    requestHash: text("request_hash").notNull(),
-    createdAt: instant("created_at").notNull().defaultNow(),
-  },
-  (t) => [
-    foreignKey({
-      name: "onboarding_church_same_tenant",
-      columns: [t.tenantId, t.churchId],
-      foreignColumns: [churches.tenantId, churches.id],
-    }),
+    check("churches_version_positive", sql`${t.version}>0`),
   ],
 );
 
@@ -183,7 +117,8 @@ export const auditEvents = pgTable(
     actor: uuid("actor").notNull(),
     action: text("action").notNull(),
     target: uuid("target").notNull(),
-    tenant: uuid("tenant").references(() => tenants.id),
+    legacyOrganizationId: uuid("tenant"),
+    churchId: uuid("church_id").references(() => churches.id),
     timestamp: instant("timestamp").notNull(),
     metadata: jsonb("metadata").notNull(),
     requestId: text("request_id"),
@@ -192,11 +127,11 @@ export const auditEvents = pgTable(
   (t) => [
     check("audit_metadata_minimal", sql`${t.metadata} = '{}'::jsonb`),
     check(
-      "audit_global_scope",
-      sql`(${t.tenant} IS NULL) = (${t.action} IN (
+      "audit_scope",
+      sql`(${t.churchId} IS NOT NULL AND ${t.legacyOrganizationId} IS NULL AND ${t.action} NOT IN ('admin.bootstrapped','admin.granted','admin.revoked','feature_flag.all','feature_flag.selected','feature_flag.disabled')) OR (${t.churchId} IS NULL AND ((${t.legacyOrganizationId} IS NULL) = (${t.action} IN (
         'admin.bootstrapped', 'admin.granted', 'admin.revoked',
         'feature_flag.all', 'feature_flag.selected', 'feature_flag.disabled'
-      ))`,
+      ))))`,
     ),
   ],
 );
@@ -250,27 +185,11 @@ export const featureFlags = pgTable(
   ],
 );
 
-export const featureFlagOrganizations = pgTable(
-  "feature_flag_organizations",
-  {
-    featureFlagId: uuid("feature_flag_id")
-      .notNull()
-      .references(() => featureFlags.id),
-    organizationId: uuid("organization_id")
-      .notNull()
-      .references(() => tenants.id),
-  },
-  (t) => [primaryKey({ columns: [t.featureFlagId, t.organizationId] })],
-);
-
 // Entidades pessoais do Levi: não são contas de autenticação.
 export const members = pgTable(
   "members",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    tenantId: uuid("tenant_id")
-      .notNull()
-      .references(() => tenants.id),
     churchId: uuid("church_id").notNull(),
     name: text("name").notNull(),
     version: integer("version").notNull().default(1),
@@ -285,16 +204,15 @@ export const members = pgTable(
     createdAt: instant("created_at").notNull().defaultNow(),
   },
   (t) => [
-    unique("members_tenant_id_unique").on(t.tenantId, t.id),
+    unique("members_church_identity").on(t.churchId, t.id),
     foreignKey({
-      name: "member_church_same_tenant",
-      columns: [t.tenantId, t.churchId],
-      foreignColumns: [churches.tenantId, churches.id],
+      name: "members_church_root",
+      columns: [t.churchId],
+      foreignColumns: [churches.id],
     }),
     check("member_name_valid", sql`length(trim(${t.name})) BETWEEN 1 AND 160`),
     check("member_status_valid", sql`${t.status} IN ('Ativo', 'Inativo')`),
-    index("members_tenant_order_idx").on(t.tenantId, t.name, t.id),
-    index("members_tenant_church_idx").on(t.tenantId, t.churchId),
+    index("members_church_order").on(t.churchId, t.name, t.id),
   ],
 );
 
@@ -303,7 +221,7 @@ export const memberHistory = pgTable(
   "member_history",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    tenantId: uuid("tenant_id").notNull(),
+    churchId: uuid("church_id").notNull(),
     memberId: uuid("member_id").notNull(),
     actorId: uuid("actor_id").notNull(),
     churchName: text("church_name").notNull(),
@@ -314,11 +232,11 @@ export const memberHistory = pgTable(
   },
   (t) => [
     foreignKey({
-      name: "member_history_same_tenant",
-      columns: [t.tenantId, t.memberId],
-      foreignColumns: [members.tenantId, members.id],
+      name: "history_church_member",
+      columns: [t.churchId, t.memberId],
+      foreignColumns: [members.churchId, members.id],
     }).onDelete("cascade"),
-    unique("member_history_initial_unique").on(t.tenantId, t.memberId),
+    unique("history_church_initial").on(t.churchId, t.memberId),
     check(
       "member_history_status_valid",
       sql`${t.initialStatus} IN ('Ativo', 'Inativo')`,
@@ -330,18 +248,18 @@ export const memberHistory = pgTable(
 export const memberCreationRequests = pgTable(
   "member_creation_requests",
   {
-    tenantId: uuid("tenant_id").notNull(),
+    churchId: uuid("church_id").notNull(),
     actorId: uuid("actor_id").notNull(),
     requestKey: text("request_key").notNull(),
     requestHash: text("request_hash").notNull(),
     memberId: uuid("member_id").notNull(),
   },
   (t) => [
-    primaryKey({ columns: [t.tenantId, t.actorId, t.requestKey] }),
+    primaryKey({ columns: [t.churchId, t.actorId, t.requestKey] }),
     foreignKey({
-      name: "member_request_same_tenant",
-      columns: [t.tenantId, t.memberId],
-      foreignColumns: [members.tenantId, members.id],
+      name: "receipt_church_member",
+      columns: [t.churchId, t.memberId],
+      foreignColumns: [members.churchId, members.id],
     }).onDelete("cascade"),
   ],
 );
@@ -351,7 +269,7 @@ export const memberProfileHistory = pgTable(
   "member_profile_history",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    tenantId: uuid("tenant_id").notNull(),
+    churchId: uuid("church_id").notNull(),
     memberId: uuid("member_id").notNull(),
     actorId: uuid("actor_id").notNull(),
     version: integer("version").notNull(),
@@ -360,14 +278,66 @@ export const memberProfileHistory = pgTable(
   },
   (t) => [
     foreignKey({
-      name: "member_profile_history_same_tenant",
-      columns: [t.tenantId, t.memberId],
-      foreignColumns: [members.tenantId, members.id],
+      name: "profile_church_member",
+      columns: [t.churchId, t.memberId],
+      foreignColumns: [members.churchId, members.id],
     }).onDelete("cascade"),
-    unique("member_profile_history_version_unique").on(
-      t.tenantId,
-      t.memberId,
-      t.version,
-    ),
+    unique("profile_church_version").on(t.churchId, t.memberId, t.version),
   ],
+);
+
+export const churchMemberships = pgTable(
+  "church_memberships",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    churchId: uuid("church_id")
+      .notNull()
+      .references(() => churches.id),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => user.id),
+    role: text("role").$type<"admin" | "collaborator">().notNull(),
+    version: integer("version").notNull().default(1),
+    createdAt: instant("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique("church_membership_identity").on(t.churchId, t.userId),
+    index("church_membership_user").on(t.userId, t.churchId),
+    check("church_membership_role", sql`${t.role} IN ('admin','collaborator')`),
+    check("church_membership_version", sql`${t.version} > 0`),
+  ],
+);
+export const churchSessions = pgTable("church_sessions", {
+  sessionId: uuid("session_id")
+    .primaryKey()
+    .references(() => session.id, { onDelete: "cascade" }),
+  activeChurchId: uuid("active_church_id").references(() => churches.id),
+  updatedAt: instant("updated_at").notNull().defaultNow(),
+});
+export const churchCreationRequests = pgTable(
+  "church_creation_requests",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => user.id),
+    requestKey: text("request_key").notNull(),
+    requestHash: text("request_hash").notNull(),
+    churchId: uuid("church_id")
+      .notNull()
+      .references(() => churches.id),
+    createdAt: instant("created_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.requestKey] })],
+);
+export const featureFlagChurches = pgTable(
+  "feature_flag_churches",
+  {
+    featureFlagId: uuid("feature_flag_id")
+      .notNull()
+      .references(() => featureFlags.id),
+    churchId: uuid("church_id")
+      .notNull()
+      .references(() => churches.id),
+  },
+  (t) => [primaryKey({ columns: [t.featureFlagId, t.churchId] })],
 );

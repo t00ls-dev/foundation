@@ -140,6 +140,21 @@ export async function workerHarness(
     cookie = "",
     headers: Record<string, string> = {},
   ) => {
+    let expected: string | undefined;
+    if (path.startsWith("/api/members")) {
+      const context = await mf.dispatchFetch(
+        new URL("/api/context", origin).toString(),
+        { headers: { origin, cookie, "cf-connecting-ip": "192.0.2.250" } },
+      );
+      const value: unknown = await context.json();
+      if (
+        value &&
+        typeof value === "object" &&
+        "churchId" in value &&
+        typeof value.churchId === "string"
+      )
+        expected = value.churchId;
+    }
     const response = await mf.dispatchFetch(new URL(path, origin).toString(), {
       method: body ? "POST" : "GET",
       redirect: "manual",
@@ -148,6 +163,7 @@ export async function workerHarness(
         "cf-connecting-ip": `192.0.2.${(++clientNumber % 250) + 1}`,
         cookie,
         "content-type": "application/json",
+        ...(expected ? { "X-Levi-Church": expected } : {}),
         ...headers,
       },
       ...(body ? { body: JSON.stringify(body) } : {}),

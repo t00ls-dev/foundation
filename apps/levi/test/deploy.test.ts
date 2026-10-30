@@ -350,7 +350,7 @@ async function simulatedDeploy(
         );
       if (["/admin", "/api/admin/session"].includes(url.pathname))
         return Promise.resolve(new Response(null, { status: 404, headers }));
-      if (["/api/organizations", "/api/churches"].includes(url.pathname))
+      if (["/api/churches", "/api/churches"].includes(url.pathname))
         return Promise.resolve(new Response(null, { status: 401, headers }));
     }
     throw new Error("Request não previsto no harness");
@@ -583,7 +583,7 @@ void test("diagnóstico: sucesso conserva publicação única, checks, arquivos 
     "/admin",
     "/api/admin/session",
     "/api/onboarding",
-    "/api/organizations",
+    "/api/churches",
     "/api/churches",
     "/api/members",
   ])
@@ -761,7 +761,7 @@ void test("diagnóstico: falha de rede preserva apenas código técnico conhecid
 void test("diagnóstico: resposta pública divergente mantém 401 obrigatório e interrompe o smoke", async () => {
   const result = await simulatedDeploy({
     respond: (url) =>
-      url === "https://levi.t00ls.dev/api/organizations"
+      url === "https://levi.t00ls.dev/api/churches"
         ? new Response(sensitive, {
             status: 200,
             headers: {
@@ -774,10 +774,10 @@ void test("diagnóstico: resposta pública divergente mantém 401 obrigatório e
   assert.equal(result.exitCode, 1);
   assert.ok(
     result.output.includes(
-      "bloqueio anônimo e cabeçalhos de organizações; categoria: falha HTTP; status HTTP: 200",
+      "bloqueio anônimo e cabeçalhos de igrejas; categoria: falha HTTP; status HTTP: 200",
     ),
   );
-  assert.ok(!result.requests.includes("https://levi.t00ls.dev/api/churches"));
+  assert.ok(!result.requests.includes("https://levi.t00ls.dev/api/members"));
   assert.ok(!result.output.includes("private-"));
 });
 
@@ -921,7 +921,7 @@ void test("diagnóstico alinhado ao Foundation: HTTP vem somente da resposta atu
       ),
   );
   await diagnostics.request(
-    "organizations-read",
+    "churches-read",
     async () => Promise.resolve(new Response(null, { status: 401 })),
     401,
   );

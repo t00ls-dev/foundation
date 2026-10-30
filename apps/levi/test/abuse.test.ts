@@ -71,10 +71,10 @@ function fixture() {
 }
 
 for (const [path, method, limit, windowMs] of [
-  ["/api/organizations", "GET", 300, 60_000],
+  ["/api/churches", "GET", 300, 60_000],
   ["/api/members", "POST", 60, 60_000],
-  ["/api/tenant", "POST", 30, 60_000],
-  ["/api/organizations", "POST", 5, 900_000],
+  ["/api/context/church", "POST", 30, 60_000],
+  ["/api/churches", "POST", 5, 900_000],
   ["/api/onboarding/password", "POST", 5, 900_000],
   ["/api/auth/sign-out", "POST", 30, 60_000],
 ] as const) {
@@ -111,8 +111,8 @@ await test("leitura, escrita, seleção, provisionamento, senha e logout são in
   assert.equal((await f.send("/api/context")).status, 429);
   for (const path of [
     "/api/members",
-    "/api/tenant",
-    "/api/organizations",
+    "/api/context/church",
+    "/api/churches",
     "/api/onboarding/password",
     "/api/auth/sign-out",
   ])
@@ -124,7 +124,7 @@ await test("leitura, escrita, seleção, provisionamento, senha e logout são in
 });
 
 for (const [path, limit] of [
-  ["/api/organizations", 300],
+  ["/api/churches", 300],
   ["/api/auth/magic-link/verify?token=synthetic", 60],
   ["/api/auth/reset-password/synthetic", 60],
 ] as const) {
@@ -168,7 +168,7 @@ await test("sem identidade validada, headers/cookie/tenant falsificados não con
   for (let i = 0; i < 60; i++)
     assert.equal(
       (
-        await f.send("/api/organizations", "GET", "192.0.2.1", {
+        await f.send("/api/churches", "GET", "192.0.2.1", {
           cookie: `better-auth.session_token=fake-${i}`,
           "x-user-id": `fake-${i}`,
           "x-organization-id": `tenant-${i}`,

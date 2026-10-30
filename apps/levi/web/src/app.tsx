@@ -102,14 +102,14 @@ export function App({
   const denied = useRef(false);
   const attempt = useRef<
     | ({ key: string; input: ProvisionInput } & (
-        { kind: "pending" } | { kind: "confirmed"; organizationId: string }
+        { kind: "pending" } | { kind: "confirmed"; churchId: string }
       ))
     | null
   >(null);
   const identity = useRef<SessionContext | null | undefined>(undefined);
   const memberList = useRef<{
     identity: SessionContext;
-    organizationId: string;
+    churchId: string;
     filters: MemberFilters;
   } | null>(null);
   function rememberIdentity(current: SessionContext | null): boolean {
@@ -156,7 +156,7 @@ export function App({
   }
   async function refresh(
     resumeChurches = true,
-    provisioned?: { organizationId: string } | "recover",
+    provisioned?: { churchId: string } | "recover",
   ): Promise<void> {
     const sequence = ++generation.current;
     const previous = screenRef.current;
@@ -183,7 +183,7 @@ export function App({
       )
         return;
       setHasSession(stage !== "email");
-      setCanProvision(stage === "organizacao");
+      setCanProvision(stage !== "email" && stage !== "verificar-email");
       if (stage === "email" || stage === "verificar-email") {
         attempt.current = null;
         setUncertain(false);
@@ -214,7 +214,13 @@ export function App({
         setScreen({ kind: "no-access" });
         return;
       }
-      if (stage === "organizacao") {
+      if (
+        stage === "igreja" ||
+        (window.location.pathname === "/criar-igreja" &&
+          !provisionResult &&
+          !denied.current &&
+          attempt.current?.kind !== "confirmed")
+      ) {
         memberList.current = null;
         setScreen({
           kind:
@@ -236,41 +242,48 @@ export function App({
             window.location.pathname.startsWith("/membros")));
       const expectedOrganizationId =
         provisionResult && provisionResult !== "recover"
-          ? provisionResult.organizationId
+          ? provisionResult.churchId
           : attempt.current?.kind === "confirmed"
-            ? attempt.current.organizationId
+            ? attempt.current.churchId
             : null;
       denied.current = false;
       setUncertain(false);
       if (management) {
-        const [context, churches] = await Promise.all([
-          api.context(),
-          api.churches(),
-        ]);
+        const context = await api.context();
+        if (
+          expectedOrganizationId &&
+          context.churchId !== expectedOrganizationId
+        )
+          throw new ApiError(
+            409,
+            "CONTEXTO_ALTERADO",
+            "A igreja selecionada foi alterada.",
+          );
+        const churches = await api.churches();
         if (sequence !== generation.current) return;
         if (
           memberList.current &&
-          memberList.current.organizationId !== context.organizationId
+          memberList.current.churchId !== context.churchId
         )
           memberList.current = null;
         if (
           expectedOrganizationId &&
-          context.organizationId !== expectedOrganizationId
+          context.churchId !== expectedOrganizationId
         )
           throw new ApiError(
             403,
             "CONTEXTO_ALTERADO",
-            "Selecione novamente a organização para continuar.",
+            "Selecione novamente a igreja para continuar.",
           );
-        if (churches.organizationId !== context.organizationId)
+        if (churches.churchId !== context.churchId)
           throw new ApiError(
             403,
             "CONTEXTO_ALTERADO",
-            "Selecione novamente a organização para continuar.",
+            "Selecione novamente a igreja para continuar.",
           );
         const organization = {
-          id: context.organizationId,
-          nome: context.organizationName,
+          id: context.churchId,
+          nome: context.churchName,
         };
         if (!(await confirmSession(currentIdentity, sequence))) return;
         if (finishProvision) navigate("/painel");
@@ -296,7 +309,7 @@ export function App({
           const filters: MemberFilters = churchFilter
             ? { page: 1, pageSize: 20, churchId: churchFilter }
             : saved &&
-                saved.organizationId === organization.id &&
+                saved.churchId === organization.id &&
                 sameSession(saved.identity, currentIdentity)
               ? saved.filters
               : { page: 1, pageSize: 20 };
@@ -323,7 +336,7 @@ export function App({
         if (
           memberList.current &&
           !organizations.some(
-            (item) => item.id === memberList.current?.organizationId,
+            (item) => item.id === memberList.current?.churchId,
           )
         )
           memberList.current = null;
@@ -337,14 +350,16 @@ export function App({
         setNotice({
           kind: "success",
           text: confirmedProvision
-            ? "Organização e primeira igreja criadas. Seu espaço está pronto. Se desejar, cadastre o primeiro membro."
-            : "Acesso confirmado. Confira sua organização. Se desejar, cadastre o primeiro membro.",
+            ? "Igreja criada. Seu espaço está pronto. Se desejar, cadastre o primeiro membro."
+            : "Acesso confirmado. Confira sua igreja. Se desejar, cadastre o primeiro membro.",
         });
     } catch (error) {
       if (sequence !== generation.current) return;
       if (
         error instanceof ApiError &&
-        (error.status === 401 || error.status === 403) &&
+        (error.status === 401 ||
+          error.status === 403 ||
+          (error.status === 409 && error.code === "CONTEXTO_ALTERADO")) &&
         (resumeChurches || provisioned !== undefined)
       ) {
         denied.current = true;
@@ -412,7 +427,7 @@ export function App({
               const context = await api.context();
               if (sequence !== generation.current) return;
               if (
-                context.organizationId !== currentScreen.organization.id ||
+                context.churchId !== currentScreen.organization.id ||
                 !context.membersEnabled
               )
                 await refresh(false);
@@ -502,7 +517,7 @@ export function App({
           if (!sameSession(operationIdentity, identity.current)) return;
           setNotice({
             kind: "info",
-            text: "Seu cadastro inicial já foi concluído. Atualize suas organizações para continuar. Se não houver acesso, procure o responsável pela organização.",
+            text: "Seu cadastro inicial já foi concluído. Atualize suas igrejas para continuar. Se não houver acesso, procure o responsável pela igreja.",
           });
         } else if (error.status === 0 || error.status >= 500) {
           if (provisioning) setUncertain(true);
@@ -576,9 +591,9 @@ export function App({
     login: "Bem-vindo de volta",
     password: token ? "Escolha sua senha" : "Configurar senha opcional",
     organization: "Um lugar para sua comunidade",
-    organizations: "Suas organizações",
+    organizations: "Suas igrejas",
     dashboard: "Visão geral",
-    churches: "Igrejas da organização",
+    churches: "Igreja selecionada",
     members:
       screen.kind === "members" && screen.path.endsWith("/editar")
         ? "Editar membro"
@@ -623,6 +638,7 @@ export function App({
       )
     )
       return;
+    if (path === "/criar-igreja") denied.current = false;
     navigate(path);
     const sourceIdentity = identity.current;
     void perform(
@@ -669,7 +685,7 @@ export function App({
     </button>
   );
   const navigation = currentOrganization && (
-    <nav aria-label="Navegação da organização" className="admin-nav">
+    <nav aria-label="Navegação da igreja" className="admin-nav">
       {(
         [
           { path: "/painel", label: "Início", icon: "home" },
@@ -707,7 +723,7 @@ export function App({
             className="organization-switch"
             disabled={busy}
           >
-            <span aria-hidden="true">⇄</span>Trocar organização
+            <span aria-hidden="true">⇄</span>Trocar igreja
           </NavigationLink>
           {logoutButton}
         </div>
@@ -748,7 +764,7 @@ export function App({
         )}
         {currentOrganization && (
           <div className="context-label">
-            <span className="eyebrow">Organização ativa</span>
+            <span className="eyebrow">Igreja ativa</span>
             <strong>{currentOrganization.nome}</strong>
             <span className="context-role">Administração</span>
           </div>
@@ -791,8 +807,8 @@ export function App({
               Clareza na gestão.
             </h2>
             <p>
-              Vamos preparar seu acesso e o espaço da sua organização, uma etapa
-              de cada vez.
+              Vamos preparar seu acesso e o espaço da sua igreja, uma etapa de
+              cada vez.
             </p>
             <ol>
               {[
@@ -822,7 +838,7 @@ export function App({
         >
           <p className="eyebrow">
             {screen.kind === "churches"
-              ? "Sua organização"
+              ? "Sua igreja"
               : showSteps
                 ? "Vamos começar"
                 : "Seu espaço no Levi"}
@@ -1021,15 +1037,9 @@ export function App({
           )}
           {screen.kind === "organization" && (
             <>
-              <p>
-                A organização reúne as igrejas que você administra e mantém seus
-                cadastros separados de outras organizações. Crie esse espaço com
-                sua primeira igreja; apenas os nomes são obrigatórios.
-              </p>
+              <p>Crie uma igreja independente. Apenas o nome é obrigatório.</p>
               <p className="hint">
-                Se você já participa de uma organização, procure seu responsável
-                para conferir seu acesso administrativo. Este formulário cria
-                uma nova organização.
+                Cada igreja tem seus próprios dados e acessos.
               </p>
               {uncertain ? (
                 <>
@@ -1058,7 +1068,6 @@ export function App({
                   onSubmit={(values) =>
                     perform(async (isCurrent) => {
                       const input = {
-                        organizationName: values.organizationName!.trim(),
                         churchName: values.churchName!.trim(),
                         churchAddress: values.churchAddress?.trim() || null,
                         churchPhone: values.churchPhone?.trim() || null,
@@ -1073,7 +1082,7 @@ export function App({
                         kind: "confirmed",
                         key,
                         input,
-                        organizationId: result.organizationId,
+                        churchId: result.churchId,
                       };
                       await refresh(false, result);
                     }, true)
@@ -1085,8 +1094,8 @@ export function App({
           {screen.kind === "organizations" && (
             <>
               <p>
-                Escolha a organização que deseja acessar. Seu vínculo é
-                conferido a cada acesso.
+                Escolha a igreja que deseja acessar. Seu vínculo é conferido a
+                cada acesso.
               </p>
               {screen.items.length ? (
                 <ul className="item-list">
@@ -1111,22 +1120,29 @@ export function App({
                             await refresh();
                           })
                         }
-                        aria-label={`Acessar organização ${item.nome}`}
+                        aria-label={`Acessar igreja ${item.nome}`}
                       >
-                        Acessar organização <span aria-hidden="true">→</span>
+                        Acessar igreja <span aria-hidden="true">→</span>
                       </button>
                     </li>
                   ))}
                 </ul>
               ) : (
                 <p>
-                  Nenhuma organização está disponível com vínculo administrativo
-                  atual. Procure o responsável pela organização.
+                  Nenhuma igreja está disponível com vínculo administrativo
+                  atual. Procure o responsável pela igreja.
                 </p>
               )}
               <button className="text-button" disabled={busy} onClick={update}>
-                Atualizar organizações
+                Atualizar igrejas
               </button>
+              <NavigationLink
+                href="/criar-igreja"
+                navigate={go}
+                disabled={busy}
+              >
+                Criar igreja
+              </NavigationLink>
             </>
           )}
           {screen.kind === "members" && (
@@ -1141,7 +1157,7 @@ export function App({
                 if (sameSession(identity.current, screen.identity))
                   memberList.current = {
                     identity: screen.identity,
-                    organizationId: screen.organization.id,
+                    churchId: screen.organization.id,
                     filters,
                   };
               }}
@@ -1183,7 +1199,7 @@ export function App({
                   <span className="tile-icon">
                     <Icon name="church" />
                   </span>
-                  <p>Igrejas na organização</p>
+                  <p>Igrejas na igreja</p>
                   <strong className="metric">{screen.items.length}</strong>
                   <button
                     className="text-button"
@@ -1200,7 +1216,7 @@ export function App({
                   <p>
                     {membersEnabled
                       ? "Cadastros organizados, contatos e informações sempre à mão."
-                      : "Este recurso ainda não está disponível para esta organização."}
+                      : "Este recurso ainda não está disponível para esta igreja."}
                   </p>
                   {membersEnabled && (
                     <button
@@ -1217,7 +1233,7 @@ export function App({
           {screen.kind === "churches" && (
             <>
               <div className="page-intro">
-                <p>As igrejas que fazem parte da sua organização.</p>
+                <p>As igrejas que fazem parte da sua igreja.</p>
                 <span className="count-label">
                   {screen.items.length}{" "}
                   {screen.items.length === 1 ? "igreja" : "igrejas"}
@@ -1262,11 +1278,11 @@ export function App({
               ) : (
                 <EmptyState
                   icon="church"
-                  title="Nenhuma igreja disponível nesta organização."
+                  title="Nenhuma igreja disponível nesta igreja."
                 >
                   <p>
                     Atualize a consulta ou confira seu acesso com o responsável
-                    pela organização.
+                    pela igreja.
                   </p>
                 </EmptyState>
               )}
@@ -1286,11 +1302,7 @@ export function App({
               </p>
               {screen.kind === "no-access" && canProvision && (
                 <>
-                  <p>
-                    Você pode criar sua primeira igreja pelo cadastro atual de
-                    organização. A criação independente e os convites estarão
-                    disponíveis em uma próxima etapa.
-                  </p>
+                  <p>Você pode criar uma igreja independente para sua conta.</p>
                   <NavigationLink
                     href="/criar-igreja"
                     navigate={go}

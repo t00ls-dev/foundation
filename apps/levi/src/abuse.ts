@@ -179,10 +179,10 @@ export function createAbuseProtection(
       if (method === "POST" && path === "/api/auth/sign-out") {
         category = "logout";
         limit = publicAbuseLimits.logoutPerMinute;
-      } else if (method === "POST" && path === "/api/tenant") {
+      } else if (method === "POST" && path === "/api/context/church") {
         category = "selection";
         limit = publicAbuseLimits.selectionPerMinute;
-      } else if (method === "POST" && path === "/api/organizations") {
+      } else if (method === "POST" && path === "/api/churches") {
         category = "provision";
         limit = publicAbuseLimits.provisionPerQuarterHour;
         windowMs = 15 * 60_000;
@@ -192,7 +192,10 @@ export function createAbuseProtection(
         windowMs = 15 * 60_000;
       } else if (
         (method === "POST" && path === "/api/members") ||
-        (method === "PATCH" && /^\/api\/members\/[^/]+$/.test(path))
+        (method === "PATCH" &&
+          /^\/api\/(?:members|churches)\/[^/]+$/.test(path)) ||
+        (["PATCH", "DELETE"].includes(method) &&
+          /^\/api\/churches\/[^/]+\/accesses\/[^/]+$/.test(path))
       ) {
         category = "write";
         limit = publicAbuseLimits.writePerMinute;
@@ -200,13 +203,13 @@ export function createAbuseProtection(
         method === "GET" &&
         ([
           "/api/onboarding",
-          "/api/organizations",
-          "/api/context",
           "/api/churches",
+          "/api/context",
           "/api/members",
         ].includes(path) ||
           /^\/api\/(?:churches|members)\/[^/]+$/.test(path) ||
-          /^\/api\/members\/requests\/[^/]+$/.test(path))
+          /^\/api\/members\/requests\/[^/]+$/.test(path) ||
+          /^\/api\/churches\/[^/]+\/accesses$/.test(path))
       ) {
         category = "read";
         limit = publicAbuseLimits.readPerMinute;

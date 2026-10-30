@@ -162,18 +162,12 @@ export function AccessForm({
     return (
       <Form
         busy={busy}
-        label="Criar organização"
-        submit="Criar organização e primeira igreja"
+        label="Criar igreja"
+        submit="Criar igreja"
         fields={[
           {
-            name: "organizationName",
-            label: "Nome da organização",
-            hint: "A organização reúne as igrejas que você administra.",
-            value: initial?.organizationName,
-          },
-          {
             name: "churchName",
-            label: "Nome da primeira igreja",
+            label: "Nome da igreja",
             value: initial?.churchName,
             hint: "Só o nome é obrigatório. Deixe os contatos em branco se não souber.",
           },
@@ -203,7 +197,7 @@ export function AccessForm({
         ]}
         validate={(values) => ({
           ...Object.fromEntries(
-            ["organizationName", "churchName"]
+            ["churchName"]
               .filter((key) => !values[key]?.trim())
               .map((key) => [key, "Informe um nome para continuar."]),
           ),
