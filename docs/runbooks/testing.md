@@ -23,9 +23,10 @@ substituem testes por cache de resultados. Reexecuções da CI e SHAs distintos
 [Pacotes internos](packages.md).
 
 Todos os jobs de `ci.yml` usam `ubuntu-24.04`. No gráfico, aparecem como
-**Verificações estáticas**, **Testes dos pacotes**, **Levi: testes e
-integração** e **Levi E2E (shard 1/3, 2/3 ou 3/3)**, seguidos pelo check
-obrigatório `checks` (identificador preservado, sem `name` personalizado).
+**Foundation: verificações estáticas**, **Foundation: testes dos pacotes**,
+**Levi: testes e integração** e **Levi: E2E (shard 1/3, 2/3 ou 3/3)**, seguidos
+pelo check obrigatório `checks` (identificador preservado, sem `name`
+personalizado).
 
 O job `levi-e2e` usa três shards nativos Playwright, `fail-fast: false` e
 timeout de 15 minutos por entrada. Cada entrada executa build, instalação do

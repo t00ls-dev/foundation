@@ -65,11 +65,11 @@ function validateCiStructure(ci, setup) {
   for (const [name, commands] of Object.entries(validationCommands)) {
     const expected = {
       "name": {
-        "static": "Verificações estáticas",
-        "tests": "Testes dos pacotes",
+        "static": "Foundation: verificações estáticas",
+        "tests": "Foundation: testes dos pacotes",
         "levi-tests": "Levi: testes e integração",
         "levi-e2e":
-          "Levi E2E (shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }})",
+          "Levi: E2E (shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }})",
       }[name],
       "runs-on": "ubuntu-24.04",
       "steps": [

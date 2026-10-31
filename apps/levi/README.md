@@ -82,7 +82,7 @@ pnpm --filter levi test:e2e --runtime-acls
 criam seus próprios bancos sintéticos e os removem ao final; não recebem secrets
 ou Environments operacionais. A CI raiz tem jobs próprios `levi-tests` e
 `levi-e2e`, incluindo ACLs restritas, ligados ao agregador único `checks`.
-Todos os jobs da CI raiz usam Ubuntu 24.04. O E2E aparece como **Levi E2E
+Todos os jobs da CI raiz usam Ubuntu 24.04. O E2E aparece como **Levi: E2E
 (shard 1/3, 2/3 ou 3/3)**: três entradas isoladas, com
 `--shard=<índice>/3`, `fail-fast: false` e 15 minutos por entrada. Mantém
 `workers: 1` e divide arquivos por projeto, sem `fullyParallel`; cada entrada

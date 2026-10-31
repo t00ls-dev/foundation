@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   static:
-    name: "Verificações estáticas"
+    name: "Foundation: verificações estáticas"
     runs-on: ubuntu-24.04
     steps:
       - name: Obter código do repositório
@@ -33,7 +33,7 @@ jobs:
         run: pnpm typecheck
 
   tests:
-    name: "Testes dos pacotes"
+    name: "Foundation: testes dos pacotes"
     runs-on: ubuntu-24.04
     steps:
       - name: Obter código do repositório
@@ -92,7 +92,7 @@ jobs:
         run: pnpm --filter levi test:worker --runtime-acls
 
   levi-e2e:
-    name: "Levi E2E (shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }})"
+    name: "Levi: E2E (shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }})"
     strategy:
       fail-fast: false
       matrix:
