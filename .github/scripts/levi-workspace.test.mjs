@@ -177,6 +177,17 @@ test("CI do Levi não recebe Environment, secrets ou entrada operacional", () =>
     assert.equal(JSON.stringify(job).includes("db:migrate:dev"), false);
     assert(ci.jobs.checks.needs.includes(name));
   }
+  const e2e = ci.jobs["levi-e2e"];
+  assert.equal(e2e["runs-on"], "ubuntu-24.04");
+  assert.equal(e2e.strategy["fail-fast"], false);
+  assert.deepEqual(e2e.strategy.matrix, {
+    shardIndex: [1, 2, 3],
+    shardTotal: [3],
+  });
+  assert.equal(
+    e2e.steps.at(-1).run,
+    "pnpm --filter levi test:e2e --runtime-acls --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}",
+  );
   const deploy = parse(
     readFileSync(join(root, ".github/workflows/deploy-levi-dev.yml"), "utf8"),
   );

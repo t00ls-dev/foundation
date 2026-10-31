@@ -92,7 +92,12 @@ jobs:
         run: pnpm --filter levi test:worker --runtime-acls
 
   levi-e2e:
-    name: "Levi E2E"
+    name: "Levi E2E (shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }})"
+    strategy:
+      fail-fast: false
+      matrix:
+        shardIndex: [1, 2, 3]
+        shardTotal: [3]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -110,8 +115,10 @@ jobs:
         run: pnpm exec turbo run build --filter=levi
       - name: Instalar Chromium
         run: pnpm --filter levi exec playwright install --with-deps chromium
-      - name: E2E do Levi
-        run: pnpm --filter levi test:e2e --runtime-acls
+      - name: "E2E: shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }}"
+        run: >-
+          pnpm --filter levi test:e2e --runtime-acls --shard=${{
+          matrix.shardIndex }}/${{ matrix.shardTotal }}
 
   checks:
     if: always()

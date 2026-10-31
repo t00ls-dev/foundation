@@ -22,12 +22,46 @@ substituem testes por cache de resultados. Reexecuções da CI e SHAs distintos
 (PR/merge) continuam sendo validados integralmente. Veja
 [Pacotes internos](packages.md).
 
+Todos os jobs de `ci.yml` usam `ubuntu-24.04`. No gráfico, aparecem como
+**Verificações estáticas**, **Testes dos pacotes**, **Levi: testes e
+integração** e **Levi E2E (shard 1/3, 2/3 ou 3/3)**, seguidos pelo check
+obrigatório `checks` (identificador preservado, sem `name` personalizado).
+
+O job `levi-e2e` usa três shards nativos Playwright, `fail-fast: false` e
+timeout de 15 minutos por entrada. Cada entrada executa build, instalação do
+Chromium e `pnpm --filter levi test:e2e --runtime-acls --shard=<índice>/3` em
+runner próprio, com PostgreSQL e caixa de e-mails descartáveis. As portas fixas
+ficam isoladas entre runners. `workers: 1`, retries e projetos existentes são
+preservados; sem `fullyParallel`, a unidade de divisão é o arquivo dentro de
+cada projeto. O `needs` do agregador continua incluindo `levi-e2e`: qualquer
+shard com falha reprova o job agregado e bloqueia `checks`. Não há merge nem
+publicação de relatórios.
+
+Para conferir a cobertura, execute
+`pnpm --filter levi test:e2e --runtime-acls --list --reporter=list` e repita com
+`--shard=1/3`, `--shard=2/3` e `--shard=3/3`. Compare as identidades completas
+(projeto, arquivo, posição e título), incluindo testes ignorados: a união deve
+ser idêntica à lista completa, e cada identidade deve ocorrer uma única vez. Na
+implantação desta divisão: 101 testes = 44 + 44 + 13. Compare também as etapas e
+durações de cada shard, pois contagens por arquivo não garantem tempos iguais;
+considere o custo de build, Chromium e migrations por entrada.
+
+Pendências fora desta mudança: revisar os runners de `deploy-levi-dev`,
+`diagnose-levi-cloudflare` e `smoke-hyperdrive`; avaliar separadamente a
+migração para Ubuntu 26.04. Não use execuções de imagens diferentes como
+comparação direta de desempenho.
+
 ### Resumos no GitHub Actions
 
 Os testes Vitest exibem um resumo compacto por pacote e suíte em
 `GITHUB_STEP_SUMMARY`, usando os resultados e diagnósticos da API do framework.
 Incluem Passed, Failed, Skipped (também `todo`), Flaky e duração desde a
 inicialização do reporter. No Vitest, Flaky é subconjunto de Passed.
+
+O reporter seguro do Levi publica somente o shard, a quantidade de testes
+coletados (incluindo os ignorados) e a duração do Playwright no resumo de cada
+entrada E2E. Não inclui nomes de testes, requests, erros originais ou dados da
+aplicação; falha na escrita não altera o exit code do navegador.
 
 As durações dos reporters não incluem setup de Node/dependências nem builds
 anteriores. Os checks estáticos mantêm os diagnósticos e estados de steps
