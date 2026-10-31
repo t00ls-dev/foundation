@@ -19,7 +19,7 @@
     "@t00ls-dev/auth": "workspace:*",
     "@t00ls-dev/db": "workspace:*",
     "@t00ls-dev/tenant": "workspace:*",
-    "better-auth": "^1.7.12",
+    "better-auth": "^1.7.14",
     "drizzle-orm": "^0.45.4",
     "miniflare": "^5.20261019.2-beta",
     "pg": "^8.23.1",
