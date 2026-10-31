@@ -69,10 +69,12 @@ da primeira entrega.
 - Formatação com Prettier.
 - Builds ordenados pelos limites de dependência do workspace.
 - Todos os consumidores Foundation usam `workspace:*`; os pacotes são privados.
-- Correções locais de dependências: Zod `4.6.7` somente nas cadeias Better Auth
-  e Core `1.7.12`, e Undici `7.30.1` na cadeia Miniflare. Overrides de raiz não
-  corrigem lockfiles de consumidores externos; a cópia Levi incorporada usa os
-  overrides raiz, preservando o lockfile do repositório original.
+- O lockfile resolve Zod `4.6.7` nas cadeias Better Auth e Core `1.7.12`. Os
+  overrides de Zod ainda selecionam somente Better Auth/Core `1.7.10` e não
+  impõem essa resolução às versões `1.7.12`. O override de Undici fixa `7.30.1`
+  na cadeia Miniflare. Overrides de raiz não corrigem lockfiles de consumidores
+  externos; a cópia Levi incorporada usa o lockfile da raiz, preservando o
+  lockfile histórico do repositório original.
 - CI integral e gates existentes preservados; testes de contrato exercitam
   aplicativos sintéticos, componentes privados e dependências transitivas com
   `^build`, sem seleção agressiva ou publicação npm.

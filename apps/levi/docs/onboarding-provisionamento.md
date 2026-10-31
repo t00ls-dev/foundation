@@ -24,26 +24,57 @@ pnpm --filter levi format:check
 
 A integração cria um container exclusivo, com imagem PostgreSQL fixada por digest,
 porta aleatória somente em loopback e credenciais sintéticas. Aplica explicitamente
-`migrations/` duas vezes para validar o journal, executa os testes e remove o
-container em `finally`. Não utiliza `LEVI_DATABASE_URL` externo. Se Docker falhar,
+`migrations/` duas vezes para validar o journal e prepara conversão/contract
+pelos scripts existentes antes das regressões da aplicação. Executa os testes e
+remove o container em `finally`. Não utiliza `LEVI_DATABASE_URL` externo. Se Docker falhar,
 a suíte falha; não há fallback para mocks ou banco persistente. Uma interrupção
 forçada do processo pode exigir remover o container de testes identificado pelo
 label `levi.integration=true`.
 
-Para exercitar manualmente, a partir de `apps/levi`, crie um banco local separado, exclusivamente sintético:
+Para exercitar manualmente, a partir de `apps/levi`, crie um banco local novo e
+vazio, exclusivamente sintético. Não reutilize um banco existente nesta receita:
 
 ```sh
 docker run --rm --detach --name levi-local \
   --publish 127.0.0.1:54329:5432 \
   --env POSTGRES_DB=levi_local --env POSTGRES_USER=levi_local \
   --env POSTGRES_PASSWORD=synthetic-only postgres:17-alpine
+```
 
+Antes de continuar, aguarde o comando abaixo indicar que o PostgreSQL aceita
+conexões:
+
+```sh
+docker exec levi-local pg_isready --username=levi_local --dbname=levi_local
+```
+
+Com o banco pronto e sem servidor da aplicação em execução, aplique o journal e
+as duas fases separadas, nessa ordem. Cada comando deve terminar com sucesso
+antes de executar o seguinte:
+
+```sh
 export LEVI_DATABASE_URL='postgresql://levi_local:synthetic-only@127.0.0.1:54329/levi_local'
 export LEVI_LOCAL_DATABASE=1
 export LEVI_AUTH_SECRET="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')"
 pnpm db:migrate
+docker exec --interactive levi-local \
+  psql --no-psqlrc --username=levi_local --dbname=levi_local \
+  --set=ON_ERROR_STOP=1 --single-transaction < ops/etapa3/converter.sql
+docker exec --interactive levi-local \
+  psql --no-psqlrc --username=levi_local --dbname=levi_local \
+  --set=ON_ERROR_STOP=1 --single-transaction < ops/etapa3/contract.sql
 pnpm dev
 ```
+
+`db:migrate` aplica somente o journal, que preserva o schema intermediário:
+`churches.tenant_id` ainda é obrigatório após a expansão. A criação atual de
+igrejas independentes exige a conversão e o `contract`, incluindo suas
+proteções de integridade; remover apenas o `NOT NULL` não prepara o schema
+completo. As duas fases são executadas uma única vez neste container novo, cada
+uma em transação e com interrupção em erro. Não reaplique a receita sobre um
+banco já preparado ou com dados. Bancos existentes e operações persistentes
+seguem as fases, ACLs, evidências e autorizações do
+[núcleo de igrejas](nucleo-igrejas.md#fases-de-migration-e-corte).
 
 `pnpm dev` inicia Vite em `http://localhost:5173` e a API em
 `127.0.0.1:3000`. O proxy preserva cookies e a origem de navegador.
