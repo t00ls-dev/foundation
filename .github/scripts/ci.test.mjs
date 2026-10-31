@@ -26,7 +26,7 @@ const validationCommands = {
   "levi-e2e": [
     "pnpm exec turbo run build --filter=levi",
     "pnpm --filter levi exec playwright install --with-deps chromium",
-    "pnpm --filter levi test:e2e --runtime-acls",
+    "pnpm --filter levi test:e2e --runtime-acls --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}",
   ],
 };
 
@@ -46,7 +46,11 @@ function validateCiStructure(ci, setup) {
   });
   const jobs = structuredClone(ci.jobs);
   for (const job of Object.values(jobs))
-    for (const step of job.steps) delete step.name;
+    for (const step of job.steps) {
+      assert.equal(typeof step.name, "string");
+      assert(step.name.trim().length > 0);
+      delete step.name;
+    }
   assert.deepEqual(Object.keys(jobs).sort(), [
     "checks",
     "levi-e2e",
@@ -60,7 +64,14 @@ function validateCiStructure(ci, setup) {
   );
   for (const [name, commands] of Object.entries(validationCommands)) {
     const expected = {
-      "runs-on": "ubuntu-latest",
+      "name": {
+        "static": "Foundation: verificações estáticas",
+        "tests": "Foundation: testes dos pacotes",
+        "levi-tests": "Levi: testes e integração",
+        "levi-e2e":
+          "Levi: E2E (shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }})",
+      }[name],
+      "runs-on": "ubuntu-24.04",
       "steps": [
         { uses: "actions/checkout@v7", with: { "fetch-depth": 0 } },
         { uses: "./.github/actions/setup" },
@@ -80,12 +91,18 @@ function validateCiStructure(ci, setup) {
       };
       expected.steps[0].with["persist-credentials"] = false;
     }
+    if (name === "levi-e2e") {
+      expected.strategy = {
+        "fail-fast": false,
+        "matrix": { shardIndex: [1, 2, 3], shardTotal: [3] },
+      };
+    }
     assert.deepEqual(jobs[name], expected, `Required validation job: ${name}`);
   }
   assert.deepEqual(jobs.checks, {
     "if": "always()",
     "needs": Object.keys(validationCommands),
-    "runs-on": "ubuntu-latest",
+    "runs-on": "ubuntu-24.04",
     "steps": [
       { uses: "actions/checkout@v7" },
       {
@@ -135,9 +152,11 @@ for (const name of Object.keys(validationCommands)) {
     "condition",
     "dependency",
     "ignore",
+    "runner",
   ]) {
     test(`CI guard rejects ${name} job: ${mutation}`, () => {
       const ci = currentCi();
+      if (mutation === "runner") ci.jobs[name]["runs-on"] = "ubuntu-latest";
       if (mutation === "remove") delete ci.jobs[name];
       if (mutation === "detach")
         ci.jobs.checks.needs = ci.jobs.checks.needs.filter((n) => n !== name);
@@ -149,6 +168,9 @@ for (const name of Object.keys(validationCommands)) {
   }
 }
 for (const mutate of [
+  (ci) => {
+    ci.jobs.checks["runs-on"] = "ubuntu-latest";
+  },
   (ci) => {
     ci.jobs.checks.if = "success()";
   },
@@ -168,6 +190,50 @@ for (const mutate of [
   test(`CI guard rejects altered execution contract: ${mutate.toString()}`, () => {
     const ci = currentCi();
     mutate(ci);
+    assert.throws(() => validateCiStructure(ci, ciSetup()));
+  });
+}
+for (const mutate of [
+  (job) => {
+    delete job.strategy;
+  },
+  (job) => {
+    job.strategy["fail-fast"] = true;
+  },
+  (job) => {
+    delete job.strategy["fail-fast"];
+  },
+  (job) => {
+    job.strategy.matrix.shardIndex.pop();
+  },
+  (job) => {
+    job.strategy.matrix.shardIndex.push(3);
+  },
+  (job) => {
+    job.strategy.matrix.shardTotal = [2];
+  },
+  (job) => {
+    job.strategy.matrix.exclude = [{ shardIndex: 2 }];
+  },
+  (job) => {
+    job.strategy.matrix.include = [{ shardIndex: 4, shardTotal: 3 }];
+  },
+  (job) => {
+    job.steps.at(-1).run = "pnpm --filter levi test:e2e --runtime-acls";
+  },
+  (job) => {
+    delete job.steps.at(-1).name;
+  },
+  (job) => {
+    job.name = "checks";
+  },
+  (job) => {
+    job["timeout-minutes"] = 0;
+  },
+]) {
+  test(`CI guard rejects altered E2E shard contract: ${mutate.toString()}`, () => {
+    const ci = currentCi();
+    mutate(ci.jobs["levi-e2e"]);
     assert.throws(() => validateCiStructure(ci, ciSetup()));
   });
 }
