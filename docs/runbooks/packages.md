@@ -16,13 +16,17 @@ Adicione a dependência no manifesto do consumidor dentro de um dos globs de
 ```
 
 Execute `pnpm install` na raiz e versione o lockfile. Compile com `pnpm build`;
-os consumidores usam os exports compilados dos pacotes locais. O Levi já seguem
+os consumidores usam os exports públicos locais. Sete dependências Foundation do
+Levi são compiladas; `@t00ls-dev/ui` fornece fontes TSX ao bundler. O Levi segue
 esse contrato. O gerador basic-d1 usa bibliotecas upstream diretamente e não
 depende de pacotes Foundation publicados.
 
 `pnpm test:workspace` verifica manifests privados, protocolos internos, links
 reais, lockfile e o grafo de builds. O gate final é `pnpm check`. Consulte
-[Testes](testing.md) e [contratos de consumo](package-distribution.md).
+[Testes](testing.md).
+
+Os adaptadores D1 preservam seus tipos oficiais e o perfil Workers de `db/d1`;
+veja o [README do db](../../packages/db/README.md).
 
 ## Limites operacionais
 

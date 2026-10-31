@@ -1,5 +1,9 @@
 # Foundation UI v1
 
+O consumo integral dos estilos usa Tailwind v4. Para o uso isolado de Skeleton,
+Levi fornece classe e CSS locais sem Tailwind; os exports apontam a fontes TSX e
+são processados pelo bundler consumidor.
+
 Workspace **privado**, disponível para consumo por fontes, sem publicação ou
 Changeset. Veja [ADR-008](../../docs/decisions/008-foundation-ui-v1.md).
 

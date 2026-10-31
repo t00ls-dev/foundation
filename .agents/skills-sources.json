@@ -124,6 +124,16 @@
       "path": "skills/create-github-action-workflow-specification",
       "skillSha256": "25b57a8e4ed35e2e640dc9f6f255dc6c8f86574b98d2abc5153b5a8c9b22491c",
       "license": "licenses/github-awesome-copilot.txt"
+    },
+    {
+      "name": "web-design-guidelines",
+      "repository": "vercel-labs/agent-skills",
+      "commit": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "path": "skills/web-design-guidelines",
+      "skillSha256": "f4647ca866a3accf763777f83e7682954f0187cd6bea7eea0399796652414e8f",
+      "license": "MIT declarada no README raiz upstream, seção License; sem arquivo de licença",
+      "licenseSource": "https://github.com/vercel-labs/agent-skills/blob/063bee94c3f4df8453406c830b0a7df0f2860278/README.md#license",
+      "reviewedAt": "2026-10-31"
     }
   ]
 }

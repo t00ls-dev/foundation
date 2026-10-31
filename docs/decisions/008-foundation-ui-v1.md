@@ -1,5 +1,12 @@
 # ADR-008: Base UI Foundation v1 privada e incremental
 
+Estado atual em 31/10/2026: exports incluem Button, Input, Skeleton, Spinner,
+Dialog, AlertDialog, Collapsible e padrões de feedback, progresso, botão
+pendente e Settings. Levi consome Skeleton com CSS local. Tailwind integra o
+consumo completo de estilos; não é requisito universal para esse uso isolado.
+Planos Bookmarks/Account/TOTP e PR #30 abaixo pertencem ao consumidor removido,
+sem compromisso futuro vigente.
+
 - Status: aceito
 - Escopo: base UI e shell do Links (PR 1)
 

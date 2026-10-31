@@ -1,11 +1,10 @@
-# Núcleo de igrejas — etapas 3 e 4
+# Núcleo de igrejas, acessos e convites
 
 Igreja é a única raiz operacional do Levi. A conta pode criar e selecionar várias
 igrejas independentes, sem limite comercial inicial. `admin` gerencia a igreja e
 seus acessos; `collaborator` consulta, cadastra e edita membros. Administração
 global não concede acesso a igrejas. Conta, vínculo de acesso e membro da
-congregação permanecem entidades distintas. Não existe exclusão de igreja nem
-convites nesta etapa. A SPA oferece seleção, edição institucional e gestão de vínculos existentes.
+congregação permanecem entidades distintas. Não existe exclusão de igreja. Convites por e-mail estão implementados, conforme a seção final. A SPA oferece seleção, edição institucional e gestão de vínculos existentes.
 
 ## Contratos
 
@@ -21,7 +20,7 @@ convites nesta etapa. A SPA oferece seleção, edição institucional e gestão 
   papel e capacidades atuais. IDs do cliente não concedem autoridade.
 - `GET /api/churches/:id/accesses?after=<uuid>` pagina vínculos (100 por consulta), com `next` (UUID ou null). Inclui `name`, `email`, papel, versão e data do vínculo somente para administradores autorizados daquela igreja.
   `PATCH/DELETE /api/churches/:id/accesses/:accessId` exige `version`; PATCH também
-  recebe `role`. Não há endpoint para conceder acesso a contas novas nesta fase.
+  recebe `role`. Novas contas recebem acesso pelo aceite autenticado de convites, conforme a seção final.
 - Operações de membros exigem `X-Levi-Church` com a igreja esperada. Divergência
   com a seleção persistida retorna 409, sem gravar na seleção nova. Filtros e IDs
   nunca ampliam o escopo. Campos desconhecidos são recusados.

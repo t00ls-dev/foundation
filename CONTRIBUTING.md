@@ -21,9 +21,9 @@ precisam de credenciais de deploy.
 
 A CI de PR roda em runners GitHub hospedados. Contribuições externas não recebem
 secrets operacionais nem autorizam deploy, migrations ou publicação. O
-mantenedor revisa o PR e os checks antes de integrar. Avançar `master` pode
-acionar deploy DEV e fases de migration após CI; a consolidação precisa levar
-esse efeito operacional em conta. A distribuição npm foi encerrada.
+mantenedor revisa o PR e os checks antes de integrar. Avançar `master` executa
+CI; o deploy DEV é manual e migrations persistentes exigem operação independente
+autorizada. A distribuição npm foi encerrada.
 
 O código próprio é licenciado sob MIT; consulte
 [licenças e distribuição](docs/runbooks/licensing.md) para o aviso de copyright

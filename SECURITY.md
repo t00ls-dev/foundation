@@ -5,12 +5,9 @@
 Não publique vulnerabilidades exploráveis, tokens, dados pessoais ou detalhes de
 acesso em issues, PRs ou logs públicos.
 
-Na verificação de 11/10/2026, o repositório `t00ls-dev/foundation` é público,
-mas o recurso de relato privado de vulnerabilidades do GitHub não está
-habilitado. Nenhum e-mail de segurança foi definido. Solicite em uma issue
-apenas a indicação de um canal privado, sem incluir detalhes da vulnerabilidade.
-Se o recurso for habilitado, use **Security → Advisories → Report a
-vulnerability** para um relato privado.
+Use **Security → Advisories → Report a vulnerability** no repositório
+`t00ls-dev/foundation` para enviar um relato privado. O canal estava habilitado
+na verificação de 31/10/2026.
 
 No relato privado, informe versão/SHA afetado, impacto, passos de reprodução
 locais e eventual correção, usando dados sintéticos. Não teste contra DEV ou

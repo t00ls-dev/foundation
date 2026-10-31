@@ -1,6 +1,8 @@
-# Levi — proposta de UI, Fase 0
+# Levi — decisões de UI e histórico da Fase 0
 
-Proposta para avaliação em 29/10/2026. Não autoriza implementação.
+Estado em 31/10/2026: as decisões posteriores das Fases 1/2 abaixo prevalecem sobre o diagnóstico da Fase 0, registrado em 29/10/2026. O checkout usa Skeleton público, CSS dividido, igrejas independentes e convites. O diagnóstico e os inventários iniciais abaixo são históricos; fases futuras não recebem autorização por este registro.
+
+Registro da proposta inicial para avaliação em 29/10/2026, seguido das decisões de implementação posteriores.
 
 ## Evidência e diagnóstico
 
@@ -9,10 +11,10 @@ Destinos de documentação graváveis; nenhum arquivo anterior nos destinos.
 Playwright, Chromium, axe e Prettier disponíveis localmente. Nenhuma instalação.
 
 Referências normativas: [instruções do Levi](../AGENTS.md),
-[acessibilidade](../../../../ACCESSIBILITY.md),
+[acessibilidade](../../../ACCESSIBILITY.md),
 [onboarding](interface-onboarding.md), [MVP](decisoes-mvp.md),
-[Foundation UI](../../../../packages/ui/README.md) e
-[ADR-008](../../../../docs/decisions/008-foundation-ui-v1.md).
+[Foundation UI](../../../packages/ui/README.md) e
+[ADR-008](../../../docs/decisions/008-foundation-ui-v1.md).
 
 A página [Preline Dashboards](https://preline.co/templates/dashboards/) foi
 consultada diretamente em conteúdo textual: Admin, CRM, CMS e Analytics.

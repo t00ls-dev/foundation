@@ -4,7 +4,7 @@ Na v0.1, `@t00ls-dev/create-app` gera apenas o preset autônomo `basic-d1`.
 
 ```bash
 pnpm --filter @t00ls-dev/create-app build
-pnpm exec create-app /caminho/para/meu-app --preset basic-d1
+pnpm --filter @t00ls-dev/create-app exec node dist/bin.js /caminho/para/meu-app --preset basic-d1
 ```
 
 O destino deve ser novo ou vazio. O gerador não sobrescreve arquivos.

@@ -24,6 +24,9 @@ O Foundation reúne infraestrutura de aplicação sem regras de negócio de um
 produto específico. Combina **React SPA e API Hono no mesmo Cloudflare Worker**,
 com D1 como preset inicial e suporte a PostgreSQL via Drizzle.
 
+O preset usa React Router; Levi usa navegação própria com history e estado
+React, preservando a mesma topologia SPA/API.
+
 Os **pacotes são internos ao monorepo**, consumidos com `workspace:*`. O
 repositório inclui o [Levi](apps/levi/README.md), aplicação privada de gestão de
 igrejas com domínio e banco próprios. Consulte o
@@ -72,6 +75,8 @@ Pacotes locais privados em `packages/*`:
   estruturados com contexto de request, usuário e tenant.
 - [**@t00ls-dev/audit**](packages/audit) — eventos append-only em D1/PostgreSQL,
   com rejeição de chaves sensíveis na metadata.
+- [**@t00ls-dev/ui**](packages/ui) — componentes e padrões React privados,
+  consumidos por fontes TSX.
 
 Todos os workspaces são privados. Veja o
 [consumo interno](docs/runbooks/packages.md).

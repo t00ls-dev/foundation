@@ -2,7 +2,8 @@
 
 A licença MIT foi aprovada pelo mantenedor para o código próprio do Foundation.
 O texto está em [`LICENSE`](../../LICENSE); os nove pacotes reutilizáveis e a
-raiz declaram `MIT`. Os tarballs devem conter o mesmo texto da licença raiz.
+raiz declaram `MIT`. Os tarballs da distribuição encerrada são históricos; não
+há publicação npm vigente.
 
 O código próprio do Levi incorporado em `apps/levi` adota MIT por aprovação do
 mantenedor. A cópia inclui [LICENSE](../../apps/levi/LICENSE) e
@@ -27,6 +28,18 @@ identifica conteúdo shadcn sob MIT; não identifica o titular do Foundation.
 Distribuir dependências ou binários exige respeitar seus avisos e obrigações,
 incluindo componentes MPL e LGPL presentes nas ferramentas. A licença raiz não
 relicencia esses componentes.
+
+## Skills de terceiros
+
+O [catálogo local](../../.agents/README.md) e o
+[manifesto](../../.agents/skills-sources.json) registram origens, revisões e
+licenças das 15 importações e da skill preexistente. As cópias de licenças estão
+em [licenses](../../.agents/licenses/); a skill React declara MIT no frontmatter
+upstream. A licença raiz não relicencia cópias de terceiros. A skill
+preexistente `web-design-guidelines` também consta no manifesto: a declaração
+MIT do README raiz da revisão correspondente cobre a cópia local. Veja as fontes
+imutáveis e a atribuição no catálogo. O conteúdo externo buscado pela skill em
+tempo de uso não é incorporado nem relicenciado por este registro.
 
 ## Pacotes internos
 
