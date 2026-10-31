@@ -49,7 +49,10 @@ considere o custo de build, Chromium e migrations por entrada.
 Pendências fora desta mudança: revisar os runners de `deploy-levi-dev`,
 `diagnose-levi-cloudflare` e `smoke-hyperdrive`; avaliar separadamente a
 migração para Ubuntu 26.04. Não use execuções de imagens diferentes como
-comparação direta de desempenho.
+comparação direta de desempenho. O resumo por shard no `GITHUB_STEP_SUMMARY`
+também fica pendente: o reporter seguro atual é preservado, e a escrita do
+resumo requer tratar o caminho de saída sem introduzir alerta de segurança ou
+revelar detalhes sensíveis.
 
 ### Resumos no GitHub Actions
 
@@ -57,11 +60,6 @@ Os testes Vitest exibem um resumo compacto por pacote e suíte em
 `GITHUB_STEP_SUMMARY`, usando os resultados e diagnósticos da API do framework.
 Incluem Passed, Failed, Skipped (também `todo`), Flaky e duração desde a
 inicialização do reporter. No Vitest, Flaky é subconjunto de Passed.
-
-O reporter seguro do Levi publica somente o shard, a quantidade de testes
-coletados (incluindo os ignorados) e a duração do Playwright no resumo de cada
-entrada E2E. Não inclui nomes de testes, requests, erros originais ou dados da
-aplicação; falha na escrita não altera o exit code do navegador.
 
 As durações dos reporters não incluem setup de Node/dependências nem builds
 anteriores. Os checks estáticos mantêm os diagnósticos e estados de steps

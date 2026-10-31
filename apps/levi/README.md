@@ -87,9 +87,9 @@ Todos os jobs da CI raiz usam Ubuntu 24.04. O E2E aparece como **Levi E2E
 `--shard=<índice>/3`, `fail-fast: false` e 15 minutos por entrada. Mantém
 `workers: 1` e divide arquivos por projeto, sem `fullyParallel`; cada entrada
 prepara seu próprio PostgreSQL e e-mails descartáveis. Qualquer shard com falha
-bloqueia `checks`. O resumo de cada entrada inclui somente shard, contagem e
-duração, sem detalhes sensíveis. Veja a prova de cobertura e as pendências de
-runners no [runbook de testes](../../docs/runbooks/testing.md).
+bloqueia `checks`. O reporter seguro atual é preservado. Veja a prova de
+cobertura e as pendências de runners e resumo por shard no
+[runbook de testes](../../docs/runbooks/testing.md).
 O gate raiz `pnpm check` mantém os testes Foundation e adiciona o contrato runtime
 do Levi. Os reporters Vitest e Node permanecem separados.
 
