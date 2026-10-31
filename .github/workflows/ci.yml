@@ -15,25 +15,33 @@ concurrency:
 
 jobs:
   static:
-    runs-on: ubuntu-latest
+    name: "Verificações estáticas"
+    runs-on: ubuntu-24.04
     steps:
-      - name: Check out repository
+      - name: Obter código do repositório
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: ./.github/actions/setup
-      - run: pnpm format:check
-      - run: pnpm lint
-      - run: pnpm typecheck
+      - name: Preparar Node e dependências
+        uses: ./.github/actions/setup
+      - name: Verificar formatação
+        run: pnpm format:check
+      - name: Verificar lint
+        run: pnpm lint
+      - name: Verificar tipos
+        run: pnpm typecheck
 
   tests:
-    runs-on: ubuntu-latest
+    name: "Testes dos pacotes"
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
+      - name: Obter código do repositório
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/setup
+      - name: Preparar Node e dependências
+        uses: ./.github/actions/setup
       - name: Unitários
         run:
           pnpm exec turbo run test --filter='!levi' -- --reporter=default
@@ -47,52 +55,72 @@ jobs:
           --reporter="$GITHUB_WORKSPACE/.github/scripts/vitest-summary.mjs"
         env:
           GITHUB_TEST_SUITE: Integração
-      - run: pnpm build
-      - run: pnpm test:workspace
-      - run: pnpm test:operations
+      - name: Build dos pacotes
+        run: pnpm build
+      - name: Verificar contratos do workspace
+        run: pnpm test:workspace
+      - name: Testar operações
+        run: pnpm test:operations
 
   levi-tests:
-    runs-on: ubuntu-latest
+    name: "Levi: testes e integração"
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       WRANGLER_WRITE_LOGS: "false"
       WRANGLER_SEND_METRICS: "false"
     steps:
-      - uses: actions/checkout@v7
+      - name: Obter código do repositório
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: ./.github/actions/setup
-      - run: pnpm exec turbo run build --filter=levi
-      - run: pnpm --filter levi test
-      - run: pnpm --filter levi worker:build
+      - name: Preparar Node e dependências
+        uses: ./.github/actions/setup
+      - name: Build do Levi
+        run: pnpm exec turbo run build --filter=levi
+      - name: Testes unitários do Levi
+        run: pnpm --filter levi test
+      - name: Build do Worker Levi
+        run: pnpm --filter levi worker:build
       # Somente containers PostgreSQL sintéticos, sem credenciais persistentes.
-      - run: pnpm --filter levi test:integration
-      - run: pnpm --filter levi test:integration --runtime-acls
-      - run: pnpm --filter levi test:worker --runtime-acls
+      - name: Integração do Levi
+        run: pnpm --filter levi test:integration
+      - name: Integração do Levi com ACLs restritas
+        run: pnpm --filter levi test:integration --runtime-acls
+      - name: Testar Worker com ACLs restritas
+        run: pnpm --filter levi test:worker --runtime-acls
 
   levi-e2e:
-    runs-on: ubuntu-latest
+    name: "Levi E2E"
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
       WRANGLER_WRITE_LOGS: "false"
       WRANGLER_SEND_METRICS: "false"
     steps:
-      - uses: actions/checkout@v7
+      - name: Obter código do repositório
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: ./.github/actions/setup
-      - run: pnpm exec turbo run build --filter=levi
-      - run: pnpm --filter levi exec playwright install --with-deps chromium
-      - run: pnpm --filter levi test:e2e --runtime-acls
+      - name: Preparar Node e dependências
+        uses: ./.github/actions/setup
+      - name: Build do Levi
+        run: pnpm exec turbo run build --filter=levi
+      - name: Instalar Chromium
+        run: pnpm --filter levi exec playwright install --with-deps chromium
+      - name: E2E do Levi
+        run: pnpm --filter levi test:e2e --runtime-acls
 
   checks:
     if: always()
     needs: [static, tests, levi-tests, levi-e2e]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
-      - run: node .github/scripts/ci-checks.mjs
+      - name: Obter código do repositório
+        uses: actions/checkout@v7
+      - name: Validar todos os jobs obrigatórios
+        run: node .github/scripts/ci-checks.mjs
         env:
           CI_NEEDS: ${{ toJSON(needs) }}

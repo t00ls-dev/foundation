@@ -46,7 +46,11 @@ function validateCiStructure(ci, setup) {
   });
   const jobs = structuredClone(ci.jobs);
   for (const job of Object.values(jobs))
-    for (const step of job.steps) delete step.name;
+    for (const step of job.steps) {
+      assert.equal(typeof step.name, "string");
+      assert(step.name.trim().length > 0);
+      delete step.name;
+    }
   assert.deepEqual(Object.keys(jobs).sort(), [
     "checks",
     "levi-e2e",
@@ -60,7 +64,13 @@ function validateCiStructure(ci, setup) {
   );
   for (const [name, commands] of Object.entries(validationCommands)) {
     const expected = {
-      "runs-on": "ubuntu-latest",
+      "name": {
+        "static": "Verificações estáticas",
+        "tests": "Testes dos pacotes",
+        "levi-tests": "Levi: testes e integração",
+        "levi-e2e": "Levi E2E",
+      }[name],
+      "runs-on": "ubuntu-24.04",
       "steps": [
         { uses: "actions/checkout@v7", with: { "fetch-depth": 0 } },
         { uses: "./.github/actions/setup" },
@@ -85,7 +95,7 @@ function validateCiStructure(ci, setup) {
   assert.deepEqual(jobs.checks, {
     "if": "always()",
     "needs": Object.keys(validationCommands),
-    "runs-on": "ubuntu-latest",
+    "runs-on": "ubuntu-24.04",
     "steps": [
       { uses: "actions/checkout@v7" },
       {
@@ -135,9 +145,11 @@ for (const name of Object.keys(validationCommands)) {
     "condition",
     "dependency",
     "ignore",
+    "runner",
   ]) {
     test(`CI guard rejects ${name} job: ${mutation}`, () => {
       const ci = currentCi();
+      if (mutation === "runner") ci.jobs[name]["runs-on"] = "ubuntu-latest";
       if (mutation === "remove") delete ci.jobs[name];
       if (mutation === "detach")
         ci.jobs.checks.needs = ci.jobs.checks.needs.filter((n) => n !== name);
@@ -149,6 +161,9 @@ for (const name of Object.keys(validationCommands)) {
   }
 }
 for (const mutate of [
+  (ci) => {
+    ci.jobs.checks["runs-on"] = "ubuntu-latest";
+  },
   (ci) => {
     ci.jobs.checks.if = "success()";
   },
