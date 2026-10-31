@@ -1,6 +1,8 @@
 # Decisões do MVP
 
-**Escopo aprovado em 2026-10-16; estado atualizado em 2026-10-24.** O MVP completo
+Estado do checkout em 31/10/2026: onboarding por Magic Link com senha opcional, igrejas independentes, seleção, edição institucional, gestão de acessos e convites por e-mail estão implementados. As decisões atuais de núcleo de igrejas e o adendo de autenticação prevalecem sobre as etapas organizacionais de 24/10 abaixo. Operação remota requer verificação e autorização próprias.
+
+**Escopo aprovado em 2026-10-16; registro inicial de estado em 2026-10-24.** O MVP completo
 ainda não está implementado. A primeira fatia de onboarding e provisionamento
 está descrita em [Onboarding e provisionamento](onboarding-provisionamento.md).
 Este documento registra o escopo e suas invariantes, sem autorizar operação.
@@ -17,11 +19,11 @@ aqui. Fatos técnicos descrevem capacidades e limites; recomendações não se t
 requisitos por repetição. Relatórios históricos permanecem como evidência de suas
 execuções e não são necessários para compreender ou definir o escopo atual.
 
-| Classificação         | Estado                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Aprovado              | Regras das seções seguintes, com implementação parcial descrita abaixo.                                                                                                                                                                                                                                                                                                                                                            |
-| Planejado/recomendado | Composição técnica candidata, sujeita a prova e autorização.                                                                                                                                                                                                                                                                                                                                                                       |
-| Implementado          | API local e SPA React de onboarding, provisionamento inicial e navegação organizacional, com migrations, testes PostgreSQL e navegador. Composição Workers com DEV publicado, Neon/Hyperdrive e fluxo de CI/deploy próprios. Primeira fatia de membros disponível a todas as organizações na implementação Foundation, sob autorização por usuário e isolamento, conforme o guia próprio. Demais funcionalidades do MVP pendentes. |
+| Classificação         | Estado                                                                                                                                                                                                   |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Aprovado              | Regras das seções seguintes, com implementação parcial descrita abaixo.                                                                                                                                  |
+| Planejado/recomendado | Composição técnica candidata, sujeita a prova e autorização.                                                                                                                                             |
+| Implementado          | API e SPA de onboarding sem senha obrigatória, igrejas independentes, edição, acessos e convites; membros e administração global conforme seus guias. Validação sintética não atesta a versão publicada. |
 
 A primeira fatia local de membros (cadastro, listagem e ficha) está descrita em
 [Gestão de membros](gestao-membros.md). Esta etapa foi autorizada em 2026-10-22
@@ -37,7 +39,7 @@ validados em bancos descartáveis. Migration 0004 e ACLs incrementais permanecem
 pendentes de autorização operacional. Exclusão, alteração posterior de situação
 e transferências continuam pendentes.
 
-## Administração global interna
+## Administração global interna — histórico das etapas iniciais
 
 A Etapa 1 de [administração global](administracao-global.md) implementa apenas
 persistência e operações internas, separadas das roles organizacionais. O primeiro
@@ -64,7 +66,7 @@ contratos, as invariantes e o corte separado de schema.
 - Membro pertence a exatamente uma igreja. IDs, dados e históricos existentes
   são preservados na conversão normal. Não há exclusão de igreja nesta fase.
 - Autenticação permite conta sem igreja e senha opcional. A experiência completa
-  de gestão visual pertence à etapa 4 e convites à etapa 5.
+  de gestão visual foi implementada na etapa 4 e convites na etapa 5.
 
 ## Cadastro e consultas
 
@@ -112,9 +114,8 @@ recorte. Não entram por herança do legado nem por campos livres genéricos.
 ## Onboarding
 
 1. Verificar o e-mail, comprovando seu controle.
-2. Permitir definição de senha após a verificação.
-3. Criar a organização com a primeira igreja e o vínculo de administrador
-   organizacional.
+2. Permitir definição opcional de senha após a verificação.
+3. Criar uma igreja independente e seu primeiro vínculo admin.
 
 O envio de e-mail não equivale à verificação. A primeira igreja não é opcional no
 provisionamento inicial. Esse fluxo não cria automaticamente um membro para o
@@ -194,7 +195,7 @@ idempotência são recomendações técnicas de composição, não novos módulo
 aprovados. Nomes físicos de tabelas, protocolo de locks, índices e distribuição
 de UI continuam decisões de engenharia; este documento não é um schema.
 
-## Fora da implementação inicial
+## Fora da implementação inicial — registro de escopo original
 
 - Financeiro, cobrança, planos, assinaturas, comercialização, quotas ou bloqueios
   comerciais, incluindo o limite histórico proposto de 50 membros.
@@ -212,16 +213,14 @@ relatórios anteriores não reativam essas funcionalidades.
 
 ## Pendências reais
 
-| Tema                    | O que falta definir                                                                                                                                                     |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Consultas               | Inclusão de Inativos nos aniversariantes, tratamento de 29/02, exibição de idade/ano e recorte dos indicadores simples.                                                 |
-| Datas de negócio        | Correção retroativa e apresentação de saída/retorno com data desconhecida.                                                                                              |
-| Administração adicional | Quem pode adicionar/revogar administrador organizacional, convite ou vínculo a conta existente e recuperação do último administrador. Não altera o primeiro onboarding. |
-| Operação                | Volume/latência esperados, responsáveis, RPO/RTO, retenção e custo de backup/recuperação.                                                                               |
-| Dados reais             | Agentes de tratamento, finalidades/bases legais, retenção por categoria, atendimento a titulares, menores e eventual evidência de representação.                        |
+| Tema                    | O que falta definir                                                                                                                              |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Consultas               | Inclusão de Inativos nos aniversariantes, tratamento de 29/02, exibição de idade/ano e recorte dos indicadores simples.                          |
+| Datas de negócio        | Correção retroativa e apresentação de saída/retorno com data desconhecida.                                                                       |
+| Administração adicional | Acessos admin/collaborator e convites implementados; recuperação excepcional do último administrador exige procedimento próprio.                 |
+| Operação                | Volume/latência esperados, responsáveis, RPO/RTO, retenção e custo de backup/recuperação.                                                        |
+| Dados reais             | Agentes de tratamento, finalidades/bases legais, retenção por categoria, atendimento a titulares, menores e eventual evidência de representação. |
 
-Essas pendências não reabrem organização como tenant, PostgreSQL, campos opcionais,
-Ativo/Inativo, administradores exclusivamente organizacionais ou a sequência de
-onboarding aprovada.
+Essas pendências não alteram o núcleo atual por igreja, PostgreSQL, campos opcionais e separação entre conta e membro.
 
 A entrada por Magic Link não exige senha nem vínculo organizacional. A conta sem igrejas oferece o cadastro atual da primeira igreja e orientação para solicitar convite ao responsável; os serviços de igrejas e convites por e-mail estão implementados, com dois papéis por igreja, sem criar membros da congregação no envio. A primeira senha é opcional, configurada posteriormente com sessão verificada recente; credenciais existentes e recuperação por e-mail permanecem disponíveis. A administração global mantém a autoridade configurada e seus gates de sessão, sem exigir senha.

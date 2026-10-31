@@ -80,7 +80,8 @@ pnpm --filter <pacote> test
 pnpm --filter <pacote> build
 ```
 
-Antes de enviar uma mudança, execute `pnpm check` e `pnpm format:check`.
+Antes de enviar uma mudança, execute `pnpm check`, que já inclui
+`pnpm format:check`.
 
 ## Cobertura esperada
 
@@ -88,7 +89,10 @@ Antes de enviar uma mudança, execute `pnpm check` e `pnpm format:check`.
 - D1/PostgreSQL e isolamento de tenant: testes de integração reais;
 - gerador: conteúdo, segurança do destino e build fora do workspace;
 - fluxos de usuário e acessibilidade: Playwright desktop e mobile;
-- deploy: smoke test em `/health` no DEV publicado, incluindo conectividade D1.
+- deploy Levi: smoke GET em `/`, `/admin`, `/api/admin/session`,
+  `/api/onboarding`, `/api/churches` e `/api/members` no DEV publicado. Esses
+  smokes não comprovam todas as operações PostgreSQL ou Hyperdrive; o preset D1
+  e o harness PostgreSQL possuem cobertura própria.
 
 Mocks não substituem os testes de banco existentes. Testes E2E não devem
 depender de providers externos para permanecer deterministas.
@@ -141,7 +145,7 @@ credenciais persistentes. Nenhum teste ou build aciona o deploy do repositório
 original.
 
 `pnpm test:workspace` inclui os contratos de incorporação: árvore e histórico
-subtree originais, todos os workspaces privados, sete links locais, grafo de
+subtree originais, todos os workspaces privados, oito links locais, grafo de
 builds, imports públicos e ausência de Environment/deploy nos jobs Levi. Os
 contratos estruturais existentes da CI exigem todos os comandos novos e recusam
 falha, cancelamento, omissão, skip, jobs desligados ou gates mascarados.

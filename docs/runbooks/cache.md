@@ -1,8 +1,9 @@
 # Cache de rotas dinâmicas
 
 Este runbook define a proteção de cache obrigatória para os domínios Cloudflare
-do exemplo em DEV. O objetivo é impedir que autenticação, dados personalizados,
-webhooks e sinais operacionais sejam servidos a partir de uma resposta obsoleta.
+de cada aplicação e ambiente que exponha rotas dinâmicas. O objetivo é impedir
+que autenticação, dados personalizados, webhooks e sinais operacionais sejam
+servidos a partir de uma resposta obsoleta.
 
 ## PostgreSQL e query cache do Hyperdrive
 
@@ -22,7 +23,9 @@ evitam permissões obsoletas.
 Uma configuração adicional com cache só deve surgir para leitura comprovadamente
 tolerante a dados antigos e com benefício medido. A configuração pertence ao
 consumidor/ambiente e exige operação de infraestrutura autorizada; não existe
-binding remoto PostgreSQL provisionado pelo Foundation. Consulte a
+binding PostgreSQL compartilhado obrigatório do Foundation. O Levi possui
+binding Hyperdrive próprio; seu estado remoto deve ser conferido na operação
+autorizada. Consulte a
 [documentação oficial de query caching](https://developers.cloudflare.com/hyperdrive/concepts/query-caching/).
 Miniflare com conexão local direta não valida o cache/pooling desse serviço.
 
@@ -41,8 +44,13 @@ usar a expressão:
 (starts_with(http.request.uri.path, "/account/")) or
 (http.request.uri.path eq "/webhooks") or
 (starts_with(http.request.uri.path, "/webhooks/")) or
-(http.request.uri.path eq "/health")
+(http.request.uri.path eq "/health") or
+(http.request.uri.path eq "/ready")
 ```
+
+A expressão inclui `/health` e `/ready` quando existirem no consumidor. O preset
+`basic-d1` fornece ambos; `/ready` consulta D1. Não se presume `/ready` no Levi.
+O bypass HTTP não altera o query cache do Hyperdrive.
 
 Os pares `eq` e `starts_with` preservam o caminho raiz e seus descendentes sem
 incluir nomes apenas parecidos, como `/apiary`.
@@ -54,14 +62,16 @@ quando o domínio possui regras amplas de cache.
 
 ## Validação
 
-Depois de cada mudança de regra ou deploy, consulte os endpoints no domínio real
-(substitua pelo domínio da aplicação):
+Depois de cada mudança de regra ou deploy autorizado, consulte apenas os
+endpoints existentes no domínio real (substitua pelo domínio da aplicação):
 
 ```bash
 curl --head https://app.example.com/health
+curl --head https://app.example.com/ready
 curl --head https://app.example.com/api/auth/get-session
 ```
 
+Os exemplos pressupõem rotas existentes no consumidor; adapte-os à aplicação.
 Confirme `Cache-Control: no-store` nos endpoints operacionais e
 `Cache-Control: private, no-store` na autenticação. Se a resposta apresentar
 `CF-Cache-Status`, ela não pode indicar `HIT` nessas rotas.

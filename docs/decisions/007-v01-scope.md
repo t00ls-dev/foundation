@@ -1,5 +1,10 @@
 # ADR-007: Escopo da v0.1
 
+Atualização de contexto em 31/10/2026: o exemplo D1 foi removido; o preset do
+gerador permanece. Levi é o consumidor atual, com deploy manual por aplicação
+conforme ADR-006 e pacotes privados conforme ADR-005. A decisão original abaixo
+preserva o escopo e os não objetivos, sem reativar o deploy do exemplo.
+
 - Status: aceito
 - Escopo: v0.1
 

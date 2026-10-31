@@ -11,15 +11,14 @@ autorizada, consultar a ficha ativa e acessar um painel de atalhos. O escopo per
 Aplicação do workspace pnpm do Foundation, com TypeScript estrito. `web/src/app.tsx` compõe os estados da
 interface; `forms.tsx` contém os formulários; `api.ts` valida as respostas HTTP;
 `session.ts` trata retornos de links e a chave de idempotência. O frontend não
-importa módulos de servidor, schema, adapters ou credenciais. React e React DOM
-são as únicas dependências de execução adicionadas. Vite produz os assets;
-Playwright e Axe são ferramentas de teste. Não há biblioteca de UI ou estado global.
+importa módulos de servidor, schema, adapters ou credenciais. React, React DOM e o componente público Skeleton compõem a interface. Vite produz os assets;
+Playwright e Axe são ferramentas de teste. O Skeleton vem do export público de `@t00ls-dev/ui`, com classe e CSS locais; não há biblioteca de estado global.
 
-Após configurar o ambiente local sintético conforme o guia da API:
+Após configurar o ambiente local sintético conforme o guia da API, na raiz do Foundation:
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm dev
+pnpm --filter levi dev
 ```
 
 Abra **http://localhost:5173**. O comando inicia Vite e Hono e encerra seus próprios
@@ -47,9 +46,8 @@ e separadas da inicialização e do build. A publicação Worker DEV usa o
 1. Informe o e-mail e abra o primeiro link recebido. A tela de confirmação não
    informa se uma conta já existe.
 2. O Magic Link nativo verifica o e-mail e estabelece uma sessão recente.
-3. Defina e confirme a senha diretamente no formulário, sem outro e-mail. A conta
-   pronta pode continuar com a sessão já estabelecida. A tela de login permite
-   autenticar sessões posteriores.
+3. Continue com a sessão verificada. A primeira senha é opcional e pode ser
+   definida posteriormente com sessão recente; login por senha existente permanece disponível.
 4. Informe o nome da igreja. Endereço, telefone e
    e-mail da igreja são opcionais, em uma seção expansível sem etapa adicional.
    Após o provisionamento confirmado, a SPA confere o vínculo e o contexto
@@ -171,14 +169,9 @@ serviços externos para renderização. O Levi usa CSS e componentes React próp
 tema claro, violeta, tipografia de sistema e ícones neutros. O Foundation continua
 fornecendo os contratos técnicos, sem fornecer a identidade visual do produto.
 
-A navegação lateral desktop se torna uma grade no fluxo da página em tablets e celulares, com áreas de
-toque de pelo menos 44 px e identificação persistente da organização. A lista de
-membros usa linhas compactas no desktop e cartões no móvel, sem tabela larga.
-Formulários são divididos por assunto e a confirmação fica ao final, sem barra
-flutuante sobre os campos. Há estados vazio, carregando, erro e sucesso. A ficha
-oferece edição conforme o [contrato de membros](gestao-membros.md#edição-cadastral).
-O painel mostra apenas o número de igrejas já retornadas pela API e atalhos;
-não inventa contagens de membros, gráficos ou módulos.
+A navegação e o CSS seguem as decisões implementadas das Fases 1/2 em
+[Design UI](design-ui.md). O shell mantém identificação da igreja ativa e
+navegação móvel; listas, formulários e feedback respeitam as capacidades atuais.
 
 Os rascunhos ficam em memória. Ao recuperar foco, a aplicação consulta o servidor
 sem desmontar o formulário preenchido; perda de acesso remove dados protegidos.
@@ -190,12 +183,9 @@ dos limites da área útil, respeitando o viewport visual. Cabeçalho e navegaç
 A redução da área útil da tela é testada com viewport menor,
 sem afirmar teste de teclado virtual real ou VoiceOver.
 
-Os atalhos das igrejas abrem a lista de membros com `?igreja=UUID`. Esse filtro
-institucional é preservado no reload; parâmetros de tokens, nomes e erros são
-removidos da URL. Buscas por nome e rascunhos não são persistidos. O retorno da
-ficha conserva filtros e paginação apenas em memória, vinculados à identidade
-validada e à organização. Trocar organização ou sessão descarta esse recorte;
-reload conserva apenas o ID institucional explícito da igreja, sem nome de pessoa.
+A seleção usa `POST /api/context/church`; membros operam na igreja ativa com
+`X-Levi-Church`. Não há contrato de seleção por `?igreja=`. Filtros e rascunhos
+ficam em memória e são descartados na mudança de identidade ou contexto.
 
 Durante consultas entre telas de gestão, apenas a moldura pública é preservada,
 com placeholders estáticos. Organização, navegação autorizada, dados e avisos são

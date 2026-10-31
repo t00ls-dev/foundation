@@ -16,14 +16,15 @@ testes e deploys das aplicações permanecem independentes.
 
 O projeto é Cloudflare-first, internal-first, modular e seguro por padrão. Os
 pacotes podem ser reutilizados por consumidores autorizados, mas não há
-compromisso de suporte externo ou compatibilidade além do versionamento
-semântico publicado.
+compromisso de suporte externo ou compatibilidade externa; veja o
+[consumo interno](../runbooks/packages.md).
 
 ## Arquitetura de uma aplicação
 
-Uma aplicação web v0.1 é uma SPA React, com React Router, servida por Workers
-Assets. O mesmo Cloudflare Worker executa uma API Hono sob `/api/*` e entrega os
-assets estáticos e o fallback da SPA nas demais rotas. Não há SSR.
+Uma aplicação web v0.1 é uma SPA React, com React Router no preset e navegação
+history própria no Levi, servida por Workers Assets. O mesmo Cloudflare Worker
+executa uma API Hono sob `/api/*` e entrega os assets estáticos e o fallback da
+SPA nas demais rotas. Não há SSR.
 
 ```text
 Internet
@@ -32,7 +33,7 @@ Cloudflare Worker
    |-- /api/* --------> Hono API
    `-- demais rotas ---> Workers Assets / SPA React
                               |
-                         React Router
+                         Router do consumidor
 ```
 
 Essa topologia mantém um único origin e um único artefato de deploy por produto,
@@ -63,10 +64,11 @@ sendo alternativa para apps internos simples.
 
 Autenticação responde quem é o usuário. Autorização responde o que ele pode
 fazer no contexto atual. Multi-tenancy é uma capability opcional, mas, quando
-habilitada, segue um único contrato:
+habilitada, preserva estas invariantes, com composição própria por aplicação:
 
 - a role pertence ao membership entre usuário e tenant;
-- a sessão contém `activeTenantId`;
+- o pacote tenant usa `activeTenantId`; Levi compõe seleção por
+  `church_sessions`;
 - toda troca de tenant valida o membership antes de atualizar a sessão;
 - queries tenant-aware recebem o tenant explicitamente e evitam acesso cruzado;
 - cada produto fornece o mapa configurável de role para permissões;
@@ -76,8 +78,8 @@ habilitada, segue um único contrato:
 ## Limites dos pacotes
 
 Pacotes devem ter responsabilidade pequena e direção de dependência explícita.
-Um diretório só vira pacote publicável quando houver reutilização ou isolamento
-técnico concreto.
+Um diretório só vira pacote compartilhado quando houver reutilização ou
+isolamento técnico concreto.
 
 ```text
 config <--- db <--- auth
@@ -89,7 +91,7 @@ config <--- observability
 config <--- email
 
 app ---> auth + tenant + access
-tooling/create-app ---> pacotes compartilhados
+tooling/create-app ---> preset autônomo com dependências upstream
 tooling/doctor -----> config e adaptadores de diagnóstico
 ```
 
@@ -121,11 +123,8 @@ Regras de dependência:
 
 ## Publicação e consumo
 
-Os pacotes Foundation são privados e consumidos exclusivamente no monorepo por
-dependências `workspace:*`, resolvidas como links locais pelo pnpm. A
-distribuição npm foi encerrada; não há automação de publicação ou versionamento
-por Changesets. Versões e changelogs existentes são históricos. Builds, APIs,
-testes e deploys das aplicações permanecem independentes.
+O contrato de consumo e seu histórico estão em
+[Pacotes internos](../runbooks/packages.md).
 
 ## Ambientes e entrega
 
@@ -156,5 +155,6 @@ sofisticados permanecem direções futuras, não entregas implícitas.
 - [ADR-003: Better Auth](../decisions/003-better-auth.md)
 - [ADR-004: Bancos e testes de integração](../decisions/004-databases-and-integration-tests.md)
 - [ADR-005: Consumo interno pelo workspace](../decisions/005-workspace-first-publication.md)
-- [ADR-006: Foundation DEV-only](../decisions/006-deployment-environments.md)
+- [ADR-006: Ambientes e deploy por aplicação](../decisions/006-deployment-environments.md)
 - [ADR-007: Escopo da v0.1](../decisions/007-v01-scope.md)
+- [ADR-008: Base UI Foundation](../decisions/008-foundation-ui-v1.md)

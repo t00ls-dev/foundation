@@ -1,5 +1,7 @@
 # Gestão de membros
 
+Contrato vigente do checkout: igreja é a fronteira operacional, com papéis `admin` e `collaborator`, acessos e convites. Referências organizacionais nas etapas de transferência, ACLs e bootstrap abaixo descrevem o modelo histórico; para rotas e autorização atuais, consulte [Núcleo de igrejas](nucleo-igrejas.md). Evidências de operação datadas não atestam schema, cadastros ou versão publicada hoje.
+
 Implementa cadastro, listagem paginada, filtros, ficha individual e edição cadastral. O escopo
 pessoal e as invariantes continuam em [Decisões do MVP](decisoes-mvp.md).
 Não implementa exclusão, alteração posterior de situação, transferência,
@@ -206,7 +208,7 @@ legítimas de outras roles. Não utiliza conexão ou credencial de ambiente remo
 
 ## Validação isolada
 
-Com dependências e ferramentas locais existentes:
+Com dependências e ferramentas locais existentes, a partir de `apps/levi`:
 
 ```sh
 pnpm format:check
@@ -214,9 +216,9 @@ pnpm typecheck
 pnpm test
 pnpm build
 pnpm worker:build
-ppnpm test:integration
-ppnpm test:worker
-ppnpm test:e2e
+pnpm --filter levi test:integration
+pnpm --filter levi test:worker
+pnpm --filter levi test:e2e
 ```
 
 Integração e E2E usam exclusivamente os containers descartáveis dos harnesses,
@@ -228,9 +230,9 @@ usa `pnpm db:generate -- --name=membros`, sem conexão a banco.
 O modo opcional reproduz as ACLs do DEV, sem ampliar permissões:
 
 ```sh
-ppnpm test:integration -- --runtime-acls
-ppnpm test:worker -- --runtime-acls
-ppnpm test:e2e -- --runtime-acls
+pnpm --filter levi test:integration --runtime-acls
+pnpm --filter levi test:worker --runtime-acls
+pnpm --filter levi test:e2e --runtime-acls
 ```
 
 `test/runtime-acl-fixture.ts` prepara roles no cluster descartável, aplica 0000–0004

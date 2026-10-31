@@ -1,5 +1,9 @@
 # Cloudflare Workers
 
+Contrato vigente do checkout: igreja é a fronteira operacional, com papéis `admin` e `collaborator`, acessos e convites. Referências organizacionais nas etapas de transferência, ACLs e bootstrap abaixo descrevem o modelo histórico; para rotas e autorização atuais, consulte [Núcleo de igrejas](nucleo-igrejas.md). Evidências de operação datadas não atestam schema, cadastros ou versão publicada hoje.
+
+Referência de versões em 31/10/2026: o manifest fixa Wrangler 4.152.0, Miniflare 5.20261019.2-beta e Better Auth 1.7.12. As análises abaixo que citam versões anteriores são evidências históricas; esta revisão documental não revalida retries, transporte de secrets ou comportamento remoto nessas versões atuais.
+
 A composição e os recursos descritos pertencem ao Levi. O fluxo operacional DEV está
 no Foundation, conforme o [runbook de deploy](deploy-dev.md).
 A incorporação não comprova o estado atual de migrations, ACLs ou feature gates
@@ -40,7 +44,7 @@ origem da API, preservando cookies HttpOnly e os controles existentes de origem/
 `https://levi.t00ls.dev`, sem rotas, workers.dev ou previews habilitados. O ID
 Hyperdrive composto de zeros é um **placeholder**, não um recurso existente. Nenhum
 comando de build publica recursos. `worker:build` sempre usa `--dry-run`.
-O processo automático após CI, com guardas e mecanismo de suspensão, está em
+O processo manual, com guardas e mecanismo de suspensão, está em
 [Deploy DEV](deploy-dev.md); `deploy:dev` é o único comando npm de publicação.
 
 | Binding/configuração | Uso                                                                           |
@@ -77,7 +81,7 @@ banco/secrets do Foundation. A identidade continua no schema do Levi.
 ## Desenvolvimento e validação local
 
 O fluxo Node/Vite permanece em `pnpm dev` e `pnpm start`, conforme o guia de
-onboarding. Não foi alterado para aceitar URLs remotas. Para validar o Worker:
+onboarding. Não foi alterado para aceitar URLs remotas. Para validar o Worker, execute os scripts abaixo a partir de `apps/levi`:
 
 ```sh
 pnpm install --frozen-lockfile
@@ -86,9 +90,9 @@ pnpm typecheck
 pnpm test
 pnpm build
 pnpm worker:build
-ppnpm test:integration
-ppnpm test:worker
-ppnpm test:e2e
+pnpm --filter levi test:integration
+pnpm --filter levi test:worker
+pnpm --filter levi test:e2e
 ```
 
 `worker:build` faz bundle e dry-run reais do Wrangler, grava `dist/worker` e
@@ -270,7 +274,7 @@ de qualquer uso real.
 O ambiente preparado é DEV público: sem Cloudflare Access ou allowlist de
 endereços. Consultar [Deploy DEV](deploy-dev.md) para recursos, CI automática,
 secrets, habilitação e guardas do SHA/Hyperdrive. O mecanismo de suspensão é
-`DEPLOY_READY=false` no Environment `levi-dev`; somente pré-requisitos conferidos
+`LEVI_DEPLOY_READY=false` no Environment `levi-dev`; somente pré-requisitos conferidos
 e autorização específica permitem publicação manual pelo Foundation.
 
 Banco/roles exclusivos, TLS, migrations administrativas explícitas, Hyperdrive

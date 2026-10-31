@@ -10,10 +10,10 @@ produtos independentes.
 
 ## Decisão
 
-Cada app web usa uma SPA React com React Router e uma API Hono. Ambos são
-publicados no mesmo Cloudflare Worker: `/api/*` é reservado à API e Workers
-Assets serve os arquivos estáticos e o fallback da SPA nas demais rotas. Não
-haverá SSR na v0.1.
+Cada app web usa uma SPA React e uma API Hono. O preset usa React Router; o Levi
+implementa navegação própria com history e estado React. Ambos são publicados no
+mesmo Cloudflare Worker: `/api/*` é reservado à API e Workers Assets serve os
+arquivos estáticos e o fallback da SPA nas demais rotas. Não haverá SSR na v0.1.
 
 ## Consequências
 

@@ -19,7 +19,7 @@ A incorporação usa subtree sem squash sobre Foundation
 Adaptações de workspace, CI e licença são commits posteriores. Caminhos antigos
 continuam na raiz dos commits originais; seguir apenas o prefixo atual não mostra
 automaticamente todo o passado. O grafo incorporado pode ser consultado neste monorepo.
-Para manter esse grafo na master, a integração do PR exige merge commit, sem squash.
+A importação foi integrada preservando o grafo por merge commit, sem squash.
 
 ## Estado e limites operacionais
 
@@ -34,8 +34,8 @@ O Foundation é o publicador DEV autorizado. O [publicador manual](../../.github
 usa `t00ls-dev/foundation/master` e o Environment `levi-dev`, com token Cloudflare
 único. Esta revisão adota cadastros canônicos LEVI_ e o gate `LEVI_DEPLOY_READY`;
 a migração administrativa dos nomes ainda precisa ser realizada antes de qualquer
-execução da nova definição. Os arquivos em [.github](.github/README.md) continuam
-históricos. Esta padronização não altera cadastros reais nem autoriza publicação;
+execução da nova definição. Os arquivos de automação incorporados do repositório original permanecem
+como contexto histórico. Esta padronização não altera cadastros reais nem autoriza publicação;
 ver [Deploy DEV](docs/deploy-dev.md).
 Worker, domínio, PostgreSQL/Neon, Hyperdrive, e-mail e credenciais permanecem
 independentes do Links. Produção não está implementada.
@@ -59,9 +59,9 @@ Não altera a disponibilidade atual de membros.
 ## Workspace e validação
 
 Node `>=22.22.0`, pnpm `10.15.1` e lockfile único na raiz do Foundation.
-O pacote continua `levi@0.1.0`, privado. Os sete pacotes Foundation já utilizados
-resolvem por `workspace:*` e exports públicos compilados, sem depender de npm.
-Não há dependência do Links nem consumo de fontes internas de outro pacote.
+O pacote continua `levi@0.1.0`, privado. Os oito pacotes Foundation já utilizados
+resolvem por `workspace:*` e exports públicos: sete bibliotecas compiladas e UI por fontes TSX, sem depender de npm.
+Não há dependência do Links; o consumo de UI ocorre pelos exports públicos.
 
 Na raiz do monorepo:
 

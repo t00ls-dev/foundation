@@ -1,5 +1,11 @@
 # Estado do projeto
 
+Referência documental em 31/10/2026: manifest do Levi com oito dependências
+Foundation e Better Auth 1.7.12. Registros abaixo de cadastros, gates, deploy,
+recursos externos e ECONNRESET são observações das respectivas entregas, sem
+consulta remota nesta revisão. Nenhuma pendência operacional é considerada
+resolvida por inferência do código.
+
 Este documento é a fonte de verdade sobre o que existe no
 `t00ls-dev/foundation`, o que falta para concluir a v0.1 operacional e o que foi
 deliberadamente adiado. Ele descreve o código atual, não uma arquitetura
@@ -43,7 +49,7 @@ da primeira entrega.
 
 ### Fundação e tooling
 
-- Levi privado em `apps/levi`, com sete dependências workspace, build ordenado,
+- Levi privado em `apps/levi`, com oito dependências workspace, build ordenado,
   validação PG/ACLs/Worker/E2E em CI e domínio/schema/recursos independentes.
   Origem, SHAs e limites operacionais estão no [README](../apps/levi/README.md).
   Publicador manual Levi integrado e transferência DEV concluída, com o original
@@ -64,7 +70,7 @@ da primeira entrega.
 - Builds ordenados pelos limites de dependência do workspace.
 - Todos os consumidores Foundation usam `workspace:*`; os pacotes são privados.
 - Correções locais de dependências: Zod `4.6.7` somente nas cadeias Better Auth
-  e Core `1.7.10`, e Undici `7.30.1` na cadeia Miniflare. Overrides de raiz não
+  e Core `1.7.12`, e Undici `7.30.1` na cadeia Miniflare. Overrides de raiz não
   corrigem lockfiles de consumidores externos; a cópia Levi incorporada usa os
   overrides raiz, preservando o lockfile do repositório original.
 - CI integral e gates existentes preservados; testes de contrato exercitam
@@ -212,11 +218,8 @@ Não serão implementados sem consumidor real:
 
 ## Pacotes internos
 
-Os pacotes Foundation são privados e consumidos exclusivamente no monorepo por
-dependências `workspace:*`, resolvidas como links locais pelo pnpm. A
-distribuição npm foi encerrada; não há automação de publicação ou versionamento
-por Changesets. Versões e changelogs existentes são históricos. Builds, APIs,
-testes e deploys das aplicações permanecem independentes.
+O contrato de consumo e seu histórico estão em
+[Pacotes internos](runbooks/packages.md).
 
 ## Decisões vigentes
 
@@ -227,8 +230,9 @@ As decisões arquiteturais permanecem registradas em `docs/decisions`:
 - [Better Auth](decisions/003-better-auth.md);
 - [bancos e testes de integração](decisions/004-databases-and-integration-tests.md);
 - [consumo interno pelo workspace](decisions/005-workspace-first-publication.md);
-- [Foundation DEV-only](decisions/006-deployment-environments.md);
+- [Ambientes e deploy por aplicação](decisions/006-deployment-environments.md);
 - [escopo da v0.1](decisions/007-v01-scope.md).
+- [ADR-008: Base UI Foundation](decisions/008-foundation-ui-v1.md)
 
 Mudanças que contradigam essas decisões devem atualizar ou substituir o ADR
 correspondente, sem alterações arquiteturais silenciosas.
@@ -241,7 +245,8 @@ pnpm check
 pnpm format:check
 pnpm dev
 pnpm --filter @t00ls-dev/create-app build
-pnpm --filter @t00ls-dev/doctor exec doctor ./app
+pnpm --filter @t00ls-dev/doctor build
+pnpm --filter @t00ls-dev/doctor exec node dist/bin.js /caminho/absoluto/para/app
 ```
 
 Requisitos locais: Node.js 22, Corepack/pnpm e Docker para os testes PostgreSQL.

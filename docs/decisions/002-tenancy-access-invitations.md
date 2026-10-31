@@ -1,5 +1,11 @@
 # ADR-002: Tenancy, autorização e convites
 
+Composição atual do Levi: igreja é a fronteira operacional; `church_sessions`
+mantém a igreja ativa e cada operação revalida o vínculo por igreja. Papéis
+admin/collaborator e convites são domínio do app. A seleção não concede
+autoridade; isolamento e revalidação transacional continuam obrigatórios. O
+contrato genérico abaixo não exige que o Levi use `activeTenantId`.
+
 - Status: aceito
 - Escopo: v0.1
 
@@ -10,7 +16,7 @@ aumentariam o risco de vazamento de dados e políticas inconsistentes.
 
 ## Decisão
 
-Tenancy é opcional por aplicação e estritamente padronizada quando habilitada. A
+Tenancy é opcional por aplicação. No contrato genérico do pacote tenant, a
 sessão mantém `activeTenantId`; selecionar ou trocar esse valor exige membership
 válido. A role pertence ao membership, e cada produto configura seu mapa de role
 para permissões. Código de autorização verifica permissões em vez de comparar

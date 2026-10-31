@@ -9,8 +9,8 @@ arquivos de secrets rastreados sem expor seus valores.
 
 ```sh
 pnpm --filter @t00ls-dev/doctor build
-pnpm --filter @t00ls-dev/doctor exec doctor ./app --json
-doctor ./app --required AUTH_SECRET --required API_TOKEN
+pnpm --filter @t00ls-dev/doctor exec node dist/bin.js /caminho/absoluto/para/app --json
+pnpm --filter @t00ls-dev/doctor exec node dist/bin.js /caminho/absoluto/para/app --required AUTH_SECRET --required API_TOKEN
 ```
 
 O diretório padrão é o atual. Os nomes exigidos por padrão são `AUTH_SECRET`,

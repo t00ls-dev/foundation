@@ -1,26 +1,22 @@
 # @t00ls-dev/create-app
 
-Private workspace CLI for generating the approved basic Cloudflare Workers and
-D1 starter. The command is non-interactive and always uses the bundled
-`basic-d1` preset.
+CLI privado do workspace para gerar o preset aprovado `basic-d1` para Cloudflare
+Workers e D1. O comando não é interativo.
 
-## Usage
+## Uso
 
-From the foundation workspace:
+Na raiz do Foundation, compile a ferramenta e informe um destino absoluto fora
+do checkout:
 
 ```sh
 pnpm --filter @t00ls-dev/create-app build
-pnpm exec create-app ./examples/my-app
+pnpm --filter @t00ls-dev/create-app exec node dist/bin.js /caminho/para/meu-app --preset basic-d1
 ```
 
-The preset can also be stated explicitly:
+O preset é opcional. O destino deve ser um diretório novo ou vazio; arquivos,
+links simbólicos, raízes do sistema e diretórios não vazios são rejeitados e
+nunca sobrescritos. Para consultar as opções:
 
 ```sh
-pnpm exec create-app ./examples/my-app --preset basic-d1
+pnpm --filter @t00ls-dev/create-app exec node dist/bin.js --help
 ```
-
-The target is required. It may be a new directory or an existing empty
-directory. Files, symbolic links, filesystem roots, and non-empty directories
-are rejected and are never overwritten.
-
-Run `pnpm exec create-app --help` for the complete command summary.

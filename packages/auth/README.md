@@ -1,5 +1,10 @@
 # `@t00ls-dev/auth`
 
+Referência atual: dependência Better Auth `^1.7.12`. As validações descritas
+abaixo em 1.7.7 são históricas e não representam reteste automático da versão
+atual. `setInitialPassword` é uma operação server-only para primeira senha,
+sujeita às guardas do consumidor.
+
 ## Primeira senha após confirmação
 
 `setInitialPassword(headers, newPassword)` é uma operação somente de servidor.
@@ -64,7 +69,7 @@ pnpm --filter <app> add '@t00ls-dev/auth@workspace:*'
 ## API
 
 - `createFoundationAuth(options)`: cria
-  `{ handler(request), resolveSession(headers) }`.
+  `{ handler(request), resolveSession(headers), setInitialPassword(...) }`.
 - `resolveSession(headers)`: retorna `{ data, headers }`. `data` é uma
   `FoundationSession` tipada (`user` e `session`) ou `null`. Falhas de banco não
   são convertidas em sessão anônima. Encaminhe os headers retornados, incluindo

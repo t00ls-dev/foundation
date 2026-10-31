@@ -1,5 +1,7 @@
 # Administração global
 
+As políticas atuais usam `churchIds`. Administração global não concede acesso local às igrejas; tabelas e recibos de concessões anteriores são evidência histórica, não fonte de autoridade vigente.
+
 O painel interno `/admin` utiliza o login comum Better Auth. Sua única fonte de
 autoridade é o secret **LEVI_ADMIN_EMAIL** do Environment `levi-dev` do Foundation,
 sincronizado ao binding homônimo pelo publicador oficial. Não há gestão de
@@ -8,7 +10,7 @@ administradores pela interface nem concessão por role organizacional.
 ## Autorização e identidade
 
 O backend exige simultaneamente sessão autenticada e válida, e-mail verificado,
-conta pronta com senha cadastrada e correspondência exata do e-mail autenticado
+correspondência exata do e-mail autenticado
 com a configuração privada. Revalida usuário e sessão atuais no banco; a presença
 do secret não substitui a autenticação. O banco continua armazenando contas e
 sessões, mas não define quem é administrador global.
@@ -33,8 +35,8 @@ e sessão, transações, auditoria atômica e controle de versão das flags perm
 
 Acessar `/admin` diretamente após o login comum. Não existe login separado nem
 link na navegação dos usuários comuns. O painel é resolvido antes do onboarding e
-da seleção de organização, permitindo acesso sem tenant ativo. Entradas e saídas
-usam navegação completa. Nenhuma permissão sobre dados privados das organizações
+da seleção de igreja, permitindo acesso sem igreja ativa. Entradas e saídas
+usam navegação completa. Nenhuma permissão sobre dados privados das igrejas
 é concedida por ser administrador global.
 
 O guard executa antes de servir HTML, validar corpo, CSRF ou consumir quota.
@@ -52,7 +54,7 @@ operação de auditoria continua sendo gerado no servidor.
 | Método e caminho             | Contrato                                                            |
 | ---------------------------- | ------------------------------------------------------------------- |
 | GET /api/admin/session       | UUID da conta e da sessão, sem token ou e-mail configurado          |
-| GET /api/admin/organizations | UUID e nome de organizações, com paginação; sem dados privados      |
+| GET /api/admin/churches      | UUID e nome de igrejas, com paginação; sem dados privados           |
 | GET /api/admin/features      | Catálogo declarado no código e políticas persistidas                |
 | PUT /api/admin/features/:key | Política, seleção, versão esperada e confirmação explícita para all |
 
