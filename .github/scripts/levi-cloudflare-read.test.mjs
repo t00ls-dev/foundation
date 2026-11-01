@@ -21,7 +21,6 @@ const env = {
   GITHUB_REF: "refs/heads/master",
   GITHUB_SHA: "9".repeat(40),
   LEVI_DIAGNOSTIC_SHA: "9".repeat(40),
-  LEVI_CF_TOKEN_TYPE: "user",
   CLOUDFLARE_ACCOUNT_ID: "a".repeat(32),
   CLOUDFLARE_API_TOKEN: secret,
   CLOUDFLARE_ZONE_ID: "b".repeat(32),
@@ -153,7 +152,6 @@ test("diagnóstico só aceita contexto manual da master, SHA exato e configuraç
     { GITHUB_REF: "refs/tags/master" },
     { GITHUB_SHA: "invalid" },
     { LEVI_DIAGNOSTIC_SHA: "0".repeat(40) },
-    { LEVI_CF_TOKEN_TYPE: "other" },
     { CLOUDFLARE_API_TOKEN: "" },
     { CLOUDFLARE_API_TOKEN: " " + secret },
     { CLOUDFLARE_API_TOKEN: "short" },
@@ -193,23 +191,10 @@ test("GETs e projeções sanitizadas identificam versão ativa, última e anteri
     );
 });
 
-test("tipo de token seleciona uma única rota, sem fallback por 401/403", async () => {
-  for (const type of ["user", "account"]) {
-    const { report, requests } = await simulate({
-      changes: { LEVI_CF_TOKEN_TYPE: type },
-    });
-    assert.equal(report.ok, true);
-    assert.equal(
-      requests.filter((url) => url.pathname.endsWith("/tokens/verify")).length,
-      1,
-    );
-    assert.equal(
-      requests[0].pathname,
-      type === "user"
-        ? "/client/v4/user/tokens/verify"
-        : `/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/tokens/verify`,
-    );
-  }
+test("User API Token usa rota fixa, sem fallback por 401/403", async () => {
+  const success = await simulate();
+  assert.equal(success.report.tokenType, "user");
+  assert.equal(success.requests[0].pathname, "/client/v4/user/tokens/verify");
   const { report, requests } = await simulate({
     respond: (url) =>
       url.pathname.endsWith("/tokens/verify")
@@ -373,14 +358,7 @@ test("workflow manual só usa código integrado da master e secrets do Environme
   );
   assert.deepEqual(Object.keys(workflow.on), ["workflow_dispatch"]);
   assert.deepEqual(workflow.permissions, { contents: "read" });
-  assert.equal(
-    workflow.on.workflow_dispatch.inputs.execution_sha.required,
-    true,
-  );
-  assert.deepEqual(workflow.on.workflow_dispatch.inputs.token_type.options, [
-    "user",
-    "account",
-  ]);
+  assert.equal(workflow.on.workflow_dispatch, null);
   assert.deepEqual(Object.keys(workflow.jobs), ["diagnose"]);
   const job = workflow.jobs.diagnose;
   assert.equal(job.environment, "levi-dev");
@@ -408,13 +386,6 @@ test("workflow manual só usa código integrado da master e secrets do Environme
       }),
       false,
     );
-  assert.equal(
-    runInNewContext(job.if, {
-      ...trusted,
-      inputs: { execution_sha: "0".repeat(40) },
-    }),
-    false,
-  );
   assert.equal(job.steps.length, 3);
   assert.equal(job.steps[0].with.ref, "${{ github.sha }}");
   assert.equal(job.steps[0].with["persist-credentials"], false);
@@ -548,7 +519,7 @@ test("diagnóstico rejeita variable canônica ausente mesmo com aliases legados 
         CLOUDFLARE_ACCOUNT_ID: env.CLOUDFLARE_ACCOUNT_ID,
         CLOUDFLARE_API_TOKEN: env.CLOUDFLARE_API_TOKEN,
       },
-      inputs: { execution_sha: env.GITHUB_SHA, token_type: "user" },
+      github: { sha: env.GITHUB_SHA },
     };
     const changes = Object.fromEntries(
       Object.entries(configured).map(([key, expression]) => [

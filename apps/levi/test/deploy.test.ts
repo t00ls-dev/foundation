@@ -12,7 +12,6 @@ import {
 } from "../tools/deploy-diagnostics.js";
 import {
   deploySettings,
-  maintenanceSmokeHeaders,
   verifyHyperdrive,
   verifyWorkerBindings,
   verifyPreviousWorkerBindings,
@@ -471,7 +470,6 @@ async function simulatedDeploy(
     "../src/admin-config.js": { administrativeEmail },
     "./deploy-config.js": {
       deploySettings,
-      maintenanceSmokeHeaders,
       verifyHyperdrive,
       verifyWorkerBindings,
       verifyPreviousWorkerBindings,
@@ -1771,79 +1769,25 @@ void test("publicação exige o binding administrativo privado sem bloquear vers
   }
 });
 
-void test("capacidade temporária só acompanha os seis GETs finais, sem segredo no upload ou logs", async () => {
-  const capability = "f".repeat(64);
-  const paths: string[] = [];
-  const result = await simulatedDeploy({
-    env: { LEVI_MAINTENANCE_SMOKE: "true", LEVI_SMOKE_CAPABILITY: capability },
-    inspectRequest(url, init) {
-      const headers = new Headers(init.headers);
-      if (new URL(url).origin === "https://levi.t00ls.dev") {
-        paths.push(new URL(url).pathname);
-        assert.equal(headers.get("X-Levi-Smoke-Capability"), capability);
-        assert.equal(headers.has("Cookie"), false);
-        assert.equal(headers.has("Authorization"), false);
-        assert.equal(init.redirect, "manual");
-        assert.equal(init.method ?? "GET", "GET");
-        assert.equal(new URL(url).search, "");
-      } else assert.equal(headers.has("X-Levi-Smoke-Capability"), false);
-    },
-  });
-  assert.equal(result.exitCode, 0);
-  assert.equal(result.uploads, 1);
-  assert.deepEqual(paths, [
-    "/",
-    "/admin",
-    "/api/admin/session",
-    "/api/onboarding",
-    "/api/churches",
-    "/api/members",
-  ]);
-  assert.ok(!result.output.includes(capability));
-});
-
-void test("manutenção sem capacidade falha antes de qualquer I/O; normal ignora capacidade residual", async () => {
-  for (const value of [
-    undefined,
-    "",
-    "short",
-    "g".repeat(64),
-    "f".repeat(64) + "\r\n",
-  ]) {
+void test("smokes ignoram capacidade residual e preservam falha HTTP", async () => {
+  for (const status of [200, 302, 403, 503]) {
     const result = await simulatedDeploy({
-      env: { LEVI_MAINTENANCE_SMOKE: "true", LEVI_SMOKE_CAPABILITY: value },
-    });
-    assert.equal(result.exitCode, 1);
-    assert.equal(result.uploads, 0);
-    assert.deepEqual(result.requests, []);
-    assert.deepEqual(result.writes, []);
-    assert.ok(!result.output.includes("AssertionError"));
-  }
-  const result = await simulatedDeploy({
-    env: {
-      LEVI_MAINTENANCE_SMOKE: "false",
-      LEVI_SMOKE_CAPABILITY: "f".repeat(64),
-    },
-    inspectRequest(_url, init) {
-      assert.equal(
-        new Headers(init.headers).has("X-Levi-Smoke-Capability"),
-        false,
-      );
-    },
-  });
-  assert.equal(result.exitCode, 0);
-  for (const status of [302, 403, 503]) {
-    const blocked = await simulatedDeploy({
       env: {
         LEVI_MAINTENANCE_SMOKE: "true",
         LEVI_SMOKE_CAPABILITY: "f".repeat(64),
       },
+      inspectRequest(_url, init) {
+        assert.equal(
+          new Headers(init.headers).has("X-Levi-Smoke-Capability"),
+          false,
+        );
+      },
       respond: (url) =>
-        new URL(url).hostname === "levi.t00ls.dev"
+        status !== 200 && new URL(url).hostname === "levi.t00ls.dev"
           ? new Response(null, { status })
           : undefined,
     });
-    assert.equal(blocked.exitCode, 1);
-    assert.equal(blocked.uploads, 1);
+    assert.equal(result.exitCode, status === 200 ? 0 : 1);
+    assert.equal(result.uploads, 1);
   }
 });

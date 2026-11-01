@@ -6,7 +6,6 @@ import ts from "typescript";
 import { administrativeEmail } from "../src/admin-config.js";
 import {
   deploySettings,
-  maintenanceSmokeHeaders,
   verifyHyperdrive,
   verifyWorkerBindings,
   verifyPreviousWorkerBindings,
@@ -39,10 +38,6 @@ try {
   const settings = diagnostics.verify("configuration", () =>
     deploySettings(env),
   );
-  const smokeHeaders = diagnostics.verify("configuration", () =>
-    maintenanceSmokeHeaders(env),
-  );
-  delete env.LEVI_SMOKE_CAPABILITY;
   diagnostics.phase = "ci";
   const ci = await requireSuccessfulCI(env, fetch, diagnostics);
   async function currentMain() {
@@ -406,7 +401,6 @@ try {
       requestCheck,
       () =>
         fetch(`${deployOrigin}${path}`, {
-          headers: smokeHeaders,
           redirect: "manual",
           signal: AbortSignal.timeout(15_000),
         }),

@@ -23,7 +23,6 @@ export async function diagnoseCloudflare(env, fetcher = globalThis.fetch) {
     assert.equal(env.GITHUB_REF, "refs/heads/master");
     assert.match(env.GITHUB_SHA ?? "", sha);
     assert.equal(env.LEVI_DIAGNOSTIC_SHA, env.GITHUB_SHA);
-    assert.ok(["user", "account"].includes(env.LEVI_CF_TOKEN_TYPE));
     for (const name of [
       "CLOUDFLARE_ACCOUNT_ID",
       "CLOUDFLARE_ZONE_ID",
@@ -58,7 +57,7 @@ export async function diagnoseCloudflare(env, fetcher = globalThis.fetch) {
       : null;
   }
   report.commit = identifier(env.GITHUB_SHA, sha);
-  report.tokenType = env.LEVI_CF_TOKEN_TYPE;
+  report.tokenType = "user";
   report.observedAt = new Date().toISOString();
   const account = `/accounts/${env.CLOUDFLARE_ACCOUNT_ID}`;
   const worker = `${account}/workers/scripts/levi-dev`;
@@ -111,9 +110,7 @@ export async function diagnoseCloudflare(env, fetcher = globalThis.fetch) {
 
   const authentication = await read(
     "authentication",
-    env.LEVI_CF_TOKEN_TYPE === "user"
-      ? "/user/tokens/verify"
-      : `${account}/tokens/verify`,
+    "/user/tokens/verify",
     (result) => {
       assert.ok(
         record(result) &&

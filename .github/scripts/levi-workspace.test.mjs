@@ -203,9 +203,7 @@ test("publicador Levi manual permanece isolado e bloqueia readiness antes de cre
     readFileSync(join(root, ".github/workflows/deploy-levi-dev.yml"), "utf8"),
   );
   assert.deepEqual(Object.keys(workflow.on), ["workflow_dispatch"]);
-  assert.deepEqual(Object.keys(workflow.on.workflow_dispatch.inputs), [
-    "maintenance_smoke",
-  ]);
+  assert.equal(workflow.on.workflow_dispatch, null);
   assert.deepEqual(workflow.permissions, { contents: "read", actions: "read" });
   assert.deepEqual(workflow.concurrency, {
     "group": "levi-dev",
@@ -337,7 +335,6 @@ test("publicador Levi manual permanece isolado e bloqueia readiness antes de cre
         "LEVI_AUTH_SECRET",
         "LEVI_ADMIN_EMAIL",
       ].map((name) => "${{ secrets." + name + " }}"),
-      "${{ inputs.maintenance_smoke && secrets.LEVI_SMOKE_CAPABILITY || '' }}",
     ].sort(),
   );
   for (const [internal, configured] of Object.entries({
@@ -350,21 +347,8 @@ test("publicador Levi manual permanece isolado e bloqueia readiness antes de cre
   assert.equal(publish.env.LEVI_AUTH_SECRET, "${{ secrets.LEVI_AUTH_SECRET }}");
   assert.equal(publish.env.AUTH_SECRET, undefined);
   assert.equal(publish.env.RESEND_API_KEY, "${{ secrets.RESEND_API_KEY }}");
-  assert.deepEqual(workflow.on.workflow_dispatch.inputs.maintenance_smoke, {
-    description:
-      "Usar capacidade temporária para os seis smokes durante manutenção autorizada",
-    type: "boolean",
-    default: false,
-    required: true,
-  });
-  assert.equal(
-    publish.env.LEVI_MAINTENANCE_SMOKE,
-    "${{ inputs.maintenance_smoke }}",
-  );
-  assert.equal(
-    publish.env.LEVI_SMOKE_CAPABILITY,
-    "${{ inputs.maintenance_smoke && secrets.LEVI_SMOKE_CAPABILITY || '' }}",
-  );
+  assert.equal(publish.env.LEVI_MAINTENANCE_SMOKE, undefined);
+  assert.equal(publish.env.LEVI_SMOKE_CAPABILITY, undefined);
   assert.equal(publish.if, undefined);
   assert.equal(publish["continue-on-error"], undefined);
   for (const step of deploy.steps.slice(1, deploy.steps.indexOf(publish))) {
