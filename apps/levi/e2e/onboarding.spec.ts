@@ -1161,3 +1161,59 @@ test("convites: conta nova e existente entram por Magic Link e aceitam sem criar
     }
   }
 });
+
+test("minha conta: dados reais, igrejas, senha opcional e saída sem reter perfil", async ({
+  page,
+}) => {
+  await page.goto("/conta");
+  await expect(
+    page.getByRole("heading", { name: "Comece pelo seu e-mail", exact: true }),
+  ).toBeVisible();
+  expect((await page.request.get("/api/account")).status()).toBe(401);
+  const email = await verifyEmail(page);
+  await page.goto("/conta");
+  const account = page.getByRole("region", { name: "Dados da minha conta" });
+  await expect(
+    page.getByRole("heading", { name: "Minha conta", exact: true }),
+  ).toBeVisible();
+  await expect(account.getByText(email, { exact: true }).last()).toBeVisible();
+  await expect(
+    account.getByText("E-mail verificado", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    account.getByRole("heading", {
+      name: "Você ainda não tem igrejas.",
+      exact: true,
+    }),
+  ).toBeVisible();
+  const response = await page.request.get("/api/account");
+  expect(response.status()).toBe(200);
+  const data: unknown = await response.json();
+  expect(
+    Object.keys(data !== null && typeof data === "object" ? data : {}).sort(),
+  ).toEqual(["email", "emailVerified", "identity", "name"]);
+  await account
+    .getByRole("link", { name: "Definir senha", exact: true })
+    .click();
+  await expect(page.getByLabel("Nova senha", { exact: true })).toBeVisible();
+  await page.goto("/criar-igreja");
+  await provision(page, "Igreja da minha conta");
+  await page.getByRole("link", { name: "Minha conta", exact: true }).click();
+  await expect(
+    account.getByText("Igreja da minha conta", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    account.getByText("Administrador", { exact: true }),
+  ).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.reload();
+  await expect(
+    account.getByText("Igreja da minha conta", { exact: true }),
+  ).toBeVisible();
+  await account.getByRole("button", { name: "Sair", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Comece pelo seu e-mail", exact: true }),
+  ).toBeVisible();
+  await expect(account).toHaveCount(0);
+  await expect(page.getByText(email, { exact: true })).toHaveCount(0);
+});

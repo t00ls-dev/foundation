@@ -1,0 +1,86 @@
+/* Estados existentes usam a mesma superfície e tipografia das telas completas. */
+.empty-state {
+  padding: 32px 20px;
+  text-align: center;
+  margin: 16px 0;
+}
+.empty-state h2 {
+  font-size: var(--levi-text-body-lg);
+  margin: 16px 0 8px;
+}
+.empty-state p,
+.empty-message {
+  color: var(--levi-muted);
+  font-size: var(--levi-text-small);
+}
+.empty-state .empty-icon {
+  border-radius: var(--levi-radius-pill);
+  width: 60px;
+  height: 60px;
+}
+.loading,
+[aria-busy="true"] > p[role="status"] {
+  display: flex;
+  align-items: center;
+  gap: var(--levi-gap);
+  padding-block: 12px;
+  color: var(--levi-muted);
+  font-size: var(--levi-text-small);
+}
+.loading::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border: 2px solid var(--levi-line);
+  border-top-color: var(--levi-accent);
+  border-radius: var(--levi-radius-pill);
+  animation: levi-spin 1s linear infinite;
+}
+@keyframes levi-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.placeholder {
+  display: block;
+  background: var(--levi-line);
+  border-radius: var(--levi-radius-control);
+}
+.loading-context {
+  width: 160px;
+  height: var(--levi-h-touch);
+}
+.panel > [role="alert"]:not(.notice),
+.global-admin-main > [role="alert"] {
+  padding: 16px;
+  border: 1px solid var(--levi-danger-fg);
+  border-radius: var(--levi-radius-card);
+  color: var(--levi-danger-fg);
+  background: var(--levi-danger-bg);
+}
+.invitation-page [role="status"]:empty {
+  display: none;
+}
+form:has([aria-invalid="true"]) .form-actions {
+  border-top-color: var(--levi-danger-fg);
+}
+.screen-loading .workspace {
+  min-height: 240px;
+}
+.screen-no-access .panel,
+.screen-failure .panel {
+  padding-top: 24px;
+}
+.screen-no-access .panel > .button-link {
+  display: flex;
+  background: var(--levi-accent);
+  color: var(--levi-on-accent);
+  min-height: var(--levi-h-button);
+  margin-bottom: 12px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading::before {
+    animation: none;
+  }
+}

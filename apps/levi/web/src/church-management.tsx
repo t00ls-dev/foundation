@@ -152,6 +152,11 @@ export function ChurchManagement({
           Gerenciar acessos
         </NavigationLink>
       </SegmentedControl>
+      {busy && (
+        <p className="loading" role="status">
+          Consultando acessos…
+        </p>
+      )}
       {error && (
         <p className="notice error" role="alert">
           {error}
@@ -271,6 +276,9 @@ export function ChurchManagement({
             <h3>Convites</h3>
             {invitations && (
               <>
+                {invitations.invitations.length === 0 && (
+                  <p className="empty-message">Nenhum convite cadastrado.</p>
+                )}
                 <ul className="item-list access-list">
                   {invitations.invitations.map((item) => (
                     <ListRow key={item.id}>
@@ -365,6 +373,11 @@ export function ChurchManagement({
             </Button>
             {page && (
               <>
+                {page.accesses.length === 0 && (
+                  <p className="empty-message">
+                    Nenhum acesso disponível nesta consulta.
+                  </p>
+                )}
                 <ul className="item-list access-list">
                   {page.accesses.map((item) => (
                     <ListRow key={item.id}>

@@ -1,4 +1,4 @@
-import { Pill } from "./design-system.js";
+import { Pill, Card } from "./design-system.js";
 import {
   useEffect,
   useRef,
@@ -102,13 +102,13 @@ export function EmptyState({
   icon?: IconName;
 }) {
   return (
-    <div className="empty-state">
+    <Card className="empty-state">
       <span className="empty-icon">
         <Icon name={icon} />
       </span>
       <h2>{title}</h2>
       {children}
-    </div>
+    </Card>
   );
 }
 // Tom estável por identificador: facilita a leitura da lista sem fotos.

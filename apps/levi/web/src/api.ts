@@ -278,6 +278,26 @@ export const api = {
       }),
     };
   },
+  async account() {
+    const data = record(await request("/api/account"));
+    const identity = record(data.identity);
+    if (
+      typeof data.name !== "string" ||
+      typeof data.email !== "string" ||
+      !data.email.trim() ||
+      typeof data.emailVerified !== "boolean"
+    )
+      return contractError();
+    return {
+      name: data.name,
+      email: data.email,
+      emailVerified: data.emailVerified,
+      identity: {
+        userId: id(identity.userId),
+        sessionId: id(identity.sessionId),
+      },
+    };
+  },
   async sessionContext(): Promise<SessionContext | null> {
     try {
       const value = record(await request("/api/session-context"));

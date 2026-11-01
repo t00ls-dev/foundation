@@ -547,3 +547,31 @@ void test("acessos atrasados são descartados após mudança de igreja ou papel"
       error instanceof ApiError && error.code === "CONTEXTO_ALTERADO",
   );
 });
+
+void test("minha conta valida dados e identidade sem transportar campos de autenticação", async () => {
+  const identity = {
+    userId: "11111111-1111-4111-8111-111111111111",
+    sessionId: "22222222-2222-4222-8222-222222222222",
+  };
+  const account = {
+    name: "Pessoa sintética",
+    email: "account@example.test",
+    emailVerified: true,
+    identity,
+  };
+  globalThis.fetch = () =>
+    Promise.resolve(Response.json({ ...account, token: "not-for-the-ui" }));
+  assert.deepEqual(await api.account(), account);
+  for (const invalid of [
+    { ...account, name: null },
+    { ...account, email: "" },
+    { ...account, emailVerified: "true" },
+    { ...account, identity: { ...identity, sessionId: "untrusted" } },
+  ]) {
+    globalThis.fetch = () => Promise.resolve(Response.json(invalid));
+    await assert.rejects(
+      api.account(),
+      (error: unknown) => error instanceof ApiError && error.status === 502,
+    );
+  }
+});

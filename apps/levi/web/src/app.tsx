@@ -5,6 +5,7 @@ import {
   Pill,
   ListRow,
   Card,
+  InfoRow,
 } from "./design-system.js";
 import { Skeleton } from "@t00ls-dev/ui/components/skeleton";
 import {
@@ -49,6 +50,11 @@ type Screen =
         | "login"
         | "password"
         | "organization";
+    }
+  | {
+      kind: "account";
+      account: Awaited<ReturnType<typeof api.account>>;
+      items: ChurchLink[];
     }
   | { kind: "organizations"; items: ChurchLink[] }
   | {
@@ -213,6 +219,22 @@ export function App({
         return;
       }
       setEmailJourney({ kind: "entry", email: "" });
+      if (window.location.pathname === "/conta" && currentIdentity) {
+        const [account, items] = await Promise.all([
+          api.account(),
+          api.organizations(),
+        ]);
+        if (sequence !== generation.current) return;
+        if (!(await confirmSession(currentIdentity, sequence))) return;
+        if (!sameSession(account.identity, currentIdentity))
+          throw new ApiError(
+            502,
+            "RESPOSTA_INVALIDA",
+            "Não foi possível confirmar os dados da sua conta. Atualize o acesso.",
+          );
+        setScreen({ kind: "account", account, items });
+        return;
+      }
       if (tokenRef.current || window.location.pathname === "/conta/senha") {
         setScreen({ kind: "password" });
         return;
@@ -473,6 +495,7 @@ export function App({
         !active.current &&
         (window.location.pathname.startsWith("/igrejas") ||
           window.location.pathname === "/painel" ||
+          window.location.pathname === "/conta" ||
           window.location.pathname.startsWith("/membros"))
       )
         void refresh();
@@ -613,6 +636,7 @@ export function App({
     password: token ? "Escolha sua senha" : "Configurar senha opcional",
     organization: "Um lugar para sua comunidade",
     organizations: "Suas igrejas",
+    account: "Minha conta",
     dashboard: "Visão geral",
     churches: "Igreja selecionada",
     members:
@@ -751,6 +775,10 @@ export function App({
         <Icon name="swap" />
         Trocar igreja
       </NavigationLink>
+      <NavigationLink href="/conta" navigate={go} disabled={busy}>
+        <Icon name="people" />
+        Minha conta
+      </NavigationLink>
       {passwordLink}
       {logoutButton}
     </ChurchNavigation>
@@ -806,17 +834,29 @@ export function App({
         )}
         {hasSession && currentOrganization && (
           <NavigationLink
-            href="/conta/senha"
+            href="/conta"
             navigate={go}
             disabled={busy}
             className="account-link"
-            aria-label="Configurar senha"
+            aria-label="Minha conta"
           >
             <Icon name="people" />
           </NavigationLink>
         )}
-        {hasSession && !navigation && passwordLink}
-        {hasSession && !currentOrganization && logoutButton}
+        {hasSession && !navigation && screen.kind !== "account" && passwordLink}
+        {hasSession &&
+          !currentOrganization &&
+          screen.kind !== "account" &&
+          logoutButton}
+        {screen.kind === "account" && (
+          <NavigationLink
+            href="/igrejas/selecionar"
+            navigate={go}
+            className="text-button"
+          >
+            ← Voltar às igrejas
+          </NavigationLink>
+        )}
         {screen.kind === "email" && !emailSent && (
           <p className="auth-tagline">
             Cuide das pessoas. A organização fica com a gente.
@@ -1213,6 +1253,76 @@ export function App({
                 Criar igreja
               </NavigationLink>
             </>
+          )}
+          {screen.kind === "account" && (
+            <section className="account-page" aria-label="Dados da minha conta">
+              <div className="profile-header">
+                <Avatar
+                  name={screen.account.name || screen.account.email}
+                  size={76}
+                />
+                <h2>{screen.account.name || screen.account.email}</h2>
+                <p>{screen.account.email}</p>
+                <Pill
+                  tone={screen.account.emailVerified ? "success" : "warning"}
+                >
+                  {screen.account.emailVerified
+                    ? "E-mail verificado"
+                    : "E-mail não verificado"}
+                </Pill>
+              </div>
+              <h2 className="section-label">Como você entra</h2>
+              <Card>
+                <h3>Link por e-mail</h3>
+                <p>Cada acesso começa com um link enviado para o seu e-mail.</p>
+                <dl className="account-password">
+                  <InfoRow label="Senha">
+                    <Pill>Opcional</Pill>
+                  </InfoRow>
+                </dl>
+                <p>Defina uma senha se preferir entrar sem esperar o e-mail.</p>
+                <NavigationLink
+                  href="/conta/senha"
+                  navigate={go}
+                  disabled={busy}
+                  className="secondary"
+                >
+                  Definir senha
+                </NavigationLink>
+              </Card>
+              <h2 className="section-label">Suas igrejas</h2>
+              {screen.items.length ? (
+                <ul className="account-churches surface">
+                  {screen.items.map((item) => (
+                    <ListRow key={item.id}>
+                      <Avatar name={item.nome} size={34} />
+                      <strong>{item.nome}</strong>
+                      <Pill tone={item.role === "admin" ? "accent" : "neutral"}>
+                        {item.role === "admin"
+                          ? "Administrador"
+                          : "Colaborador"}
+                      </Pill>
+                    </ListRow>
+                  ))}
+                </ul>
+              ) : (
+                <EmptyState icon="church" title="Você ainda não tem igrejas.">
+                  <p>
+                    Escolha uma igreja disponível ou solicite um convite ao
+                    responsável.
+                  </p>
+                </EmptyState>
+              )}
+              <NavigationLink
+                href="/igrejas/selecionar"
+                navigate={go}
+                disabled={busy}
+                className="text-button"
+              >
+                Escolher igreja
+              </NavigationLink>
+              <div className="account-logout">{logoutButton}</div>
+            </section>
           )}
           {screen.kind === "members" && (
             <Members

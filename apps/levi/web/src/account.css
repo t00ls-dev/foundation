@@ -1,0 +1,68 @@
+.account-page {
+  display: grid;
+  gap: 20px;
+}
+.account-page .profile-header {
+  margin: 12px 0;
+  gap: 6px;
+}
+.account-page .profile-header h2 {
+  margin: 8px 0 0;
+}
+.account-page .profile-header p {
+  color: var(--levi-muted);
+  font-size: var(--levi-text-small);
+  overflow-wrap: anywhere;
+  margin: 0 0 6px;
+}
+.section-label {
+  color: var(--levi-muted);
+  font-size: var(--levi-text-meta);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+.account-page .card h3 {
+  margin-top: 0;
+}
+.account-page .card p {
+  color: var(--levi-muted);
+  font-size: var(--levi-text-small);
+}
+.account-page .card .info-row {
+  margin-bottom: 12px;
+  padding-inline: 0;
+}
+.account-page .card > .button-link {
+  width: 100%;
+  color: var(--levi-accent);
+}
+.account-churches {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+}
+.account-churches strong {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--levi-text-small);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.account-churches .list-row {
+  flex-wrap: wrap;
+}
+.account-logout > button {
+  width: 100%;
+  border: 1px solid var(--levi-border-input);
+  color: var(--levi-danger-fg);
+  background: var(--levi-surface);
+}
+.account-password {
+  margin: 0;
+}
+.account-logout > .levi-button {
+  color: var(--levi-danger-fg);
+}
