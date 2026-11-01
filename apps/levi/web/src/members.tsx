@@ -1,6 +1,6 @@
+import { Avatar, Fab, FilterChip, Input, ListRow } from "./design-system.js";
 import { formText } from "./form-data.js";
 import {
-  avatarTone,
   EmptyState,
   Icon,
   NavigationLink,
@@ -306,21 +306,20 @@ export function Members({
         <>
           <div className="page-intro">
             <p>Cadastros e contatos da sua igreja.</p>
-            <button
-              className="primary"
-              disabled={busy}
-              onClick={() => navigate("/membros/novo")}
-            >
+            <Fab disabled={busy} onClick={() => navigate("/membros/novo")}>
               <Icon name="plus" />
               Cadastrar membro
-            </button>
+            </Fab>
           </div>
           <form aria-label="Filtrar membros" onSubmit={filter}>
             <fieldset disabled={busy} className="filter-grid">
               <legend className="sr-only">Filtros</legend>
-              <div className="field">
-                <label htmlFor="member-name-filter">Nome</label>
-                <input
+              <div className="field search-field">
+                <label className="sr-only" htmlFor="member-name-filter">
+                  Nome
+                </label>
+                <Input
+                  placeholder="Buscar por nome"
                   id="member-name-filter"
                   name="name"
                   type="search"
@@ -333,8 +332,8 @@ export function Members({
                 />
               </div>
               <fieldset className="status-filter">
-                <legend>Situação</legend>
-                <div className="segmented">
+                <legend className="sr-only">Situação</legend>
+                <div className="filter-chips">
                   {(
                     [
                       ["", "Todas"],
@@ -342,7 +341,7 @@ export function Members({
                       ["Inativo", "Inativo"],
                     ] as const
                   ).map(([value, label]) => (
-                    <label key={label}>
+                    <FilterChip key={label}>
                       <input
                         type="radio"
                         name="status"
@@ -350,7 +349,7 @@ export function Members({
                         defaultChecked={(filters.status ?? "") === value}
                       />
                       {label}
-                    </label>
+                    </FilterChip>
                   ))}
                 </div>
               </fieldset>
@@ -368,16 +367,8 @@ export function Members({
               {page.members.length ? (
                 <ul className="member-list">
                   {page.members.map((item) => (
-                    <li key={item.id} className="member-row">
-                      <span
-                        className={`avatar ${avatarTone(item.id)}`}
-                        aria-hidden="true"
-                      >
-                        {item.name
-                          .trim()
-                          .slice(0, 1)
-                          .toLocaleUpperCase("pt-BR")}
-                      </span>
+                    <ListRow key={item.id} className="member-row">
+                      <Avatar name={item.name} />
                       <span className="member-summary">
                         {/* O link cobre a linha inteira; o nome acessível
                             continua contendo o texto visível. */}
@@ -396,7 +387,7 @@ export function Members({
                       </span>
                       <Status value={item.status} />
                       <Icon name="chevron" />
-                    </li>
+                    </ListRow>
                   ))}
                 </ul>
               ) : (
@@ -564,10 +555,7 @@ export function Members({
       {mode === "detail" && member && (
         <>
           <div className="profile-header">
-            <span
-              className={`avatar large ${avatarTone(member.id)}`}
-              aria-hidden="true"
-            >
+            <span className="avatar large" aria-hidden="true">
               {member.name.trim().slice(0, 1)}
             </span>
             <div>

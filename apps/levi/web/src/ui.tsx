@@ -1,3 +1,4 @@
+import { Pill } from "./design-system.js";
 import {
   useEffect,
   useRef,
@@ -115,12 +116,7 @@ export function avatarTone(id: string) {
   return `tone-${(sum % 5) + 1}`;
 }
 export function Status({ value }: { value: string }) {
-  return (
-    <span className={`badge ${value === "Ativo" ? "active" : "inactive"}`}>
-      <span aria-hidden="true" />
-      {value}
-    </span>
-  );
+  return <Pill tone={value === "Ativo" ? "success" : "neutral"}>{value}</Pill>;
 }
 // Guarda apenas memória. Não persiste dados pessoais ou segredos no navegador.
 export function useDraftGuard() {

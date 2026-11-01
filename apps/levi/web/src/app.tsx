@@ -1,3 +1,4 @@
+import { PageHeader, Avatar } from "./design-system.js";
 import { Skeleton } from "@t00ls-dev/ui/components/skeleton";
 import {
   EmptyState,
@@ -752,7 +753,7 @@ export function App({
       <a className="skip-link" href="#conteudo">
         Pular para o conteúdo
       </a>
-      <header className="topbar">
+      <PageHeader>
         <a
           className="brand"
           href={currentOrganization ? "/painel" : "/"}
@@ -780,21 +781,34 @@ export function App({
           <Skeleton className="loading-context placeholder" />
         )}
         {currentOrganization && (
-          <div className="context-label">
-            <span className="eyebrow">Igreja ativa</span>
+          <NavigationLink
+            href="/igrejas/selecionar"
+            navigate={go}
+            disabled={busy}
+            className="context-label"
+          >
+            <span className="sr-only">Trocar de igreja. Atual: </span>
+            <Avatar name={currentOrganization.nome} size={34} />
             <strong title={currentOrganization.nome}>
               {currentOrganization.nome}
             </strong>
-            <span className="context-role">
-              {currentOrganization.role === "admin"
-                ? "Administrador"
-                : "Colaborador"}
-            </span>
-          </div>
+            <Icon name="swap" />
+          </NavigationLink>
+        )}
+        {hasSession && currentOrganization && (
+          <NavigationLink
+            href="/conta/senha"
+            navigate={go}
+            disabled={busy}
+            className="account-link"
+            aria-label="Configurar senha"
+          >
+            <Icon name="people" />
+          </NavigationLink>
         )}
         {hasSession && !navigation && passwordLink}
         {hasSession && !currentOrganization && logoutButton}
-      </header>
+      </PageHeader>
       {managementLoading && (
         <aside className="sidebar loading-sidebar" aria-hidden="true">
           <Skeleton className="placeholder" />
