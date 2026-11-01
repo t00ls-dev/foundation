@@ -8,52 +8,19 @@ e os gates existentes permanecem obrigatórios. Não há SQL no publicador.
 
 ## Capacidade temporária dos smokes
 
-O input booleano `maintenance_smoke` do workflow tem default `false`. Nesse modo
-normal, nenhuma capacidade acompanha requests, mesmo se houver valor residual
-no ambiente do executor. Com `true`, o step de publicação recebe exclusivamente
-do Environment `levi-dev` o secret temporário `LEVI_SMOKE_CAPABILITY`. O executor
-exige 64 caracteres hexadecimais minúsculos antes de consultar APIs ou fazer
-upload. O custodiante deve gerar 32 bytes aleatórios, sem reutilizar credenciais.
-O formato valida transporte, não comprova a aleatoriedade do valor.
+A opção `maintenance_smoke` foi removida do workflow e do publicador. Os seis
+GETs finais usam o acesso normal, sem `X-Levi-Smoke-Capability`. Permanecem os
+mesmos critérios de status, conteúdo, headers e falha; bloqueio por manutenção
+não é sucesso nem autoriza repetir upload.
 
-O header `X-Levi-Smoke-Capability` acompanha somente os seis GETs finais, depois
-da confirmação da versão nova com 100% do tráfego:
-
-| Caminho exato                    | Aceite preservado                    |
-| -------------------------------- | ------------------------------------ |
-| `/`                              | 200, HTML                            |
-| `/admin` e `/api/admin/session`  | 404, no-store                        |
-| `/api/onboarding`                | 200, JSON exato `{ etapa: "email" }` |
-| `/api/churches` e `/api/members` | 401                                  |
-
-CSP e Referrer-Policy continuam exigidos; redirects não são seguidos. A
-capacidade não vai a APIs GitHub/Cloudflare, subprocesso Wrangler, bundle,
-arquivo de secrets do Worker ou summary. É removida do ambiente do processo
-após leitura; os headers permanecem apenas em memória até os smokes. Falha após
-upload não autoriza repetir publicação. Não há bypass na aplicação.
-
-Antes do futuro dispatch, o custodiante precisa criar secret/regra sob
-autorização específica e comprovar M0/M1. A exceção à regra de manutenção deve
-exigir simultaneamente host `levi.t00ls.dev`, HTTPS, capacidade exata, GET, path
-exato da tabela, ausência de query, Cookie e Authorization. Não liberar acesso
-por prefixo, cookie válido, User-Agent, Origin ou ranges genéricos de runners.
-Não usar Skip para retirar outras proteções. Desabilitar cache para esse acesso
-e demonstrar chegada ao candidato; resposta antiga em cache não é smoke.
-Confirmar bloqueio de paths codificados/normalizados e das entradas alternativas.
-Não registrar o header em WAF events, traces ou logs de requisição; validar a
-política de redação com o custodiante antes de provisionar a capacidade.
-
-M0 bloqueia todas as entradas antes do Worker. M1 permite apenas a exceção
-acima; não libera DML funcional, login/callbacks ou validadores. M2, após
-contract, exige autorização própria para identidades, IPs e envios sintéticos.
-Criar/remover regras e secret, dispatch e os efeitos técnicos dos smokes
-(contadores SQL) continuam pendentes de autorização. Ao encerrar, revogar a
-capacidade e retirar a exceção sob o procedimento aprovado.
-
-Na modalidade DEV de indisponibilidade aceita, M0/M1 e a capacidade são
-dispensados. O workflow oficial é executado com `NOLOGIN`; a falha dos smokes
-nessa condição não é tratada como sucesso, e os mesmos seis GETs são repetidos
-após `db:cutover:resume`, antes de considerar a validação concluída.
+A proposta histórica de exceção WAF M0/M1 não é necessária na modalidade DEV de
+indisponibilidade aceita abaixo. O workflow oficial pode ser executado com
+`NOLOGIN`; eventuais falhas dos smokes nessa condição permanecem falhas, e os
+mesmos seis GETs devem ser repetidos após `db:cutover:resume`, antes de considerar
+a validação concluída. O modelo de WAF no ensaio sintético
+é preservado apenas como evidência da preparação histórica; não é utilizado
+pelo publicador atual. Uma futura manutenção que exija exceção
+WAF precisa de procedimento próprio revisado e autorizado.
 
 ## Cliente de leitura e preservação
 

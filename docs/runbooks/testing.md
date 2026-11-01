@@ -48,12 +48,11 @@ durações de cada shard, pois contagens por arquivo não garantem tempos iguais
 considere o custo de build, Chromium e migrations por entrada.
 
 Pendências fora desta mudança: revisar os runners de `deploy-levi-dev`,
-`diagnose-levi-cloudflare` e `smoke-hyperdrive`; avaliar separadamente a
-migração para Ubuntu 26.04. Não use execuções de imagens diferentes como
-comparação direta de desempenho. O resumo por shard no `GITHUB_STEP_SUMMARY`
-também fica pendente: o reporter seguro atual é preservado, e a escrita do
-resumo requer tratar o caminho de saída sem introduzir alerta de segurança ou
-revelar detalhes sensíveis.
+`diagnose-levi-cloudflare`; avaliar separadamente a migração para Ubuntu 26.04.
+Não use execuções de imagens diferentes como comparação direta de desempenho. O
+resumo por shard no `GITHUB_STEP_SUMMARY` também fica pendente: o reporter
+seguro atual é preservado, e a escrita do resumo requer tratar o caminho de
+saída sem introduzir alerta de segurança ou revelar detalhes sensíveis.
 
 ### Resumos no GitHub Actions
 

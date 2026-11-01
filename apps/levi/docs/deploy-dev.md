@@ -24,19 +24,28 @@ publicação npm nesse workflow. Produção permanece fora deste procedimento.
 O [workflow manual de diagnóstico](../../../.github/workflows/diagnose-levi-cloudflare.yml)
 é independente do publicador. **Sua preparação não autoriza integração ou execução:**
 primeiro revisar/integrar e depois executar somente sob autorização correspondente.
-Não usar o workflow de deploy, o Smoke Hyperdrive de outro produto, uma branch de
-PR ou a credencial local revogada para testar acesso.
+Não usar o workflow de deploy, uma branch de PR ou a credencial local revogada
+para testar acesso. O antigo Smoke Hyperdrive foi removido: dependia de um
+endpoint externo sem implementação neste repositório e não validava o Levi.
 
 O diagnóstico usa somente o Environment **levi-dev do Foundation**, preservando sua
 política de master. Não pode consultar os secrets do original: `levi/dev` continua
 com `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_READ_TOKEN` **não testados** por esse fluxo.
 Não copiar esses valores ao Foundation nem inferir igualdade entre cadastros.
 
-Após integração e autorização, selecionar master e informar `execution_sha` igual
-ao SHA completo desse checkout. O input `token_type` define a rota de autenticação:
-`user` para `/user/tokens/verify` ou `account` para
-`/accounts/{account_id}/tokens/verify`, conforme metadados conhecidos do cadastro.
-Não há fallback de tipo/identidade após falha. O workflow exige ref/master,
+Após integração e autorização, selecionar `master`. O workflow captura o SHA
+mais recente da branch no dispatch (`github.sha`) e fixa esse checkout, sem
+solicitar SHA ou tipo de token. Reexecuções preservam o SHA original; para
+examinar uma revisão nova, iniciar outro dispatch.
+
+Usamos exclusivamente **User API Tokens**, criados em
+[My Profile → API Tokens](https://dash.cloudflare.com/profile/api-tokens),
+com token personalizado e recursos limitados à conta e zona do Levi. Cadastrar
+o valor em `CLOUDFLARE_API_TOKEN` do Environment `levi-dev`. Para este diagnóstico,
+conceder leitura de Workers Scripts, Workers Routes, Zone e Hyperdrive; o
+publicador exige suas permissões de escrita próprias. A verificação usa sempre
+`/user/tokens/verify`. Não há seleção de Account API Tokens nem fallback de
+identidade após falha. O workflow exige ref/master,
 repositório Foundation e SHA exato; checkout não persiste credenciais e setup Node
 ocorre antes do step que recebe secrets. Não instala dependências, importa o app
 ou executa Wrangler; usa apenas Node e código integrado no repositório.
@@ -545,8 +554,8 @@ não executa qualquer um desses procedimentos.
 
 ## Corte estrutural — etapa 7
 
-A [preparação técnica da etapa 7](etapa7-preparacao.md) descreve o smoke restrito
-por capacidade temporária, o cliente de leitura, o ensaio descartável e os
+A [preparação técnica da etapa 7](etapa7-preparacao.md) registra a retirada da capacidade
+temporária dos smokes, o cliente de leitura, o ensaio descartável e os
 impedimentos de drenagem/recuperação que precisam de comprovação dos custodiantes.
 
 Preparação não autoriza execução. O caminho padrão preserva dados e acessos,

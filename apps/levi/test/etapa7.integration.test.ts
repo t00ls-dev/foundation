@@ -19,7 +19,6 @@ import {
   applyRuntimeGrants,
 } from "./runtime-acl-fixture.js";
 import { workerHarness, workerOrigin, cookieFrom } from "./worker-harness.js";
-import { maintenanceSmokeHeaders } from "../tools/deploy-config.js";
 import {
   guardedRead,
   verifyCheckpoint,
@@ -271,10 +270,7 @@ void test("etapa 7: legado → expansões → conversão/ACLs → smokes restrit
     const harness = await workerHarness(observerUrl);
     try {
       const capability = "f".repeat(64);
-      const headers = maintenanceSmokeHeaders({
-        LEVI_MAINTENANCE_SMOKE: "true",
-        LEVI_SMOKE_CAPABILITY: capability,
-      });
+      const headers = { "X-Levi-Smoke-Capability": capability };
       const paths = [
         "/",
         "/admin",
