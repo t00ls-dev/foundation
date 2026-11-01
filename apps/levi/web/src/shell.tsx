@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { Icon, NavigationLink, type IconName } from "./ui.js";
+import { TabBar } from "./design-system.js";
 
 export type NavigationItem = {
   path: string;
@@ -23,7 +24,7 @@ export function ChurchNavigation({
   children: ReactNode;
 }) {
   return (
-    <nav aria-label="Navegação da igreja" className="admin-nav">
+    <TabBar aria-label="Navegação da igreja">
       {items.map((item) => (
         <NavigationLink
           key={item.path}
@@ -37,7 +38,7 @@ export function ChurchNavigation({
         </NavigationLink>
       ))}
       <MoreMenu key={menuKey}>{children}</MoreMenu>
-    </nav>
+    </TabBar>
   );
 }
 

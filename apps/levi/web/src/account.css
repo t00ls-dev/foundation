@@ -1,0 +1,125 @@
+.screen-account .topbar {
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  gap: 4px;
+  padding: 16px 12px 8px;
+}
+.screen-account .topbar > .brand {
+  display: none;
+}
+.screen-account .topbar h1 {
+  font-family: var(--levi-font-ui);
+  font-size: var(--levi-text-section);
+  font-weight: 600;
+  letter-spacing: normal;
+  margin: 0;
+}
+.screen-account .account-back {
+  flex: none;
+  width: var(--levi-h-touch);
+  min-height: var(--levi-h-touch);
+  padding: 0;
+  color: var(--levi-ink);
+}
+.account-back .icon {
+  transform: rotate(180deg);
+}
+.screen-account .workspace {
+  padding: 8px 20px 24px;
+}
+.account-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.account-profile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.account-profile > div {
+  min-width: 0;
+}
+.account-profile h2 {
+  font-family: var(--levi-font-ui);
+  font-size: var(--levi-text-section);
+  margin: 0 0 2px;
+}
+.account-profile p {
+  color: var(--levi-muted);
+  font-size: var(--levi-text-small);
+  overflow-wrap: anywhere;
+  margin: 0 0 2px;
+}
+.account-profile .pill {
+  background: transparent;
+  padding: 0;
+}
+.account-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.section-label {
+  color: var(--levi-muted);
+  font-size: var(--levi-text-meta);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+.account-login-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.account-login-card h3 {
+  font-size: var(--levi-text-body);
+  margin: 0 0 4px;
+}
+.account-login-card p {
+  color: var(--levi-muted);
+  font-size: var(--levi-text-meta);
+  margin: 0;
+}
+.account-password-block {
+  border-top: 1px solid var(--levi-line-soft);
+  padding-top: 14px;
+}
+.account-password-heading {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.account-password-heading strong {
+  font-size: var(--levi-text-body);
+  font-weight: 600;
+}
+.account-login-card > .button-link {
+  width: 100%;
+  color: var(--levi-accent);
+}
+.account-churches {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+}
+.account-churches strong {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--levi-text-small);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.account-churches .list-row {
+  flex-wrap: wrap;
+}
+.account-logout > .levi-button {
+  width: 100%;
+  min-height: var(--levi-h-button);
+  border: 1px solid var(--levi-border-input);
+  color: var(--levi-danger-fg);
+  background: var(--levi-surface);
+}

@@ -53,6 +53,18 @@ test("layout: telas principais sem overflow, com contraste nos modos claro e esc
 }) => {
   page.on("dialog", (dialog) => void dialog.accept());
   await openChurch(page);
+  expect(
+    await page.evaluate(async () => {
+      const fonts = await Promise.all([
+        document.fonts.load('16px "Instrument Sans"', "Organização"),
+        document.fonts.load('600 28px "Bricolage Grotesque"', "Membros"),
+      ]);
+      return fonts.every(
+        (faces) =>
+          faces.length > 0 && faces.every((face) => face.status === "loaded"),
+      );
+    }),
+  ).toBe(true);
   const nav = page.getByRole("navigation", { name: "Navegação da igreja" });
   for (const colorScheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme });

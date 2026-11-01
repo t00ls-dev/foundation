@@ -458,6 +458,15 @@ export function createApp(options: AppOptions) {
     await readObject(c.req.raw, []);
     return authRequest(c.get("auth"), options, c.req.raw, "/sign-out", {});
   });
+  app.get("/api/account", (c) => {
+    const identity = verifiedSession(c.get("identity"));
+    return c.json({
+      name: identity.user.name,
+      email: identity.user.email,
+      emailVerified: identity.user.emailVerified,
+      identity: { userId: identity.user.id, sessionId: identity.session.id },
+    });
+  });
   app.get("/api/session-context", (c) => {
     const identity = c.get("identity");
     if (!identity)

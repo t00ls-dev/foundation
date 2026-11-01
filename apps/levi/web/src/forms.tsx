@@ -1,3 +1,4 @@
+import { FormFooter, Button, Input } from "./design-system.js";
 import { formText } from "./form-data.js";
 import { useDraftGuard } from "./ui.js";
 import {
@@ -79,7 +80,7 @@ function Form({
             {field.hint}
           </p>
         )}
-        <input
+        <Input
           id={`${id}-${field.name}`}
           name={field.name}
           type={field.type ?? "text"}
@@ -143,9 +144,19 @@ function Form({
             Confira os campos indicados antes de continuar.
           </p>
         )}
-        <button className="primary" type="submit">
-          {busy ? "Aguarde…" : submit}
-        </button>
+        <FormFooter
+          className={
+            label === "Criar igreja" ||
+            label === "Editar igreja" ||
+            label === "Definir senha"
+              ? ""
+              : "form-actions-inline"
+          }
+        >
+          <Button className="primary" type="submit">
+            {busy ? "Aguarde…" : submit}
+          </Button>
+        </FormFooter>
       </fieldset>
     </form>
   );

@@ -1,3 +1,4 @@
+import { PageHeader, Button, Input, Select } from "./design-system.js";
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api.js";
 import {
@@ -183,16 +184,16 @@ export function Admin() {
       <a className="skip-link" href="#conteudo-admin">
         Pular para o conteúdo
       </a>
-      <header className="topbar">
+      <PageHeader>
         <a className="brand" href="/">
           Levi
         </a>
         <span>Administração global</span>
         <a href="/">Voltar ao Levi</a>
-        <button className="quiet" disabled={busy} onClick={() => void logout()}>
+        <Button className="quiet" disabled={busy} onClick={() => void logout()}>
           Sair
-        </button>
-      </header>
+        </Button>
+      </PageHeader>
       <main id="conteudo-admin" className="global-admin-main" tabIndex={-1}>
         <h1>Painel administrativo</h1>
         {notice && (
@@ -202,7 +203,7 @@ export function Admin() {
           >
             <p>{notice.text}</p>
             {notice.reauthenticate && (
-              <button onClick={() => void logout()}>Entrar novamente</button>
+              <Button onClick={() => void logout()}>Entrar novamente</Button>
             )}
           </div>
         )}
@@ -217,13 +218,13 @@ export function Admin() {
             Não foi possível confirmar o acesso. Tente atualizar novamente.
           </p>
         )}
-        <button
+        <Button
           className="quiet"
           disabled={busy}
           onClick={() => void refresh()}
         >
           Atualizar acesso e dados
-        </button>
+        </Button>
         {screen.kind === "ready" && (
           <AdminContent
             key={`${screen.data.session.userId}:${screen.data.session.sessionId}:${generation.current}`}
@@ -281,7 +282,7 @@ function AdminContent({
           />
         ))}
         {organizationNext && (
-          <button
+          <Button
             disabled={busy}
             onClick={() =>
               void run(
@@ -303,7 +304,7 @@ function AdminContent({
             }
           >
             Mais igrejas
-          </button>
+          </Button>
         )}
       </section>
     </>
@@ -353,7 +354,7 @@ function FeatureForm({
       <p>Chave: members · versão {feature.version}</p>
       <div className="field">
         <label htmlFor={`policy-${feature.key}`}>Política de Membros</label>
-        <select
+        <Select
           id={`policy-${feature.key}`}
           value={policy}
           onChange={(event) => {
@@ -366,7 +367,7 @@ function FeatureForm({
           <option value="disabled">Desabilitada</option>
           <option value="selected">Igrejas selecionadas</option>
           <option value="all">Todas as igrejas</option>
-        </select>
+        </Select>
       </div>
       {policy === "selected" && (
         <fieldset>
@@ -374,7 +375,7 @@ function FeatureForm({
           <div className="organization-options">
             {churches.map((org) => (
               <label key={org.id}>
-                <input
+                <Input
                   type="checkbox"
                   checked={selected.includes(org.id)}
                   onChange={(event) =>
@@ -393,7 +394,7 @@ function FeatureForm({
               .filter((id) => !knownIds.has(id))
               .map((id) => (
                 <label key={id}>
-                  <input
+                  <Input
                     type="checkbox"
                     checked
                     onChange={() =>
@@ -408,7 +409,7 @@ function FeatureForm({
       )}
       {policy === "all" && (
         <label className="global-confirm">
-          <input
+          <Input
             type="checkbox"
             required
             checked={confirmAll}
@@ -417,7 +418,7 @@ function FeatureForm({
           Confirmo habilitar esta funcionalidade para todas as igrejas.
         </label>
       )}
-      <button
+      <Button
         disabled={
           busy ||
           (policy === "selected" && !selected.length) ||
@@ -425,7 +426,7 @@ function FeatureForm({
         }
       >
         Salvar política de Membros
-      </button>
+      </Button>
     </form>
   );
 }

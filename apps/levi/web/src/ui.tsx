@@ -1,3 +1,4 @@
+import { Pill, Card } from "./design-system.js";
 import {
   useEffect,
   useRef,
@@ -16,9 +17,11 @@ export type IconName =
   | "swap"
   | "logout"
   | "lock"
-  | "chevron";
+  | "chevron"
+  | "mail";
 export function Icon({ name }: { name: IconName }) {
   const paths = {
+    mail: "M3 5h18v14H3zM3 6l9 7 9-7",
     home: "m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z",
     people:
       "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z",
@@ -99,13 +102,13 @@ export function EmptyState({
   icon?: IconName;
 }) {
   return (
-    <div className="empty-state">
+    <Card className="empty-state">
       <span className="empty-icon">
         <Icon name={icon} />
       </span>
       <h2>{title}</h2>
       {children}
-    </div>
+    </Card>
   );
 }
 // Tom estável por identificador: facilita a leitura da lista sem fotos.
@@ -115,12 +118,7 @@ export function avatarTone(id: string) {
   return `tone-${(sum % 5) + 1}`;
 }
 export function Status({ value }: { value: string }) {
-  return (
-    <span className={`badge ${value === "Ativo" ? "active" : "inactive"}`}>
-      <span aria-hidden="true" />
-      {value}
-    </span>
-  );
+  return <Pill tone={value === "Ativo" ? "success" : "neutral"}>{value}</Pill>;
 }
 // Guarda apenas memória. Não persiste dados pessoais ou segredos no navegador.
 export function useDraftGuard() {

@@ -1,0 +1,257 @@
+@media (min-width: 768px) {
+  .admin-app:has(.sidebar) {
+    display: grid;
+    grid-template-columns: 248px minmax(0, 1fr);
+    padding-bottom: 0;
+  }
+  .admin-app:has(.sidebar) .topbar {
+    position: fixed;
+    inset: 0 auto auto 0;
+    width: 248px;
+    z-index: 7;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
+    padding: 24px 20px;
+    background: var(--levi-surface);
+  }
+  .admin-app:has(.sidebar) .topbar > .brand {
+    display: flex;
+  }
+  .admin-app .sidebar {
+    position: sticky;
+    inset: auto;
+    top: 0;
+    height: 100dvh;
+    align-self: start;
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    width: 248px;
+    padding: 164px 16px 20px;
+    border-top: 0;
+    border-right: 1px solid var(--levi-line);
+  }
+  .context-label {
+    flex: none;
+    justify-content: flex-start;
+  }
+  .context-label strong {
+    font-size: var(--levi-text-small);
+  }
+  .admin-app .account-link {
+    position: fixed;
+    left: 20px;
+    bottom: 24px;
+    z-index: 8;
+  }
+  .admin-app .admin-nav {
+    flex-direction: column;
+    height: 100%;
+    gap: 8px;
+  }
+  .admin-nav > .button-link,
+  .admin-nav > .navigation-more {
+    flex: none;
+  }
+  .admin-nav > .button-link,
+  .navigation-more summary {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 12px;
+    min-height: var(--levi-h-button-secondary);
+    font-size: var(--levi-text-body);
+  }
+  .admin-nav > [aria-current="page"] {
+    background: var(--levi-accent-soft);
+  }
+  .admin-nav > .navigation-more {
+    margin-top: auto;
+  }
+  .navigation-more summary {
+    padding-left: 60px;
+  }
+  .navigation-actions {
+    width: 216px;
+    left: 0;
+    right: auto;
+  }
+  .admin-app:has(
+      :is(input:not([type="checkbox"], [type="radio"]), textarea, select):focus
+    )
+    .sidebar:not(.loading-sidebar) {
+    visibility: visible;
+  }
+  .loading-sidebar {
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+  .loading-sidebar > * {
+    flex: none;
+  }
+  .admin-app:has(.sidebar) .workspace {
+    grid-column: 2;
+    max-width: 1280px;
+    margin: 0;
+    padding: 40px;
+  }
+  .admin-app:has(.sidebar) > footer {
+    grid-column: 2;
+    margin: 0 40px 24px;
+  }
+  .admin-app .form-actions {
+    left: 248px;
+    bottom: 0;
+  }
+  .member-form,
+  .church-admin-section:has(form) {
+    max-width: 640px;
+  }
+  .member-form {
+    padding-bottom: 120px;
+  }
+  .fab {
+    position: static;
+    margin-left: auto;
+    box-shadow: none;
+    border-radius: var(--levi-radius-control);
+  }
+  .filter-grid {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .filter-chips {
+    overflow: visible;
+  }
+  .pagination {
+    margin-bottom: 20px;
+  }
+  .screen-organizations .workspace {
+    max-width: 1100px;
+    padding: 40px;
+  }
+  .church-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  }
+  .overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .global-admin .topbar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: 248px;
+    padding: 32px 20px;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    border-right: 1px solid var(--levi-line);
+    background: var(--levi-surface);
+  }
+  .global-admin .topbar > span {
+    margin-bottom: 20px;
+  }
+  .global-admin .topbar > button {
+    margin-top: auto;
+  }
+  .global-admin-main {
+    margin: 0 0 0 248px;
+    padding: 40px 40px 120px;
+  }
+  .global-admin-section form {
+    max-width: 640px;
+  }
+  .organization-options label {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .organization-options small {
+    font-size: var(--levi-text-caption);
+  }
+  .screen-email:not(.email-waiting) .topbar {
+    padding-inline: max(24px, calc((100vw - 592px) / 2));
+  }
+}
+.desktop-collection {
+  display: none;
+}
+@media (min-width: 768px) {
+  .mobile-collection {
+    display: none;
+  }
+  .desktop-collection {
+    display: block;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  .desktop-collection table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 640px;
+    text-align: left;
+  }
+  .desktop-collection th {
+    color: var(--levi-muted);
+    background: var(--levi-bg);
+    font-size: var(--levi-text-caption);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--levi-line);
+  }
+  .desktop-collection td {
+    padding: 12px 16px;
+    font-size: var(--levi-text-small);
+    border-bottom: 1px solid var(--levi-line-soft);
+    vertical-align: middle;
+    overflow-wrap: anywhere;
+  }
+  .desktop-collection tr:last-child td {
+    border-bottom: 0;
+  }
+  .desktop-collection td p {
+    color: var(--levi-muted);
+    font-size: var(--levi-text-meta);
+    margin: 4px 0 0;
+  }
+  .table-person {
+    display: flex;
+    align-items: center;
+    gap: var(--levi-gap);
+    min-width: 0;
+  }
+  .table-person > div {
+    min-width: 0;
+  }
+  .table-person strong {
+    font-size: var(--levi-text-body);
+    font-weight: 500;
+  }
+  .table-person .button-link {
+    min-height: var(--levi-h-touch);
+    padding: 0;
+    justify-content: flex-start;
+    font-size: var(--levi-text-body);
+    font-weight: 500;
+    background: transparent;
+    text-align: left;
+  }
+  .desktop-collection .row-actions {
+    min-width: 160px;
+  }
+  .desktop-collection .row-actions button {
+    min-height: var(--levi-h-touch);
+  }
+  .desktop-collection .compact {
+    min-height: var(--levi-h-touch);
+    width: var(--levi-h-touch);
+    padding: 0;
+    color: var(--levi-accent);
+    background: transparent;
+  }
+}
+@media (min-width: 768px) {
+  .admin-app .form-actions {
+    padding-inline: 40px;
+    justify-content: flex-start;
+  }
+}

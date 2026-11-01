@@ -1,3 +1,14 @@
+import {
+  Avatar,
+  ResponsiveTable,
+  SegmentedControl,
+  Card,
+  Pill,
+  ListRow,
+  Button,
+  Input,
+  Select,
+} from "./design-system.js";
 import { useEffect, useRef, useState } from "react";
 import {
   api,
@@ -125,9 +136,64 @@ export function ChurchManagement({
   }, []);
   const roleLabel = (value: string) =>
     value === "admin" ? "Administrador" : "Colaborador";
+  const invitationActions = (
+    item: NonNullable<typeof invitations>["invitations"][number],
+  ) => (
+    <div className="row-actions">
+      {["Reenviar", "Cancelar"].map((action) => (
+        <Button
+          key={action}
+          className={action === "Cancelar" ? "destructive" : "secondary"}
+          disabled={busy}
+          onClick={() =>
+            void run(async () => {
+              const current = generation.current;
+              await (action === "Reenviar"
+                ? api.resendInvitation(church.id, item.id)
+                : api.cancelInvitation(church.id, item.id));
+              await validate();
+              if (current !== generation.current) return;
+              setSent(
+                action === "Reenviar"
+                  ? "Novo convite enviado. O link anterior foi invalidado."
+                  : "Convite cancelado.",
+              );
+              await load();
+            })
+          }
+        >
+          {action}
+        </Button>
+      ))}
+    </div>
+  );
+  const accessActions = (
+    item: NonNullable<typeof page>["accesses"][number],
+  ) => (
+    <div className="row-actions">
+      <Button
+        className="secondary"
+        disabled={busy}
+        onClick={() =>
+          void change(item, item.role === "admin" ? "collaborator" : "admin")
+        }
+      >
+        {item.role === "admin"
+          ? "Rebaixar a colaborador"
+          : "Promover a administrador"}
+      </Button>
+      <Button
+        className="destructive"
+        disabled={busy}
+        onClick={() => void change(item, null)}
+      >
+        Revogar acesso
+      </Button>
+    </div>
+  );
   return (
     <section className="church-admin" aria-label="Administração da igreja">
-      <nav className="segmented" aria-label="Seções da administração">
+      <SegmentedControl role="navigation" aria-label="Seções da administração">
         <NavigationLink
           href="/igrejas/editar"
           navigate={navigate}
@@ -142,14 +208,19 @@ export function ChurchManagement({
         >
           Gerenciar acessos
         </NavigationLink>
-      </nav>
+      </SegmentedControl>
+      {busy && (
+        <p className="loading" role="status">
+          Consultando acessos…
+        </p>
+      )}
       {error && (
         <p className="notice error" role="alert">
           {error}
         </p>
       )}
       {path === "/igrejas/editar" && (
-        <div className="surface church-admin-section">
+        <Card className="church-admin-section">
           <h2>Editar igreja</h2>
           <AccessForm
             mode="organization"
@@ -177,7 +248,7 @@ export function ChurchManagement({
               });
             }}
           />
-          <button
+          <Button
             className="text-button"
             disabled={busy}
             onClick={() => {
@@ -190,12 +261,12 @@ export function ChurchManagement({
             }}
           >
             Recarregar dados atuais
-          </button>
-        </div>
+          </Button>
+        </Card>
       )}
       {path === "/igrejas/acessos" && (
         <>
-          <div className="surface church-admin-section">
+          <Card className="church-admin-section">
             <h2>Pessoas com acesso ao Levi</h2>
             <h3>Convidar por e-mail</h3>
             <p>
@@ -225,7 +296,7 @@ export function ChurchManagement({
             >
               <div className="field">
                 <label htmlFor="invite-email">E-mail do destinatário</label>
-                <input
+                <Input
                   id="invite-email"
                   type="email"
                   required
@@ -240,7 +311,7 @@ export function ChurchManagement({
               </div>
               <div className="field">
                 <label htmlFor="invite-role">Papel concedido</label>
-                <select
+                <Select
                   id="invite-role"
                   value={role}
                   onChange={(event) =>
@@ -251,78 +322,109 @@ export function ChurchManagement({
                 >
                   <option value="collaborator">Colaborador</option>
                   <option value="admin">Administrador</option>
-                </select>
+                </Select>
               </div>
-              <button className="primary" disabled={busy} type="submit">
+              <Button className="primary" disabled={busy} type="submit">
                 Enviar convite
-              </button>
+              </Button>
             </form>
-          </div>
-          <div className="surface church-admin-section">
+          </Card>
+          <Card className="church-admin-section">
             <h3>Convites</h3>
             {invitations && (
               <>
-                <ul className="item-list access-list">
-                  {invitations.invitations.map((item) => (
-                    <li key={item.id}>
-                      <div>
-                        <strong>{item.email}</strong>
+                {invitations.invitations.length === 0 && (
+                  <p className="empty-message">Nenhum convite cadastrado.</p>
+                )}
+                <ResponsiveTable
+                  label="Convites"
+                  headers={["E-mail", "Papel e situação", "Validade", "Ações"]}
+                  rows={invitations.invitations.map((item) => ({
+                    id: item.id,
+                    cells: [
+                      item.email,
+                      <div key="role">
+                        <Pill
+                          tone={item.role === "admin" ? "accent" : "neutral"}
+                        >
+                          {roleLabel(item.role)}
+                        </Pill>
                         <p>
-                          {roleLabel(item.role)} ·{" "}
-                          {item.acceptedAt
-                            ? "Aceito"
-                            : item.cancelledAt
-                              ? "Cancelado ou substituído"
-                              : Date.parse(item.expiresAt) <= Date.now()
-                                ? "Expirado"
-                                : "Pendente"}
+                          <Pill
+                            tone={
+                              item.acceptedAt
+                                ? "success"
+                                : item.cancelledAt
+                                  ? "neutral"
+                                  : Date.parse(item.expiresAt) <= Date.now()
+                                    ? "danger"
+                                    : "warning"
+                            }
+                          >
+                            {item.acceptedAt
+                              ? "Aceito"
+                              : item.cancelledAt
+                                ? "Cancelado ou substituído"
+                                : Date.parse(item.expiresAt) <= Date.now()
+                                  ? "Expirado"
+                                  : "Pendente"}
+                          </Pill>
                         </p>
-                        <p>
-                          Validade:{" "}
-                          {new Intl.DateTimeFormat("pt-BR", {
-                            dateStyle: "medium",
-                            timeStyle: "short",
-                          }).format(new Date(item.expiresAt))}
-                        </p>
-                      </div>
-                      {!item.acceptedAt && !item.cancelledAt && (
-                        <div className="row-actions">
-                          {["Reenviar", "Cancelar"].map((action) => (
-                            <button
-                              key={action}
-                              className={
-                                action === "Cancelar"
-                                  ? "destructive"
-                                  : "secondary"
-                              }
-                              disabled={busy}
-                              onClick={() =>
-                                void run(async () => {
-                                  const current = generation.current;
-                                  await (action === "Reenviar"
-                                    ? api.resendInvitation(church.id, item.id)
-                                    : api.cancelInvitation(church.id, item.id));
-                                  await validate();
-                                  if (current !== generation.current) return;
-                                  setSent(
-                                    action === "Reenviar"
-                                      ? "Novo convite enviado. O link anterior foi invalidado."
-                                      : "Convite cancelado.",
-                                  );
-                                  await load();
-                                })
+                      </div>,
+                      new Intl.DateTimeFormat("pt-BR", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }).format(new Date(item.expiresAt)),
+                      !item.acceptedAt && !item.cancelledAt
+                        ? invitationActions(item)
+                        : null,
+                    ],
+                  }))}
+                >
+                  <ul className="item-list access-list">
+                    {invitations.invitations.map((item) => (
+                      <ListRow key={item.id}>
+                        <div>
+                          <strong>{item.email}</strong>
+                          <p>
+                            {roleLabel(item.role)} ·{" "}
+                            <Pill
+                              tone={
+                                item.acceptedAt
+                                  ? "success"
+                                  : item.cancelledAt
+                                    ? "neutral"
+                                    : Date.parse(item.expiresAt) <= Date.now()
+                                      ? "danger"
+                                      : "warning"
                               }
                             >
-                              {action}
-                            </button>
-                          ))}
+                              {item.acceptedAt
+                                ? "Aceito"
+                                : item.cancelledAt
+                                  ? "Cancelado ou substituído"
+                                  : Date.parse(item.expiresAt) <= Date.now()
+                                    ? "Expirado"
+                                    : "Pendente"}
+                            </Pill>
+                          </p>
+                          <p>
+                            Validade:{" "}
+                            {new Intl.DateTimeFormat("pt-BR", {
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            }).format(new Date(item.expiresAt))}
+                          </p>
                         </div>
-                      )}
-                    </li>
-                  ))}
-                </ul>
+                        {!item.acceptedAt &&
+                          !item.cancelledAt &&
+                          invitationActions(item)}
+                      </ListRow>
+                    ))}
+                  </ul>
+                </ResponsiveTable>
                 {invitations.next && (
-                  <button
+                  <Button
                     className="secondary"
                     disabled={busy}
                     onClick={() =>
@@ -339,77 +441,97 @@ export function ChurchManagement({
                     }
                   >
                     Mais convites
-                  </button>
+                  </Button>
                 )}
               </>
             )}
-          </div>
-          <div className="surface church-admin-section">
+          </Card>
+          <Card className="church-admin-section">
             <h3>Acessos atuais</h3>
             <p>Gerencie os vínculos existentes desta igreja.</p>
-            <button
+            <Button
               className="secondary"
               disabled={busy}
               onClick={() => void run(() => load())}
             >
               Atualizar acessos
-            </button>
+            </Button>
             {page && (
               <>
-                <ul className="item-list access-list">
-                  {page.accesses.map((item) => (
-                    <li key={item.id}>
-                      <div>
-                        <strong>
-                          {item.name || item.email}
-                          {item.userId === identity?.userId ? " (Você)" : ""}
-                        </strong>
-                        <p>{item.email}</p>
-                        <p>
-                          {roleLabel(item.role)} · Desde{" "}
-                          {new Intl.DateTimeFormat("pt-BR", {
-                            dateStyle: "medium",
-                          }).format(new Date(item.createdAt))}
-                        </p>
-                      </div>
-                      <div className="row-actions">
-                        <button
-                          className="secondary"
-                          disabled={busy}
-                          onClick={() =>
-                            void change(
-                              item,
-                              item.role === "admin" ? "collaborator" : "admin",
-                            )
-                          }
-                        >
-                          {item.role === "admin"
-                            ? "Rebaixar a colaborador"
-                            : "Promover a administrador"}
-                        </button>
-                        <button
-                          className="destructive"
-                          disabled={busy}
-                          onClick={() => void change(item, null)}
-                        >
-                          Revogar acesso
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                {page.accesses.length === 0 && (
+                  <p className="empty-message">
+                    Nenhum acesso disponível nesta consulta.
+                  </p>
+                )}
+                <ResponsiveTable
+                  label="Acessos atuais"
+                  headers={["Pessoa", "Papel", "Desde", "Ações"]}
+                  rows={page.accesses.map((item) => ({
+                    id: item.id,
+                    cells: [
+                      <div className="table-person" key="person">
+                        <Avatar name={item.name || item.email} size={34} />
+                        <div>
+                          <strong>
+                            {item.name || item.email}
+                            {item.userId === identity?.userId ? " (Você)" : ""}
+                          </strong>
+                          <p>{item.email}</p>
+                        </div>
+                      </div>,
+                      <Pill
+                        key="role"
+                        tone={item.role === "admin" ? "accent" : "neutral"}
+                      >
+                        {roleLabel(item.role)}
+                      </Pill>,
+                      new Intl.DateTimeFormat("pt-BR", {
+                        dateStyle: "medium",
+                      }).format(new Date(item.createdAt)),
+                      accessActions(item),
+                    ],
+                  }))}
+                >
+                  <ul className="item-list access-list">
+                    {page.accesses.map((item) => (
+                      <ListRow key={item.id}>
+                        <div>
+                          <strong>
+                            {item.name || item.email}
+                            {item.userId === identity?.userId ? " (Você)" : ""}
+                          </strong>
+                          <p>{item.email}</p>
+                          <p>
+                            <Pill
+                              tone={
+                                item.role === "admin" ? "accent" : "neutral"
+                              }
+                            >
+                              {roleLabel(item.role)}
+                            </Pill>{" "}
+                            · Desde{" "}
+                            {new Intl.DateTimeFormat("pt-BR", {
+                              dateStyle: "medium",
+                            }).format(new Date(item.createdAt))}
+                          </p>
+                        </div>
+                        {accessActions(item)}
+                      </ListRow>
+                    ))}
+                  </ul>
+                </ResponsiveTable>
                 {page.next && (
-                  <button
+                  <Button
                     className="secondary"
                     disabled={busy}
                     onClick={() => void run(() => load(page.next))}
                   >
                     Próxima página
-                  </button>
+                  </Button>
                 )}
               </>
             )}
-          </div>
+          </Card>
         </>
       )}
     </section>

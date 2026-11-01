@@ -4,6 +4,7 @@ export const spaPaths = [
   "/convite",
   "/entrar",
   "/entrar/senha",
+  "/conta",
   "/conta/senha",
   "/criar-igreja",
   "/igrejas/selecionar",

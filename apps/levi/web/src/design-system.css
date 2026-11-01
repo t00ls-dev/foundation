@@ -1,0 +1,173 @@
+/* Contratos visuais comuns. Cores, fontes, raios e sombras vêm dos tokens. */
+.levi-button {
+  font-family: var(--levi-font-ui);
+  font-size: var(--levi-text-body);
+  font-weight: 600;
+  border-radius: var(--levi-radius-control);
+  min-height: var(--levi-h-button);
+}
+.levi-button.secondary {
+  min-height: var(--levi-h-button-secondary);
+}
+.levi-button.text,
+.levi-button.danger {
+  min-height: var(--levi-h-touch);
+  background: transparent;
+}
+.levi-button.text {
+  color: var(--levi-accent);
+}
+.levi-button.danger {
+  color: var(--levi-danger-fg);
+}
+.levi-input {
+  height: var(--levi-h-input);
+  font-size: var(--levi-text-body-lg);
+  border-radius: var(--levi-radius-control);
+  border-color: var(--levi-border-input);
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 3px 10px;
+  border-radius: var(--levi-radius-pill);
+  font-size: var(--levi-text-caption);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.pill-success {
+  color: var(--levi-success-fg);
+  background: var(--levi-success-bg);
+}
+.pill-warning {
+  color: var(--levi-warning-fg);
+  background: var(--levi-warning-bg);
+}
+.pill-danger {
+  color: var(--levi-danger-fg);
+  background: var(--levi-danger-bg);
+}
+.pill-neutral {
+  color: var(--levi-neutral-fg);
+  background: var(--levi-neutral-bg);
+}
+.pill-accent {
+  color: var(--levi-accent-ink);
+  background: var(--levi-accent-soft);
+}
+.avatar {
+  border-radius: var(--levi-radius-pill);
+  color: var(--levi-accent);
+  background: var(--levi-accent-soft);
+  font-size: var(--levi-text-meta);
+  font-weight: 600;
+}
+.avatar-34 {
+  width: 34px;
+  height: 34px;
+}
+.avatar-40 {
+  width: 40px;
+  height: 40px;
+}
+.avatar-44 {
+  width: 44px;
+  height: 44px;
+}
+.avatar-60 {
+  width: 60px;
+  height: 60px;
+  font-size: var(--levi-text-section);
+}
+.avatar-76 {
+  width: 76px;
+  height: 76px;
+  font-size: var(--levi-text-page);
+}
+.card {
+  padding: var(--levi-card-padding);
+  border-radius: var(--levi-radius-card);
+}
+.card-list {
+  padding: 0;
+  overflow: hidden;
+}
+.list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--levi-gap);
+  min-height: var(--levi-h-row);
+  padding: 10px var(--levi-card-padding);
+  border-bottom: 1px solid var(--levi-line-soft);
+}
+.list-row:last-child {
+  border-bottom: 0;
+}
+.filter-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-height: var(--levi-h-touch);
+  padding: 0 16px;
+  border: 1px solid var(--levi-border-input);
+  border-radius: var(--levi-radius-pill);
+  background: var(--levi-surface);
+  color: var(--levi-ink);
+  font-size: var(--levi-text-small);
+  font-weight: 500;
+  cursor: pointer;
+}
+.filter-chip:has(:checked) {
+  background: var(--levi-ink);
+  color: var(--levi-on-accent);
+  border-color: var(--levi-ink);
+}
+.filter-chip:has(:focus-visible) {
+  outline: 2px solid var(--levi-accent);
+  outline-offset: 2px;
+}
+.filter-chip input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+.fab {
+  border-radius: var(--levi-radius-pill);
+  box-shadow: var(--levi-shadow-fab);
+}
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--levi-gap);
+  min-height: var(--levi-h-button);
+  padding: 14px var(--levi-card-padding);
+  border-bottom: 1px solid var(--levi-line-soft);
+}
+.info-row:last-child {
+  border-bottom: 0;
+}
+.info-row dt {
+  color: var(--levi-muted);
+}
+.info-row dd {
+  margin: 0;
+  font-weight: 500;
+  text-align: right;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.filter-chip {
+  margin: 0;
+}
+.filter-chip input {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+}

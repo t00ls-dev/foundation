@@ -1,3 +1,12 @@
+import {
+  Button,
+  PageHeader,
+  Avatar,
+  Pill,
+  ListRow,
+  Card,
+  ResponsiveTable,
+} from "./design-system.js";
 import { Skeleton } from "@t00ls-dev/ui/components/skeleton";
 import {
   EmptyState,
@@ -41,6 +50,11 @@ type Screen =
         | "login"
         | "password"
         | "organization";
+    }
+  | {
+      kind: "account";
+      account: Awaited<ReturnType<typeof api.account>>;
+      items: ChurchLink[];
     }
   | { kind: "organizations"; items: ChurchLink[] }
   | {
@@ -205,6 +219,22 @@ export function App({
         return;
       }
       setEmailJourney({ kind: "entry", email: "" });
+      if (window.location.pathname === "/conta" && currentIdentity) {
+        const [account, items] = await Promise.all([
+          api.account(),
+          api.organizations(),
+        ]);
+        if (sequence !== generation.current) return;
+        if (!(await confirmSession(currentIdentity, sequence))) return;
+        if (!sameSession(account.identity, currentIdentity))
+          throw new ApiError(
+            502,
+            "RESPOSTA_INVALIDA",
+            "Não foi possível confirmar os dados da sua conta. Atualize o acesso.",
+          );
+        setScreen({ kind: "account", account, items });
+        return;
+      }
       if (tokenRef.current || window.location.pathname === "/conta/senha") {
         setScreen({ kind: "password" });
         return;
@@ -465,6 +495,7 @@ export function App({
         !active.current &&
         (window.location.pathname.startsWith("/igrejas") ||
           window.location.pathname === "/painel" ||
+          window.location.pathname === "/conta" ||
           window.location.pathname.startsWith("/membros"))
       )
         void refresh();
@@ -605,6 +636,7 @@ export function App({
     password: token ? "Escolha sua senha" : "Configurar senha opcional",
     organization: "Um lugar para sua comunidade",
     organizations: "Suas igrejas",
+    account: "Minha conta",
     dashboard: "Visão geral",
     churches: "Igreja selecionada",
     members:
@@ -665,7 +697,7 @@ export function App({
     );
   }
   const logoutButton = (
-    <button
+    <Button
       className="text-button"
       disabled={busy}
       onClick={() =>
@@ -696,7 +728,7 @@ export function App({
     >
       <Icon name="logout" />
       Sair
-    </button>
+    </Button>
   );
   const passwordLink = (
     <NavigationLink href="/conta/senha" navigate={go} disabled={busy}>
@@ -743,16 +775,42 @@ export function App({
         <Icon name="swap" />
         Trocar igreja
       </NavigationLink>
+      <NavigationLink href="/conta" navigate={go} disabled={busy}>
+        <Icon name="people" />
+        Minha conta
+      </NavigationLink>
       {passwordLink}
       {logoutButton}
     </ChurchNavigation>
   );
+  const churchAccess = (item: ChurchLink) => (
+    <Button
+      className="primary compact"
+      disabled={busy}
+      onClick={() =>
+        void perform(async (isCurrent) => {
+          memberList.current = null;
+          setScreen({ kind: "loading", layout: "access" });
+          await api.select(item.id);
+          if (!isCurrent()) return;
+          navigate("/igrejas");
+          await refresh();
+        })
+      }
+      aria-label={`Acessar igreja ${item.nome}`}
+    >
+      <span className="sr-only">Acessar igreja</span>
+      <Icon name="arrow" />
+    </Button>
+  );
   return (
-    <div className={`app ${administrative ? "admin-app" : "access-app"}`}>
+    <div
+      className={`app ${administrative ? "admin-app" : "access-app"} screen-${screen.kind} ${emailSent ? "email-waiting" : ""}`}
+    >
       <a className="skip-link" href="#conteudo">
         Pular para o conteúdo
       </a>
-      <header className="topbar">
+      <PageHeader>
         <a
           className="brand"
           href={currentOrganization ? "/painel" : "/"}
@@ -780,21 +838,58 @@ export function App({
           <Skeleton className="loading-context placeholder" />
         )}
         {currentOrganization && (
-          <div className="context-label">
-            <span className="eyebrow">Igreja ativa</span>
+          <NavigationLink
+            href="/igrejas/selecionar"
+            navigate={go}
+            disabled={busy}
+            className="context-label"
+          >
+            <span className="sr-only">Trocar de igreja. Atual: </span>
+            <Avatar name={currentOrganization.nome} size={34} />
             <strong title={currentOrganization.nome}>
               {currentOrganization.nome}
             </strong>
-            <span className="context-role">
-              {currentOrganization.role === "admin"
-                ? "Administrador"
-                : "Colaborador"}
-            </span>
-          </div>
+            <Icon name="swap" />
+          </NavigationLink>
         )}
-        {hasSession && !navigation && passwordLink}
-        {hasSession && !currentOrganization && logoutButton}
-      </header>
+        {hasSession && currentOrganization && (
+          <NavigationLink
+            href="/conta"
+            navigate={go}
+            disabled={busy}
+            className="account-link"
+            aria-label="Minha conta"
+          >
+            <Icon name="people" />
+          </NavigationLink>
+        )}
+        {hasSession && !navigation && screen.kind !== "account" && passwordLink}
+        {hasSession &&
+          !currentOrganization &&
+          screen.kind !== "account" &&
+          logoutButton}
+        {screen.kind === "account" && (
+          <>
+            <NavigationLink
+              href="/igrejas/selecionar"
+              navigate={go}
+              className="text-button account-back"
+              aria-label="Voltar às igrejas"
+            >
+              <Icon name="chevron" />
+            </NavigationLink>
+            <h1 ref={heading} tabIndex={-1}>
+              Minha conta
+            </h1>
+          </>
+        )}
+
+        {screen.kind === "email" && !emailSent && (
+          <p className="auth-tagline">
+            Cuide das pessoas. A organização fica com a gente.
+          </p>
+        )}
+      </PageHeader>
       {managementLoading && (
         <aside className="sidebar loading-sidebar" aria-hidden="true">
           <Skeleton className="placeholder" />
@@ -874,9 +969,16 @@ export function App({
               </span>
             </>
           )}
-          <h1 ref={heading} tabIndex={-1}>
-            {titles[screen.kind]}
-          </h1>
+          {screen.kind === "email" && emailSent && (
+            <span className="confirmation-icon" aria-hidden="true">
+              <Icon name="mail" />
+            </span>
+          )}
+          {screen.kind !== "account" && (
+            <h1 ref={heading} tabIndex={-1}>
+              {titles[screen.kind]}
+            </h1>
+          )}
           <div aria-live="polite" aria-atomic="true">
             {busy || screen.kind === "loading" ? (
               <p className="loading" role="status">
@@ -910,10 +1012,10 @@ export function App({
                     Abra o link neste navegador para continuar aqui. Se abrir em
                     outro dispositivo, o acesso continuará naquele dispositivo.
                   </p>
-                  <button className="primary" disabled={busy} onClick={update}>
+                  <Button className="primary" disabled={busy} onClick={update}>
                     Já abri o link. Continuar
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     className="text-button"
                     disabled={busy || emailWait > 0}
                     onClick={() =>
@@ -922,13 +1024,13 @@ export function App({
                     aria-describedby="email-wait"
                   >
                     Reenviar link
-                  </button>
+                  </Button>
                   <p id="email-wait" className="hint">
                     {emailWait > 0
                       ? `Você pode reenviar em ${emailWait} segundos.`
                       : "Se precisar, solicite outro link para o mesmo endereço."}
                   </p>
-                  <button
+                  <Button
                     className="text-button"
                     disabled={busy}
                     onClick={() => {
@@ -940,7 +1042,7 @@ export function App({
                     }}
                   >
                     Alterar e-mail
-                  </button>
+                  </Button>
                 </>
               ) : (
                 <>
@@ -1011,7 +1113,7 @@ export function App({
                 A senha é opcional. Defina uma senha para também poder entrar
                 com ela.
               </p>
-              <button
+              <Button
                 disabled={busy}
                 onClick={() =>
                   void perform(async () => {
@@ -1024,7 +1126,7 @@ export function App({
                 }
               >
                 Receber link para redefinir senha
-              </button>
+              </Button>
               <AccessForm
                 mode="password"
                 busy={busy}
@@ -1052,7 +1154,7 @@ export function App({
                   })
                 }
               />
-              <button
+              <Button
                 disabled={busy}
                 onClick={() => {
                   setEmailJourney({ kind: "entry", email: "" });
@@ -1062,7 +1164,7 @@ export function App({
                 }}
               >
                 Confirmar meu e-mail novamente
-              </button>
+              </Button>
             </>
           )}
           {screen.kind === "organization" && (
@@ -1077,7 +1179,7 @@ export function App({
                     Não sabemos se a solicitação foi concluída. Confira o
                     resultado antes de reenviar; manteremos a mesma tentativa.
                   </p>
-                  <button
+                  <Button
                     className="primary"
                     disabled={busy}
                     onClick={() =>
@@ -1087,7 +1189,7 @@ export function App({
                     }
                   >
                     Verificar resultado
-                  </button>
+                  </Button>
                 </>
               ) : (
                 <AccessForm
@@ -1128,49 +1230,56 @@ export function App({
                 cada acesso.
               </p>
               {screen.items.length ? (
-                <ul className="item-list">
-                  {screen.items.map((item) => (
-                    <li key={item.id}>
-                      <div>
-                        <span className="item-symbol" aria-hidden="true">
-                          <Icon name="church" />
-                        </span>
+                <ResponsiveTable
+                  label="Suas igrejas"
+                  headers={["Igreja", "Papel", "Acessar"]}
+                  rows={screen.items.map((item) => ({
+                    id: item.id,
+                    cells: [
+                      <div className="table-person" key="name">
+                        <Avatar name={item.nome} size={44} />
                         <strong>{item.nome}</strong>
-                        <span>
-                          {item.role === "admin"
-                            ? "Administrador"
-                            : "Colaborador"}
-                        </span>
-                      </div>
-                      <button
-                        className="primary compact"
-                        disabled={busy}
-                        onClick={() =>
-                          void perform(async (isCurrent) => {
-                            memberList.current = null;
-                            setScreen({ kind: "loading", layout: "access" });
-                            await api.select(item.id);
-                            if (!isCurrent()) return;
-                            navigate("/igrejas");
-                            await refresh();
-                          })
-                        }
-                        aria-label={`Acessar igreja ${item.nome}`}
+                      </div>,
+                      <Pill
+                        key="role"
+                        tone={item.role === "admin" ? "accent" : "neutral"}
                       >
-                        Acessar igreja <span aria-hidden="true">→</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                        {item.role === "admin"
+                          ? "Administrador"
+                          : "Colaborador"}
+                      </Pill>,
+                      churchAccess(item),
+                    ],
+                  }))}
+                >
+                  <ul className="item-list">
+                    {screen.items.map((item) => (
+                      <ListRow key={item.id} className="church-choice">
+                        <div>
+                          <Avatar name={item.nome} size={44} />
+                          <strong>{item.nome}</strong>
+                          <Pill
+                            tone={item.role === "admin" ? "accent" : "neutral"}
+                          >
+                            {item.role === "admin"
+                              ? "Administrador"
+                              : "Colaborador"}
+                          </Pill>
+                        </div>
+                        {churchAccess(item)}
+                      </ListRow>
+                    ))}
+                  </ul>
+                </ResponsiveTable>
               ) : (
                 <p>
                   Nenhuma igreja está disponível com vínculo atual. Procure o
                   responsável pela igreja.
                 </p>
               )}
-              <button className="text-button" disabled={busy} onClick={update}>
+              <Button className="text-button" disabled={busy} onClick={update}>
                 Atualizar igrejas
-              </button>
+              </Button>
               <NavigationLink
                 href="/criar-igreja"
                 navigate={go}
@@ -1179,6 +1288,97 @@ export function App({
                 Criar igreja
               </NavigationLink>
             </>
+          )}
+          {screen.kind === "account" && (
+            <section className="account-page" aria-label="Dados da minha conta">
+              <div className="account-profile">
+                <Avatar
+                  name={screen.account.name || screen.account.email}
+                  size={60}
+                />
+                <div>
+                  <h2>{screen.account.name || screen.account.email}</h2>
+                  <p>{screen.account.email}</p>
+                  <Pill
+                    tone={screen.account.emailVerified ? "success" : "warning"}
+                  >
+                    {screen.account.emailVerified && (
+                      <span aria-hidden="true">✓ </span>
+                    )}
+                    <span>
+                      {screen.account.emailVerified
+                        ? "E-mail verificado"
+                        : "E-mail não verificado"}
+                    </span>
+                  </Pill>
+                </div>
+              </div>
+              <section
+                className="account-section"
+                aria-labelledby="account-entry"
+              >
+                <h2 id="account-entry" className="section-label">
+                  Como você entra
+                </h2>
+                <Card className="account-login-card">
+                  <div>
+                    <h3>Link por e-mail</h3>
+                    <p>
+                      Cada acesso começa com um link enviado para o seu e-mail.
+                    </p>
+                  </div>
+                  <div className="account-password-block">
+                    <div className="account-password-heading">
+                      <strong>Senha</strong>
+                      <Pill>Opcional</Pill>
+                    </div>
+                    <p>
+                      Defina uma senha se preferir entrar sem esperar o e-mail.
+                    </p>
+                  </div>
+                  <NavigationLink
+                    href="/conta/senha"
+                    navigate={go}
+                    disabled={busy}
+                    className="secondary"
+                  >
+                    Definir senha
+                  </NavigationLink>
+                </Card>
+              </section>
+              <section
+                className="account-section"
+                aria-labelledby="account-churches"
+              >
+                <h2 id="account-churches" className="section-label">
+                  Suas igrejas
+                </h2>
+                {screen.items.length ? (
+                  <ul className="account-churches surface">
+                    {screen.items.map((item) => (
+                      <ListRow key={item.id}>
+                        <strong>{item.nome}</strong>
+                        <Pill
+                          tone={item.role === "admin" ? "accent" : "neutral"}
+                        >
+                          {item.role === "admin"
+                            ? "Administrador"
+                            : "Colaborador"}
+                        </Pill>
+                      </ListRow>
+                    ))}
+                  </ul>
+                ) : (
+                  <EmptyState icon="church" title="Você ainda não tem igrejas.">
+                    <p>
+                      Solicite um convite ao responsável ou volte à seleção de
+                      igrejas.
+                    </p>
+                  </EmptyState>
+                )}
+              </section>
+              <div className="account-logout">{logoutButton}</div>
+            </section>
           )}
           {screen.kind === "members" && (
             <Members
@@ -1206,11 +1406,11 @@ export function App({
           )}
           {screen.kind === "dashboard" && (
             <>
-              <div className="welcome surface">
+              <Card className="welcome">
                 <p className="eyebrow">Sua comunidade, mais próxima</p>
                 <h2>Seu espaço de gestão está pronto.</h2>
                 <div className="quick-actions">
-                  <button
+                  <Button
                     className="primary"
                     onClick={() =>
                       go(membersEnabled ? "/membros/novo" : "/igrejas")
@@ -1218,29 +1418,29 @@ export function App({
                   >
                     <Icon name="plus" />
                     {membersEnabled ? "Cadastrar membro" : "Consultar igrejas"}
-                  </button>
+                  </Button>
                 </div>
                 <p>
                   Comece pelo cadastro de uma pessoa ou consulte os membros já
                   registrados. Os campos pessoais opcionais podem ficar em
                   branco.
                 </p>
-              </div>
+              </Card>
               <div className="overview-grid">
-                <div className="surface overview-card">
+                <Card className="overview-card">
                   <span className="tile-icon">
                     <Icon name="church" />
                   </span>
                   <p>Igreja selecionada</p>
                   <strong className="metric">{screen.items.length}</strong>
-                  <button
+                  <Button
                     className="text-button"
                     onClick={() => go("/igrejas")}
                   >
                     Consultar igrejas →
-                  </button>
-                </div>
-                <div className="surface overview-card">
+                  </Button>
+                </Card>
+                <Card className="overview-card">
                   <span className="tile-icon">
                     <Icon name="people" />
                   </span>
@@ -1251,14 +1451,14 @@ export function App({
                       : "Este recurso ainda não está disponível para esta igreja."}
                   </p>
                   {membersEnabled && (
-                    <button
+                    <Button
                       className="text-button"
                       onClick={() => go("/membros")}
                     >
                       Consultar membros →
-                    </button>
+                    </Button>
                   )}
-                </div>
+                </Card>
               </div>
             </>
           )}
@@ -1335,9 +1535,9 @@ export function App({
                   </p>
                 </EmptyState>
               )}
-              <button className="text-button" disabled={busy} onClick={update}>
+              <Button className="text-button" disabled={busy} onClick={update}>
                 Atualizar igrejas
-              </button>
+              </Button>
             </>
           )}
           {(screen.kind === "failure" || screen.kind === "no-access") && (
@@ -1361,9 +1561,9 @@ export function App({
                   </NavigationLink>
                 </>
               )}
-              <button className="primary" disabled={busy} onClick={update}>
+              <Button className="primary" disabled={busy} onClick={update}>
                 Atualizar acesso
-              </button>
+              </Button>
             </>
           )}
         </main>
