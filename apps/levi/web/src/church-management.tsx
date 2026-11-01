@@ -1,3 +1,12 @@
+import {
+  SegmentedControl,
+  Card,
+  Pill,
+  ListRow,
+  Button,
+  Input,
+  Select,
+} from "./design-system.js";
 import { useEffect, useRef, useState } from "react";
 import {
   api,
@@ -127,7 +136,7 @@ export function ChurchManagement({
     value === "admin" ? "Administrador" : "Colaborador";
   return (
     <section className="church-admin" aria-label="Administração da igreja">
-      <nav className="segmented" aria-label="Seções da administração">
+      <SegmentedControl role="navigation" aria-label="Seções da administração">
         <NavigationLink
           href="/igrejas/editar"
           navigate={navigate}
@@ -142,14 +151,14 @@ export function ChurchManagement({
         >
           Gerenciar acessos
         </NavigationLink>
-      </nav>
+      </SegmentedControl>
       {error && (
         <p className="notice error" role="alert">
           {error}
         </p>
       )}
       {path === "/igrejas/editar" && (
-        <div className="surface church-admin-section">
+        <Card className="church-admin-section">
           <h2>Editar igreja</h2>
           <AccessForm
             mode="organization"
@@ -177,7 +186,7 @@ export function ChurchManagement({
               });
             }}
           />
-          <button
+          <Button
             className="text-button"
             disabled={busy}
             onClick={() => {
@@ -190,12 +199,12 @@ export function ChurchManagement({
             }}
           >
             Recarregar dados atuais
-          </button>
-        </div>
+          </Button>
+        </Card>
       )}
       {path === "/igrejas/acessos" && (
         <>
-          <div className="surface church-admin-section">
+          <Card className="church-admin-section">
             <h2>Pessoas com acesso ao Levi</h2>
             <h3>Convidar por e-mail</h3>
             <p>
@@ -225,7 +234,7 @@ export function ChurchManagement({
             >
               <div className="field">
                 <label htmlFor="invite-email">E-mail do destinatário</label>
-                <input
+                <Input
                   id="invite-email"
                   type="email"
                   required
@@ -240,7 +249,7 @@ export function ChurchManagement({
               </div>
               <div className="field">
                 <label htmlFor="invite-role">Papel concedido</label>
-                <select
+                <Select
                   id="invite-role"
                   value={role}
                   onChange={(event) =>
@@ -251,20 +260,20 @@ export function ChurchManagement({
                 >
                   <option value="collaborator">Colaborador</option>
                   <option value="admin">Administrador</option>
-                </select>
+                </Select>
               </div>
-              <button className="primary" disabled={busy} type="submit">
+              <Button className="primary" disabled={busy} type="submit">
                 Enviar convite
-              </button>
+              </Button>
             </form>
-          </div>
-          <div className="surface church-admin-section">
+          </Card>
+          <Card className="church-admin-section">
             <h3>Convites</h3>
             {invitations && (
               <>
                 <ul className="item-list access-list">
                   {invitations.invitations.map((item) => (
-                    <li key={item.id}>
+                    <ListRow key={item.id}>
                       <div>
                         <strong>{item.email}</strong>
                         <p>
@@ -288,7 +297,7 @@ export function ChurchManagement({
                       {!item.acceptedAt && !item.cancelledAt && (
                         <div className="row-actions">
                           {["Reenviar", "Cancelar"].map((action) => (
-                            <button
+                            <Button
                               key={action}
                               className={
                                 action === "Cancelar"
@@ -314,15 +323,15 @@ export function ChurchManagement({
                               }
                             >
                               {action}
-                            </button>
+                            </Button>
                           ))}
                         </div>
                       )}
-                    </li>
+                    </ListRow>
                   ))}
                 </ul>
                 {invitations.next && (
-                  <button
+                  <Button
                     className="secondary"
                     disabled={busy}
                     onClick={() =>
@@ -339,26 +348,26 @@ export function ChurchManagement({
                     }
                   >
                     Mais convites
-                  </button>
+                  </Button>
                 )}
               </>
             )}
-          </div>
-          <div className="surface church-admin-section">
+          </Card>
+          <Card className="church-admin-section">
             <h3>Acessos atuais</h3>
             <p>Gerencie os vínculos existentes desta igreja.</p>
-            <button
+            <Button
               className="secondary"
               disabled={busy}
               onClick={() => void run(() => load())}
             >
               Atualizar acessos
-            </button>
+            </Button>
             {page && (
               <>
                 <ul className="item-list access-list">
                   {page.accesses.map((item) => (
-                    <li key={item.id}>
+                    <ListRow key={item.id}>
                       <div>
                         <strong>
                           {item.name || item.email}
@@ -366,14 +375,19 @@ export function ChurchManagement({
                         </strong>
                         <p>{item.email}</p>
                         <p>
-                          {roleLabel(item.role)} · Desde{" "}
+                          <Pill
+                            tone={item.role === "admin" ? "accent" : "neutral"}
+                          >
+                            {roleLabel(item.role)}
+                          </Pill>{" "}
+                          · Desde{" "}
                           {new Intl.DateTimeFormat("pt-BR", {
                             dateStyle: "medium",
                           }).format(new Date(item.createdAt))}
                         </p>
                       </div>
                       <div className="row-actions">
-                        <button
+                        <Button
                           className="secondary"
                           disabled={busy}
                           onClick={() =>
@@ -386,30 +400,30 @@ export function ChurchManagement({
                           {item.role === "admin"
                             ? "Rebaixar a colaborador"
                             : "Promover a administrador"}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           className="destructive"
                           disabled={busy}
                           onClick={() => void change(item, null)}
                         >
                           Revogar acesso
-                        </button>
+                        </Button>
                       </div>
-                    </li>
+                    </ListRow>
                   ))}
                 </ul>
                 {page.next && (
-                  <button
+                  <Button
                     className="secondary"
                     disabled={busy}
                     onClick={() => void run(() => load(page.next))}
                   >
                     Próxima página
-                  </button>
+                  </Button>
                 )}
               </>
             )}
-          </div>
+          </Card>
         </>
       )}
     </section>

@@ -5,11 +5,20 @@ import { Input as FoundationInput } from "@t00ls-dev/ui/components/input";
 // As primitivas Foundation continuam responsáveis pelos contratos nativos.
 export function Button({
   className = "",
-  variant = "primary",
+  variant: requestedVariant,
   ...props
 }: Omit<ComponentProps<typeof FoundationButton>, "variant"> & {
   variant?: "primary" | "secondary" | "text" | "danger";
 }) {
+  const variant =
+    requestedVariant ??
+    (className.includes("secondary")
+      ? "secondary"
+      : className.includes("destructive")
+        ? "danger"
+        : className.includes("text-button") || className.includes("quiet")
+          ? "text"
+          : "primary");
   return (
     <FoundationButton
       {...props}

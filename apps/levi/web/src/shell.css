@@ -194,3 +194,24 @@ footer {
   color: var(--levi-muted);
   font-size: var(--levi-text-caption);
 }
+.topbar {
+  flex-wrap: wrap;
+}
+.admin-app:has(.context-label) .topbar {
+  flex-wrap: nowrap;
+}
+.context-label {
+  flex: 1;
+}
+.topbar > .text-button {
+  padding: 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.topbar > .button-link:not(.account-link, .context-label) {
+  padding: 8px;
+  font-size: var(--levi-text-small);
+}
+.context-label {
+  justify-content: flex-start;
+}

@@ -1,4 +1,11 @@
-import { PageHeader, Avatar } from "./design-system.js";
+import {
+  Button,
+  PageHeader,
+  Avatar,
+  Pill,
+  ListRow,
+  Card,
+} from "./design-system.js";
 import { Skeleton } from "@t00ls-dev/ui/components/skeleton";
 import {
   EmptyState,
@@ -666,7 +673,7 @@ export function App({
     );
   }
   const logoutButton = (
-    <button
+    <Button
       className="text-button"
       disabled={busy}
       onClick={() =>
@@ -697,7 +704,7 @@ export function App({
     >
       <Icon name="logout" />
       Sair
-    </button>
+    </Button>
   );
   const passwordLink = (
     <NavigationLink href="/conta/senha" navigate={go} disabled={busy}>
@@ -749,7 +756,9 @@ export function App({
     </ChurchNavigation>
   );
   return (
-    <div className={`app ${administrative ? "admin-app" : "access-app"}`}>
+    <div
+      className={`app ${administrative ? "admin-app" : "access-app"} screen-${screen.kind} ${emailSent ? "email-waiting" : ""}`}
+    >
       <a className="skip-link" href="#conteudo">
         Pular para o conteúdo
       </a>
@@ -808,6 +817,11 @@ export function App({
         )}
         {hasSession && !navigation && passwordLink}
         {hasSession && !currentOrganization && logoutButton}
+        {screen.kind === "email" && !emailSent && (
+          <p className="auth-tagline">
+            Cuide das pessoas. A organização fica com a gente.
+          </p>
+        )}
       </PageHeader>
       {managementLoading && (
         <aside className="sidebar loading-sidebar" aria-hidden="true">
@@ -888,6 +902,11 @@ export function App({
               </span>
             </>
           )}
+          {screen.kind === "email" && emailSent && (
+            <span className="confirmation-icon" aria-hidden="true">
+              <Icon name="mail" />
+            </span>
+          )}
           <h1 ref={heading} tabIndex={-1}>
             {titles[screen.kind]}
           </h1>
@@ -924,10 +943,10 @@ export function App({
                     Abra o link neste navegador para continuar aqui. Se abrir em
                     outro dispositivo, o acesso continuará naquele dispositivo.
                   </p>
-                  <button className="primary" disabled={busy} onClick={update}>
+                  <Button className="primary" disabled={busy} onClick={update}>
                     Já abri o link. Continuar
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     className="text-button"
                     disabled={busy || emailWait > 0}
                     onClick={() =>
@@ -936,13 +955,13 @@ export function App({
                     aria-describedby="email-wait"
                   >
                     Reenviar link
-                  </button>
+                  </Button>
                   <p id="email-wait" className="hint">
                     {emailWait > 0
                       ? `Você pode reenviar em ${emailWait} segundos.`
                       : "Se precisar, solicite outro link para o mesmo endereço."}
                   </p>
-                  <button
+                  <Button
                     className="text-button"
                     disabled={busy}
                     onClick={() => {
@@ -954,7 +973,7 @@ export function App({
                     }}
                   >
                     Alterar e-mail
-                  </button>
+                  </Button>
                 </>
               ) : (
                 <>
@@ -1025,7 +1044,7 @@ export function App({
                 A senha é opcional. Defina uma senha para também poder entrar
                 com ela.
               </p>
-              <button
+              <Button
                 disabled={busy}
                 onClick={() =>
                   void perform(async () => {
@@ -1038,7 +1057,7 @@ export function App({
                 }
               >
                 Receber link para redefinir senha
-              </button>
+              </Button>
               <AccessForm
                 mode="password"
                 busy={busy}
@@ -1066,7 +1085,7 @@ export function App({
                   })
                 }
               />
-              <button
+              <Button
                 disabled={busy}
                 onClick={() => {
                   setEmailJourney({ kind: "entry", email: "" });
@@ -1076,7 +1095,7 @@ export function App({
                 }}
               >
                 Confirmar meu e-mail novamente
-              </button>
+              </Button>
             </>
           )}
           {screen.kind === "organization" && (
@@ -1091,7 +1110,7 @@ export function App({
                     Não sabemos se a solicitação foi concluída. Confira o
                     resultado antes de reenviar; manteremos a mesma tentativa.
                   </p>
-                  <button
+                  <Button
                     className="primary"
                     disabled={busy}
                     onClick={() =>
@@ -1101,7 +1120,7 @@ export function App({
                     }
                   >
                     Verificar resultado
-                  </button>
+                  </Button>
                 </>
               ) : (
                 <AccessForm
@@ -1144,19 +1163,19 @@ export function App({
               {screen.items.length ? (
                 <ul className="item-list">
                   {screen.items.map((item) => (
-                    <li key={item.id}>
+                    <ListRow key={item.id} className="church-choice">
                       <div>
-                        <span className="item-symbol" aria-hidden="true">
-                          <Icon name="church" />
-                        </span>
+                        <Avatar name={item.nome} size={44} />
                         <strong>{item.nome}</strong>
-                        <span>
+                        <Pill
+                          tone={item.role === "admin" ? "accent" : "neutral"}
+                        >
                           {item.role === "admin"
                             ? "Administrador"
                             : "Colaborador"}
-                        </span>
+                        </Pill>
                       </div>
-                      <button
+                      <Button
                         className="primary compact"
                         disabled={busy}
                         onClick={() =>
@@ -1171,9 +1190,10 @@ export function App({
                         }
                         aria-label={`Acessar igreja ${item.nome}`}
                       >
-                        Acessar igreja <span aria-hidden="true">→</span>
-                      </button>
-                    </li>
+                        <span className="sr-only">Acessar igreja</span>
+                        <Icon name="arrow" />
+                      </Button>
+                    </ListRow>
                   ))}
                 </ul>
               ) : (
@@ -1182,9 +1202,9 @@ export function App({
                   responsável pela igreja.
                 </p>
               )}
-              <button className="text-button" disabled={busy} onClick={update}>
+              <Button className="text-button" disabled={busy} onClick={update}>
                 Atualizar igrejas
-              </button>
+              </Button>
               <NavigationLink
                 href="/criar-igreja"
                 navigate={go}
@@ -1220,11 +1240,11 @@ export function App({
           )}
           {screen.kind === "dashboard" && (
             <>
-              <div className="welcome surface">
+              <Card className="welcome">
                 <p className="eyebrow">Sua comunidade, mais próxima</p>
                 <h2>Seu espaço de gestão está pronto.</h2>
                 <div className="quick-actions">
-                  <button
+                  <Button
                     className="primary"
                     onClick={() =>
                       go(membersEnabled ? "/membros/novo" : "/igrejas")
@@ -1232,29 +1252,29 @@ export function App({
                   >
                     <Icon name="plus" />
                     {membersEnabled ? "Cadastrar membro" : "Consultar igrejas"}
-                  </button>
+                  </Button>
                 </div>
                 <p>
                   Comece pelo cadastro de uma pessoa ou consulte os membros já
                   registrados. Os campos pessoais opcionais podem ficar em
                   branco.
                 </p>
-              </div>
+              </Card>
               <div className="overview-grid">
-                <div className="surface overview-card">
+                <Card className="overview-card">
                   <span className="tile-icon">
                     <Icon name="church" />
                   </span>
                   <p>Igreja selecionada</p>
                   <strong className="metric">{screen.items.length}</strong>
-                  <button
+                  <Button
                     className="text-button"
                     onClick={() => go("/igrejas")}
                   >
                     Consultar igrejas →
-                  </button>
-                </div>
-                <div className="surface overview-card">
+                  </Button>
+                </Card>
+                <Card className="overview-card">
                   <span className="tile-icon">
                     <Icon name="people" />
                   </span>
@@ -1265,14 +1285,14 @@ export function App({
                       : "Este recurso ainda não está disponível para esta igreja."}
                   </p>
                   {membersEnabled && (
-                    <button
+                    <Button
                       className="text-button"
                       onClick={() => go("/membros")}
                     >
                       Consultar membros →
-                    </button>
+                    </Button>
                   )}
-                </div>
+                </Card>
               </div>
             </>
           )}
@@ -1349,9 +1369,9 @@ export function App({
                   </p>
                 </EmptyState>
               )}
-              <button className="text-button" disabled={busy} onClick={update}>
+              <Button className="text-button" disabled={busy} onClick={update}>
                 Atualizar igrejas
-              </button>
+              </Button>
             </>
           )}
           {(screen.kind === "failure" || screen.kind === "no-access") && (
@@ -1375,9 +1395,9 @@ export function App({
                   </NavigationLink>
                 </>
               )}
-              <button className="primary" disabled={busy} onClick={update}>
+              <Button className="primary" disabled={busy} onClick={update}>
                 Atualizar acesso
-              </button>
+              </Button>
             </>
           )}
         </main>

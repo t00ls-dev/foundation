@@ -1,46 +1,45 @@
-/* Global administration (/admin). Own composition, outside the church shell. */
 .global-admin .topbar {
-  gap: var(--space-4);
+  flex-wrap: wrap;
 }
 .global-admin .topbar > span {
-  flex: 1;
+  color: var(--levi-muted);
+  font-size: var(--levi-text-meta);
 }
-.global-admin .quiet {
-  background: transparent;
-  border-color: var(--input-line);
+.global-admin .topbar > a:not(.brand) {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--levi-h-touch);
+  font-size: var(--levi-text-small);
 }
 .global-admin-main {
   max-width: 1100px;
-  margin: var(--space-8) auto;
-  padding: 0 max(var(--space-4), env(safe-area-inset-right)) 0
-    max(var(--space-4), env(safe-area-inset-left));
+  margin: 8px auto;
+  padding: 0 var(--levi-gutter) 120px;
+}
+.global-admin-main h1 {
+  font-size: var(--levi-text-page);
 }
 .global-admin-section {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: var(--space-6);
-  margin: var(--space-6) 0;
+  background: var(--levi-surface);
+  border: 1px solid var(--levi-line);
+  border-radius: var(--levi-radius-card);
+  padding: var(--levi-card-padding);
+  margin-top: 20px;
 }
-.global-admin-section p,
-.global-admin-section small {
-  overflow-wrap: anywhere;
+.global-admin-section > p,
+.global-admin-section form > p {
+  color: var(--levi-muted);
+  font-size: var(--levi-text-meta);
 }
 .global-admin-section form {
-  border-top: 1px solid var(--line);
-  margin-top: var(--space-6);
-  padding-top: var(--space-4);
-}
-.global-admin-section .item-list small {
-  display: block;
+  padding-top: 16px;
+  border-top: 1px solid var(--levi-line-soft);
 }
 .global-admin-section fieldset {
-  min-width: 0;
-  margin: var(--space-4) 0;
-  border: 1px solid var(--line);
+  margin: 16px 0;
 }
 .organization-options {
-  max-height: 24rem;
+  max-height: 380px;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -49,22 +48,21 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.6rem;
-  padding: 0.6rem;
+  gap: 8px;
+  padding: 12px 0;
+  min-height: var(--levi-h-touch);
+  border-bottom: 1px solid var(--levi-line-soft);
+  font-size: var(--levi-text-small);
 }
 .organization-options input,
 .global-confirm input {
-  width: auto;
-  min-height: 24px;
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  flex: none;
 }
 .organization-options small {
   flex-basis: 100%;
-}
-@media (max-width: 47.999rem) {
-  .global-admin-section {
-    padding: var(--space-4);
-  }
-  .global-admin .topbar > span {
-    flex-basis: 50%;
-  }
+  color: var(--levi-muted);
+  overflow-wrap: anywhere;
 }

@@ -1,124 +1,135 @@
-/* Sign-in, onboarding and account screens. */
-.journey {
+/* Entrada, confirmação e formulários públicos. */
+.journey,
+.step-caption,
+.step-progress,
+.access-panel > .eyebrow {
   display: none;
 }
-.journey h2 {
-  font-size: clamp(1.9rem, 1.4rem + 1.2vw, 2.7rem);
-  line-height: 1.2;
-  letter-spacing: -0.04em;
-  margin: 0 0 1.2rem;
+.access-app,
+.invitation-page {
+  min-height: 100dvh;
 }
-.journey > p:not(.eyebrow) {
-  color: var(--muted);
-  max-width: 37ch;
+.access-app .workspace,
+.invitation-page .workspace {
+  max-width: 640px;
+  padding: 24px;
 }
-.journey ol {
-  list-style: none;
-  padding: 0;
-  margin: var(--space-8) 0;
+.access-panel > p {
+  color: var(--levi-muted);
+  font-size: var(--levi-text-small);
 }
-.journey li {
+.access-panel > button {
+  width: 100%;
+  margin-bottom: 12px;
+}
+.access-app .topbar {
+  padding: 20px 24px 8px;
+  flex-wrap: wrap;
+}
+.screen-email:not(.email-waiting) .topbar {
+  padding: 48px 24px 36px;
+  gap: 28px;
+  background: var(--levi-accent);
+  color: var(--levi-on-accent);
+  border-radius: 0 0 var(--levi-radius-card) var(--levi-radius-card);
+}
+.screen-email:not(.email-waiting) .brand {
+  color: var(--levi-on-accent);
+}
+.screen-email:not(.email-waiting) .brand-mark {
+  background: var(--levi-surface);
+  color: var(--levi-accent);
+}
+.auth-tagline {
+  flex-basis: 100%;
+  font-family: var(--levi-font-display);
+  font-size: var(--levi-text-hero);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: var(--levi-tracking-display);
+  margin: 0;
+  max-width: 640px;
+  text-wrap: balance;
+}
+.screen-email:not(.email-waiting) .workspace {
+  padding-top: 28px;
+}
+.screen-email:not(.email-waiting) h1 {
+  font-family: var(--levi-font-ui);
+  font-size: var(--levi-text-section);
+  letter-spacing: normal;
+  margin-bottom: 6px;
+}
+.secondary-action {
   display: flex;
-  gap: 0.9rem;
-  align-items: center;
-  margin: 1.2rem 0;
-  color: var(--muted);
-  font-size: 0.9rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  border-top: 1px solid var(--levi-line);
+  padding-top: 20px;
+  margin-top: 20px;
+  text-align: center;
+  font-size: var(--levi-text-meta);
 }
-.journey li span {
+.secondary-action a {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: var(--levi-h-button-secondary);
+  padding: 12px;
+  border: 1px solid var(--levi-border-input);
+  border-radius: var(--levi-radius-control);
+  background: var(--levi-surface);
+  color: var(--levi-ink);
+  font-size: var(--levi-text-body);
+  font-weight: 600;
+}
+.confirmation-icon {
   display: grid;
   place-items: center;
-  border: 1px solid var(--input-line);
-  border-radius: 50%;
+  width: 76px;
+  height: 76px;
+  margin: 12px 0 24px;
+  border-radius: var(--levi-radius-card);
+  background: var(--levi-accent-soft);
+  color: var(--levi-accent);
+}
+.confirmation-icon .icon {
   width: 32px;
   height: 32px;
-  flex-shrink: 0;
-  font-size: var(--text-small);
-}
-.journey li[aria-current] {
-  color: var(--brand);
-  font-weight: 700;
-}
-.journey li[aria-current] span {
-  background: var(--brand-solid);
-  color: var(--on-brand);
-  border-color: var(--brand-solid);
-}
-.journey .journey-note {
-  border-top: 1px solid var(--line);
-  padding-top: 1.2rem;
-  font-size: var(--text-small);
-}
-.panel > .step-caption {
-  font-size: var(--text-small);
-  margin-bottom: var(--space-2);
-}
-/* Compact progress for narrow screens, where the step list is hidden. */
-.step-progress {
-  display: block;
-  height: 6px;
-  margin: 0 0 var(--space-4);
-  border-radius: 999px;
-  background: var(--tint);
-  overflow: hidden;
-}
-.step-progress > span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--brand-solid);
-}
-@media (min-width: 64rem) {
-  .workspace.with-steps {
-    display: grid;
-    grid-template-columns: minmax(220px, 1fr) minmax(0, 1.15fr);
-    gap: clamp(2rem, 6vw, 6rem);
-    max-width: 1100px;
-    align-items: start;
-  }
-  .journey {
-    display: block;
-    padding-top: var(--space-8);
-  }
-  .step-progress {
-    display: none;
-  }
-}
-.panel > .text-button {
-  margin-top: 0.8rem;
-}
-.access-panel fieldset .primary {
-  width: 100%;
-}
-.panel > .secondary-action {
-  font-size: var(--text-small);
-  text-align: center;
-  border-top: 1px solid var(--line);
-  margin-top: 1.8rem;
-  padding-top: 1.2rem;
-}
-.optional-details {
-  border-top: 1px solid var(--line);
-  margin: var(--space-2) 0 1.2rem;
-  padding-top: 0.6rem;
-}
-.optional-details summary {
-  color: var(--brand);
-  font-size: var(--text-small);
-  font-weight: 600;
-  cursor: pointer;
-  min-height: 44px;
-  padding: 0.6rem 0;
-}
-.optional-details > .hint {
-  margin: 0.4rem 0 1.2rem;
 }
 .email-confirmation {
+  padding: 16px;
+  background: var(--levi-surface);
+  border: 1px solid var(--levi-line);
+  border-radius: var(--levi-radius-card);
   overflow-wrap: anywhere;
-  padding: var(--space-4);
-  background: var(--tint);
-  border-radius: var(--radius-control);
 }
-.panel > .email-confirmation {
-  color: var(--ink);
+.email-confirmation strong {
+  display: block;
+  color: var(--levi-ink);
+  font-size: var(--levi-text-body-lg);
+  font-weight: 600;
+}
+.email-waiting .topbar {
+  padding-top: 16px;
+}
+.screen-organization .workspace,
+.screen-password .workspace {
+  padding-bottom: 120px;
+}
+.screen-organization footer,
+.screen-password footer {
+  margin-bottom: 120px;
+}
+.invitation-page main {
+  display: grid;
+  gap: 12px;
+}
+.invitation-page form {
+  display: grid;
+  gap: 12px;
+}
+.invitation-page label {
+  margin: 0;
 }

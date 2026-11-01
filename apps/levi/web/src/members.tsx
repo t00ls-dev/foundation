@@ -1,4 +1,14 @@
-import { Avatar, Fab, FilterChip, Input, ListRow } from "./design-system.js";
+import {
+  InfoRow,
+  FormFooter,
+  Button,
+  Input,
+  Select,
+  Avatar,
+  Fab,
+  FilterChip,
+  ListRow,
+} from "./design-system.js";
 import { formText } from "./form-data.js";
 import {
   EmptyState,
@@ -7,7 +17,7 @@ import {
   Status,
   useDraftGuard,
 } from "./ui.js";
-import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   api,
   ApiError,
@@ -342,7 +352,7 @@ export function Members({
                     ] as const
                   ).map(([value, label]) => (
                     <FilterChip key={label}>
-                      <input
+                      <Input
                         type="radio"
                         name="status"
                         value={value}
@@ -353,13 +363,13 @@ export function Members({
                   ))}
                 </div>
               </fieldset>
-              <button
+              <Button
                 className="secondary"
                 type="submit"
                 aria-label="Filtrar membros"
               >
                 Filtrar
-              </button>
+              </Button>
             </fieldset>
           </form>
           {page && (
@@ -404,7 +414,7 @@ export function Members({
                         Altere os filtros ou volte à lista completa da
                         organização.
                       </p>
-                      <button
+                      <Button
                         className="secondary"
                         onClick={() => {
                           onFiltersChange({ page: 1, pageSize: 20 });
@@ -412,7 +422,7 @@ export function Members({
                         }}
                       >
                         Limpar filtros
-                      </button>
+                      </Button>
                     </>
                   ) : (
                     <p>
@@ -423,7 +433,7 @@ export function Members({
                 </EmptyState>
               )}
               <nav className="pagination" aria-label="Paginação dos membros">
-                <button
+                <Button
                   className="secondary"
                   disabled={busy || page.page === 1}
                   onClick={() =>
@@ -431,7 +441,7 @@ export function Members({
                   }
                 >
                   Página anterior
-                </button>
+                </Button>
                 <span className="page-status" aria-live="polite">
                   <span>Página {page.page}</span>
                   {page.members.length > 0 && (
@@ -441,7 +451,7 @@ export function Members({
                     </small>
                   )}
                 </span>
-                <button
+                <Button
                   className="secondary"
                   disabled={busy || !page.hasNext}
                   onClick={() =>
@@ -449,7 +459,7 @@ export function Members({
                   }
                 >
                   Próxima página
-                </button>
+                </Button>
               </nav>
             </>
           )}
@@ -465,14 +475,14 @@ export function Members({
                 somente nesta página.
               </p>
               <div className="actions">
-                <button
+                <Button
                   className="secondary"
                   disabled={busy}
                   onClick={() => void recover()}
                 >
                   Consultar resultado
-                </button>
-                <button
+                </Button>
+                <Button
                   className="primary"
                   disabled={busy || !pending.current}
                   onClick={() =>
@@ -480,7 +490,7 @@ export function Members({
                   }
                 >
                   Repetir mesma tentativa
-                </button>
+                </Button>
               </div>
             </div>
           ) : (
@@ -544,71 +554,84 @@ export function Members({
         />
       )}
       {mode === "edit" && error && member && (
-        <button
+        <Button
           className="secondary"
           disabled={busy}
           onClick={() => navigate(`/membros/${member.id}`)}
         >
           Consultar ficha atual
-        </button>
+        </Button>
       )}
       {mode === "detail" && member && (
         <>
           <div className="profile-header">
-            <span className="avatar large" aria-hidden="true">
-              {member.name.trim().slice(0, 1)}
-            </span>
+            <Avatar name={member.name} size={76} />
             <div>
               <p className="eyebrow">Cadastro individual</p>
               <h2>{member.name}</h2>
               <Status value={member.status} />
             </div>
-            <button
+            <Button
               className="secondary"
               onClick={() => navigate(`/membros/${member.id}/editar`)}
             >
               Editar membro
-            </button>
+            </Button>
           </div>
+          {(member.phone || member.email) && (
+            <div className="contact-actions">
+              {member.phone && (
+                <a
+                  className="secondary button-link"
+                  href={`tel:${member.phone.replace(/[^\d+]/g, "")}`}
+                >
+                  Ligar
+                </a>
+              )}
+              {member.email && (
+                <a
+                  className="secondary button-link"
+                  href={`mailto:${member.email}`}
+                >
+                  E-mail
+                </a>
+              )}
+            </div>
+          )}
           <dl className="member-details surface">
-            <dt>Igreja</dt>
-            <dd>{member.churchName}</dd>
+            <InfoRow label="Igreja">{member.churchName}</InfoRow>
             {optionalFields.map(([key, label, type]) => (
-              <Fragment key={key}>
-                <dt>{label}</dt>
-                <dd>
-                  {type === "date" ? (
-                    formatCivilDate(member[key])
-                  ) : key === "phone" && member.phone ? (
-                    <a href={`tel:${member.phone.replace(/[^\d+]/g, "")}`}>
-                      {member.phone}
-                    </a>
-                  ) : key === "email" && member.email ? (
-                    <a href={`mailto:${member.email}`}>{member.email}</a>
-                  ) : (
-                    member[key] || "Não informado"
-                  )}
-                </dd>
-              </Fragment>
+              <InfoRow key={key} label={label}>
+                {type === "date" ? (
+                  formatCivilDate(member[key])
+                ) : key === "phone" && member.phone ? (
+                  <a href={`tel:${member.phone.replace(/[^\d+]/g, "")}`}>
+                    {member.phone}
+                  </a>
+                ) : key === "email" && member.email ? (
+                  <a href={`mailto:${member.email}`}>{member.email}</a>
+                ) : (
+                  member[key] || "Não informado"
+                )}
+              </InfoRow>
             ))}
-            <dt>Cadastrado em</dt>
-            <dd>
+            <InfoRow label="Cadastrado em">
               {new Intl.DateTimeFormat("pt-BR", {
                 dateStyle: "medium",
                 timeStyle: "short",
               }).format(new Date(member.createdAt))}
-            </dd>
+            </InfoRow>
           </dl>
         </>
       )}
       {error && !uncertain && mode === "list" && (
-        <button
+        <Button
           className="secondary"
           disabled={busy}
           onClick={() => void load()}
         >
           Atualizar membros
-        </button>
+        </Button>
       )}
     </section>
   );
@@ -694,7 +717,7 @@ function MemberForm({
         {key === "address" ? (
           <textarea id={`member-${key}`} rows={2} {...attributes} />
         ) : (
-          <input
+          <Input
             id={`member-${key}`}
             type={type}
             inputMode={type === "tel" ? "tel" : undefined}
@@ -746,7 +769,7 @@ function MemberForm({
       {/* O primeiro submit desabilitado impede a submissão implícita nativa,
           inclusive quando o teclado virtual não emite keydown. A confirmação
           real continua sendo um botão submit acessível e identificado. */}
-      <button type="submit" hidden disabled tabIndex={-1} aria-hidden="true" />
+      <Button type="submit" hidden disabled tabIndex={-1} aria-hidden="true" />
       <p className="form-description">
         {initial
           ? "Atualize os dados cadastrais. Igreja e situação são mantidas neste fluxo."
@@ -758,7 +781,7 @@ function MemberForm({
         <div className="form-grid">
           <div className="field full-width">
             <label htmlFor="member-name">Nome (obrigatório)</label>
-            <input
+            <Input
               id="member-name"
               name="name"
               required
@@ -780,7 +803,7 @@ function MemberForm({
             <>
               <div className="field">
                 <label htmlFor="member-status">Situação (obrigatória)</label>
-                <select
+                <Select
                   id="member-status"
                   name="status"
                   required
@@ -788,7 +811,7 @@ function MemberForm({
                 >
                   <option>Ativo</option>
                   <option>Inativo</option>
-                </select>
+                </Select>
               </div>
             </>
           )}
@@ -822,15 +845,15 @@ function MemberForm({
           Confira os campos indicados antes de salvar.
         </p>
       )}
-      <div className="form-actions surface">
+      <FormFooter>
         <p className="hint">
           Confira os dados e selecione{" "}
           {initial ? "Salvar alterações" : "Salvar membro"} para confirmar.
         </p>
-        <button ref={saveRef} className="primary" type="submit" disabled={busy}>
+        <Button ref={saveRef} className="primary" type="submit" disabled={busy}>
           {busy ? "Salvando…" : initial ? "Salvar alterações" : "Salvar membro"}
-        </button>
-      </div>
+        </Button>
+      </FormFooter>
     </form>
   );
 }
