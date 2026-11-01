@@ -47,8 +47,8 @@ implantação desta divisão: 101 testes = 44 + 44 + 13. Compare também as etap
 durações de cada shard, pois contagens por arquivo não garantem tempos iguais;
 considere o custo de build, Chromium e migrations por entrada.
 
-Pendências fora desta mudança: revisar os runners de `deploy-levi-dev`,
-`diagnose-levi-cloudflare`; avaliar separadamente a migração para Ubuntu 26.04.
+Os workflows `deploy-levi-dev` e `diagnose-levi-cloudflare` também usam
+`ubuntu-24.04`. A migração para Ubuntu 26.04 deve ser avaliada separadamente.
 Não use execuções de imagens diferentes como comparação direta de desempenho. O
 resumo por shard no `GITHUB_STEP_SUMMARY` também fica pendente: o reporter
 seguro atual é preservado, e a escrita do resumo requer tratar o caminho de
