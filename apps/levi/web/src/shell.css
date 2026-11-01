@@ -96,7 +96,9 @@
   margin: 0 0 4px;
 }
 .admin-app:has(.sidebar) {
-  padding-bottom: var(--bottom-nav-space);
+  padding-bottom: calc(
+    var(--levi-h-tabbar-item) + 16px + env(safe-area-inset-bottom)
+  );
 }
 .sidebar {
   position: fixed;

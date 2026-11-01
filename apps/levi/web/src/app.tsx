@@ -5,7 +5,7 @@ import {
   Pill,
   ListRow,
   Card,
-  InfoRow,
+  ResponsiveTable,
 } from "./design-system.js";
 import { Skeleton } from "@t00ls-dev/ui/components/skeleton";
 import {
@@ -783,6 +783,26 @@ export function App({
       {logoutButton}
     </ChurchNavigation>
   );
+  const churchAccess = (item: ChurchLink) => (
+    <Button
+      className="primary compact"
+      disabled={busy}
+      onClick={() =>
+        void perform(async (isCurrent) => {
+          memberList.current = null;
+          setScreen({ kind: "loading", layout: "access" });
+          await api.select(item.id);
+          if (!isCurrent()) return;
+          navigate("/igrejas");
+          await refresh();
+        })
+      }
+      aria-label={`Acessar igreja ${item.nome}`}
+    >
+      <span className="sr-only">Acessar igreja</span>
+      <Icon name="arrow" />
+    </Button>
+  );
   return (
     <div
       className={`app ${administrative ? "admin-app" : "access-app"} screen-${screen.kind} ${emailSent ? "email-waiting" : ""}`}
@@ -849,14 +869,21 @@ export function App({
           screen.kind !== "account" &&
           logoutButton}
         {screen.kind === "account" && (
-          <NavigationLink
-            href="/igrejas/selecionar"
-            navigate={go}
-            className="text-button"
-          >
-            ← Voltar às igrejas
-          </NavigationLink>
+          <>
+            <NavigationLink
+              href="/igrejas/selecionar"
+              navigate={go}
+              className="text-button account-back"
+              aria-label="Voltar às igrejas"
+            >
+              <Icon name="chevron" />
+            </NavigationLink>
+            <h1 ref={heading} tabIndex={-1}>
+              Minha conta
+            </h1>
+          </>
         )}
+
         {screen.kind === "email" && !emailSent && (
           <p className="auth-tagline">
             Cuide das pessoas. A organização fica com a gente.
@@ -947,9 +974,11 @@ export function App({
               <Icon name="mail" />
             </span>
           )}
-          <h1 ref={heading} tabIndex={-1}>
-            {titles[screen.kind]}
-          </h1>
+          {screen.kind !== "account" && (
+            <h1 ref={heading} tabIndex={-1}>
+              {titles[screen.kind]}
+            </h1>
+          )}
           <div aria-live="polite" aria-atomic="true">
             {busy || screen.kind === "loading" ? (
               <p className="loading" role="status">
@@ -1201,41 +1230,47 @@ export function App({
                 cada acesso.
               </p>
               {screen.items.length ? (
-                <ul className="item-list">
-                  {screen.items.map((item) => (
-                    <ListRow key={item.id} className="church-choice">
-                      <div>
+                <ResponsiveTable
+                  label="Suas igrejas"
+                  headers={["Igreja", "Papel", "Acessar"]}
+                  rows={screen.items.map((item) => ({
+                    id: item.id,
+                    cells: [
+                      <div className="table-person" key="name">
                         <Avatar name={item.nome} size={44} />
                         <strong>{item.nome}</strong>
-                        <Pill
-                          tone={item.role === "admin" ? "accent" : "neutral"}
-                        >
-                          {item.role === "admin"
-                            ? "Administrador"
-                            : "Colaborador"}
-                        </Pill>
-                      </div>
-                      <Button
-                        className="primary compact"
-                        disabled={busy}
-                        onClick={() =>
-                          void perform(async (isCurrent) => {
-                            memberList.current = null;
-                            setScreen({ kind: "loading", layout: "access" });
-                            await api.select(item.id);
-                            if (!isCurrent()) return;
-                            navigate("/igrejas");
-                            await refresh();
-                          })
-                        }
-                        aria-label={`Acessar igreja ${item.nome}`}
+                      </div>,
+                      <Pill
+                        key="role"
+                        tone={item.role === "admin" ? "accent" : "neutral"}
                       >
-                        <span className="sr-only">Acessar igreja</span>
-                        <Icon name="arrow" />
-                      </Button>
-                    </ListRow>
-                  ))}
-                </ul>
+                        {item.role === "admin"
+                          ? "Administrador"
+                          : "Colaborador"}
+                      </Pill>,
+                      churchAccess(item),
+                    ],
+                  }))}
+                >
+                  <ul className="item-list">
+                    {screen.items.map((item) => (
+                      <ListRow key={item.id} className="church-choice">
+                        <div>
+                          <Avatar name={item.nome} size={44} />
+                          <strong>{item.nome}</strong>
+                          <Pill
+                            tone={item.role === "admin" ? "accent" : "neutral"}
+                          >
+                            {item.role === "admin"
+                              ? "Administrador"
+                              : "Colaborador"}
+                          </Pill>
+                        </div>
+                        {churchAccess(item)}
+                      </ListRow>
+                    ))}
+                  </ul>
+                </ResponsiveTable>
               ) : (
                 <p>
                   Nenhuma igreja está disponível com vínculo atual. Procure o
@@ -1256,71 +1291,92 @@ export function App({
           )}
           {screen.kind === "account" && (
             <section className="account-page" aria-label="Dados da minha conta">
-              <div className="profile-header">
+              <div className="account-profile">
                 <Avatar
                   name={screen.account.name || screen.account.email}
-                  size={76}
+                  size={60}
                 />
-                <h2>{screen.account.name || screen.account.email}</h2>
-                <p>{screen.account.email}</p>
-                <Pill
-                  tone={screen.account.emailVerified ? "success" : "warning"}
-                >
-                  {screen.account.emailVerified
-                    ? "E-mail verificado"
-                    : "E-mail não verificado"}
-                </Pill>
+                <div>
+                  <h2>{screen.account.name || screen.account.email}</h2>
+                  <p>{screen.account.email}</p>
+                  <Pill
+                    tone={screen.account.emailVerified ? "success" : "warning"}
+                  >
+                    {screen.account.emailVerified && (
+                      <span aria-hidden="true">✓ </span>
+                    )}
+                    <span>
+                      {screen.account.emailVerified
+                        ? "E-mail verificado"
+                        : "E-mail não verificado"}
+                    </span>
+                  </Pill>
+                </div>
               </div>
-              <h2 className="section-label">Como você entra</h2>
-              <Card>
-                <h3>Link por e-mail</h3>
-                <p>Cada acesso começa com um link enviado para o seu e-mail.</p>
-                <dl className="account-password">
-                  <InfoRow label="Senha">
-                    <Pill>Opcional</Pill>
-                  </InfoRow>
-                </dl>
-                <p>Defina uma senha se preferir entrar sem esperar o e-mail.</p>
-                <NavigationLink
-                  href="/conta/senha"
-                  navigate={go}
-                  disabled={busy}
-                  className="secondary"
-                >
-                  Definir senha
-                </NavigationLink>
-              </Card>
-              <h2 className="section-label">Suas igrejas</h2>
-              {screen.items.length ? (
-                <ul className="account-churches surface">
-                  {screen.items.map((item) => (
-                    <ListRow key={item.id}>
-                      <Avatar name={item.nome} size={34} />
-                      <strong>{item.nome}</strong>
-                      <Pill tone={item.role === "admin" ? "accent" : "neutral"}>
-                        {item.role === "admin"
-                          ? "Administrador"
-                          : "Colaborador"}
-                      </Pill>
-                    </ListRow>
-                  ))}
-                </ul>
-              ) : (
-                <EmptyState icon="church" title="Você ainda não tem igrejas.">
-                  <p>
-                    Escolha uma igreja disponível ou solicite um convite ao
-                    responsável.
-                  </p>
-                </EmptyState>
-              )}
-              <NavigationLink
-                href="/igrejas/selecionar"
-                navigate={go}
-                disabled={busy}
-                className="text-button"
+              <section
+                className="account-section"
+                aria-labelledby="account-entry"
               >
-                Escolher igreja
-              </NavigationLink>
+                <h2 id="account-entry" className="section-label">
+                  Como você entra
+                </h2>
+                <Card className="account-login-card">
+                  <div>
+                    <h3>Link por e-mail</h3>
+                    <p>
+                      Cada acesso começa com um link enviado para o seu e-mail.
+                    </p>
+                  </div>
+                  <div className="account-password-block">
+                    <div className="account-password-heading">
+                      <strong>Senha</strong>
+                      <Pill>Opcional</Pill>
+                    </div>
+                    <p>
+                      Defina uma senha se preferir entrar sem esperar o e-mail.
+                    </p>
+                  </div>
+                  <NavigationLink
+                    href="/conta/senha"
+                    navigate={go}
+                    disabled={busy}
+                    className="secondary"
+                  >
+                    Definir senha
+                  </NavigationLink>
+                </Card>
+              </section>
+              <section
+                className="account-section"
+                aria-labelledby="account-churches"
+              >
+                <h2 id="account-churches" className="section-label">
+                  Suas igrejas
+                </h2>
+                {screen.items.length ? (
+                  <ul className="account-churches surface">
+                    {screen.items.map((item) => (
+                      <ListRow key={item.id}>
+                        <strong>{item.nome}</strong>
+                        <Pill
+                          tone={item.role === "admin" ? "accent" : "neutral"}
+                        >
+                          {item.role === "admin"
+                            ? "Administrador"
+                            : "Colaborador"}
+                        </Pill>
+                      </ListRow>
+                    ))}
+                  </ul>
+                ) : (
+                  <EmptyState icon="church" title="Você ainda não tem igrejas.">
+                    <p>
+                      Solicite um convite ao responsável ou volte à seleção de
+                      igrejas.
+                    </p>
+                  </EmptyState>
+                )}
+              </section>
               <div className="account-logout">{logoutButton}</div>
             </section>
           )}

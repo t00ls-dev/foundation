@@ -1154,7 +1154,10 @@ test("convites: conta nova e existente entram por Magic Link e aceitam sem criar
         .getByRole("button", { name: "Atualizar acessos", exact: true })
         .click();
       await expect(
-        page.getByText("Aceito", { exact: false }).first(),
+        page
+          .getByText("Aceito", { exact: false })
+          .filter({ visible: true })
+          .first(),
       ).toBeVisible();
     } finally {
       await context.close();
@@ -1188,6 +1191,7 @@ test("minha conta: dados reais, igrejas, senha opcional e saída sem reter perfi
   ).toBeVisible();
   const response = await page.request.get("/api/account");
   expect(response.status()).toBe(200);
+  expect(response.headers()["cache-control"]).toContain("no-store");
   const data: unknown = await response.json();
   expect(
     Object.keys(data !== null && typeof data === "object" ? data : {}).sort(),
@@ -1209,6 +1213,33 @@ test("minha conta: dados reais, igrejas, senha opcional e saída sem reter perfi
   await page.reload();
   await expect(
     account.getByText("Igreja da minha conta", { exact: true }),
+  ).toBeVisible();
+  await page.route("**/api/account", (route) =>
+    route.fulfill({
+      json: {
+        name: "Perfil de outra sessão",
+        email: "other-session@example.test",
+        emailVerified: true,
+        identity: {
+          userId: "11111111-1111-4111-8111-111111111111",
+          sessionId: "22222222-2222-4222-8222-222222222222",
+        },
+      },
+    }),
+  );
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Vamos tentar novamente", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("other-session@example.test", { exact: true }),
+  ).toHaveCount(0);
+  await page.unroute("**/api/account");
+  await page
+    .getByRole("button", { name: "Atualizar acesso", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Minha conta", exact: true }),
   ).toBeVisible();
   await account.getByRole("button", { name: "Sair", exact: true }).click();
   await expect(

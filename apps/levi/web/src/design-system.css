@@ -166,3 +166,8 @@
 .filter-chip {
   margin: 0;
 }
+.filter-chip input {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+}

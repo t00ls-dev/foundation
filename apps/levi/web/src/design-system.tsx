@@ -132,3 +132,49 @@ export function InfoRow({
     </div>
   );
 }
+
+// A mesma informação e os mesmos comandos, com semântica adequada a cada largura.
+export function ResponsiveTable({
+  label,
+  headers,
+  rows,
+  children,
+}: {
+  label: string;
+  headers: readonly string[];
+  rows: { id: string; cells: ReactNode[] }[];
+  children: ReactNode;
+}) {
+  return (
+    <>
+      <div className="mobile-collection">{children}</div>
+      <div
+        className="desktop-collection surface"
+        role="region"
+        aria-label={`${label}: tabela`}
+        tabIndex={0}
+      >
+        <table aria-label={label}>
+          <thead>
+            <tr>
+              {headers.map((header) => (
+                <th key={header} scope="col">
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.id}>
+                {row.cells.map((cell, index) => (
+                  <td key={headers[index]}>{cell}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}

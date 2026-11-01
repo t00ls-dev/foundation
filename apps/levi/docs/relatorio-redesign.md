@@ -59,6 +59,9 @@ Caminhos abaixo relativos a `apps/levi/web/src`.
 - Chips têm alvo de 44px, atendendo ao requisito de toque, mesmo onde o exemplo
   desenha 40px. A curva do bloco azul usa o raio de cartão fornecido (16px),
   pois o raio de 28px do HTML não pertence à lista de tokens autorizados.
+  Da mesma forma, tamanhos de texto de 18/24/26px presentes em alguns HTMLs
+  foram aproximados aos tamanhos disponíveis na escala fornecida; nenhum novo
+  tamanho foi criado.
 - A lista usa os dados reais retornados pela API. O app oferece Ativo/Inativo,
   busca por nome com botão Filtrar e paginação. Não há total de membros, filtro
   Visitante, ministérios predefinidos ou ação de afastamento nesse contrato.
@@ -108,5 +111,71 @@ trocas de sessão seguem o descarte por geração já existente.
 
 Os arquivos adicionais são `web/src/account.css`, `src/web-paths.ts`,
 `test/web.test.ts` e `e2e/onboarding.spec.ts`. Os novos textos acessíveis são
-“Minha conta”, “Dados da minha conta”, “Definir senha”, “Escolher igreja” e
+“Minha conta”, “Dados da minha conta”, “Definir senha” e
 “Voltar às igrejas”. Os rótulos anteriores de senha e saída permanecem.
+
+## Desktop
+
+O breakpoint é `768px`. Nas telas de gestão o menu ocupa uma coluna de 248px,
+com marca e seletor no topo e atalho de conta/menu no rodapé. Conteúdo tem
+margem de 40px; formulários mantêm uma coluna de até 640px. O menu é aderente
+na coluna lateral e a barra inferior continua fixa somente no mobile.
+
+Membros, seleção de igrejas, convites e equipe usam tabelas HTML nativas com
+`th scope="col"`, cabeçalhos de 12px, peso 600 e espaçamento de 0.04em. A
+composição compartilhada `ResponsiveTable` reutiliza dados e comandos. No
+mobile permanece a lista original. Em espaços estreitos do desktop, a tabela
+rola dentro do cartão, que recebe foco pelo teclado; a página não transborda.
+
+Essa adaptação altera o papel dos itens no desktop de `listitem` para `row`,
+com células `cell` e cabeçalhos `columnheader`. Dois seletores de gestão de
+acessos em `e2e/members.spec.ts` foram ampliados para aceitar `listitem` ou
+`row`. Os comandos e nomes acessíveis não mudaram. Outros dois seletores de texto foram direcionados à apresentação visível: a consulta de membro usa o link acessível, e a situação Aceito filtra o conteúdo visível. As asserções de ausência de dados após revogação/saída continuam abrangendo todo o DOM. Não foram removidas asserções nem cenários.
+
+## Validação e evidências
+
+- Em cada etapa foram executados lint, checagem de tipos, testes unitários e
+  E2E, começando pela suíte completa na fundação e seguindo com os cenários
+  afetados nas etapas seguintes.
+- A suíte unitária passou de 141 para 142 testes com o contrato de Minha conta.
+- A navegação foi exercitada com `pnpm dev` em `http://localhost:5173`, usando
+  PostgreSQL descartável e e-mails sintéticos locais. Nenhum dado real ou
+  recurso remoto foi alterado.
+- As telas foram percorridas em 390px e, no desktop, em 768px e 1280px, com
+  capturas Playwright e axe. Foram conferidos overflow, foco, campos de 16px,
+  ações de formulário e navegação. Também foram capturados vazio, validação,
+  erro, carregamento e convites vazios.
+- O piloto foi comparado com o HTML de Membros em 390px. As adaptações de dados,
+  navegação e campos estão registradas acima. As capturas ficaram fora do
+  repositório, em `/tmp/levi-visual/`.
+
+## Pendências e dúvidas
+
+As diferenças em relação ao exemplo são as adaptações explícitas ao contrato
+real e às restrições de tokens descritas acima. Não foram implementadas as
+funcionalidades apenas ilustradas pelo protótipo (métricas globais, Visitante,
+afastamento, WhatsApp, cidade/UF e ministérios predefinidos). A autorização
+posterior permitiu implementar Minha conta, encerrando essa pendência.
+
+Não houve merge, publicação, deploy nem migration persistente.
+
+As fontes são servidas localmente por `@font-face` em `tokens.css`, com arquivos
+WOFF2 em `web/src/fonts`, para funcionar sob a CSP existente sem liberar
+domínios externos. O build copia os avisos legais para `assets/fonts/`. Foram
+preservadas as licenças originais de [Instrument Sans](https://raw.githubusercontent.com/google/fonts/main/ofl/instrumentsans/OFL.txt) e [Bricolage Grotesque](https://raw.githubusercontent.com/google/fonts/main/ofl/bricolagegrotesque/OFL.txt), obtidas do catálogo oficial Google Fonts junto aos arquivos das versões v4/v9.
+O E2E de layout verifica que ambas as famílias realmente carregam no servidor
+com os headers de produção.
+
+O gate completo `pnpm check` foi aprovado, incluindo integrações, contratos,
+builds, E2E padrão, dry-run do Worker, 19 testes do Worker e E2E com ACLs
+restritas. Após os últimos ajustes de JSX de Minha conta e CSS, foram repetidos
+lint, typecheck, os 142 testes unitários, build, formatação e os E2E pertinentes
+(layout/convites nas larguras configuradas e Minha conta em desktop/mobile),
+todos aprovados.
+
+Na conferência final com `pnpm dev`, Minha conta, Acessos e Membros não
+apresentaram overflow nem violações do axe em 390px, 768px e 1280px. Os campos
+mantiveram 16px; o menu lateral mediu 248px e o formulário de convite mediu
+316px/406px/606px nessas larguras, respeitando o máximo de 640px. As capturas
+finais são `entrega-390-*.png`, `entrega-768-*.png` e `entrega-1280-*.png` em
+`/tmp/levi-visual/`.

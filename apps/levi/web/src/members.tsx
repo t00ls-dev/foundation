@@ -1,4 +1,5 @@
 import {
+  ResponsiveTable,
   InfoRow,
   FormFooter,
   Button,
@@ -375,31 +376,53 @@ export function Members({
           {page && (
             <>
               {page.members.length ? (
-                <ul className="member-list">
-                  {page.members.map((item) => (
-                    <ListRow key={item.id} className="member-row">
-                      <Avatar name={item.name} />
-                      <span className="member-summary">
-                        {/* O link cobre a linha inteira; o nome acessível
-                            continua contendo o texto visível. */}
+                <ResponsiveTable
+                  label="Membros"
+                  headers={["Nome", "Igreja", "Situação"]}
+                  rows={page.members.map((item) => ({
+                    id: item.id,
+                    cells: [
+                      <div className="table-person" key="name">
+                        <Avatar name={item.name} />
                         <NavigationLink
                           href={`/membros/${item.id}`}
                           navigate={navigate}
-                          className="member-link"
-                          aria-describedby={`member-${item.id}-details`}
                         >
                           <span className="sr-only">Consultar ficha de </span>
-                          <span>{item.name}</span>
+                          {item.name}
                         </NavigationLink>
-                        <span id={`member-${item.id}-details`}>
-                          {item.churchName}
+                      </div>,
+                      item.churchName,
+                      <Status key="status" value={item.status} />,
+                    ],
+                  }))}
+                >
+                  <ul className="member-list">
+                    {page.members.map((item) => (
+                      <ListRow key={item.id} className="member-row">
+                        <Avatar name={item.name} />
+                        <span className="member-summary">
+                          {/* O link cobre a linha inteira; o nome acessível
+                            continua contendo o texto visível. */}
+                          <NavigationLink
+                            href={`/membros/${item.id}`}
+                            navigate={navigate}
+                            className="member-link"
+                            aria-describedby={`member-${item.id}-details`}
+                          >
+                            <span className="sr-only">Consultar ficha de </span>
+                            <span>{item.name}</span>
+                          </NavigationLink>
+                          <span id={`member-${item.id}-details`}>
+                            {item.churchName}
+                          </span>
                         </span>
-                      </span>
-                      <Status value={item.status} />
-                      <Icon name="chevron" />
-                    </ListRow>
-                  ))}
-                </ul>
+                        <Status value={item.status} />
+                        <Icon name="chevron" />
+                      </ListRow>
+                    ))}
+                  </ul>
+                </ResponsiveTable>
               ) : (
                 <EmptyState
                   title={

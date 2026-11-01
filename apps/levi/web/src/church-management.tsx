@@ -1,4 +1,6 @@
 import {
+  Avatar,
+  ResponsiveTable,
   SegmentedControl,
   Card,
   Pill,
@@ -134,6 +136,61 @@ export function ChurchManagement({
   }, []);
   const roleLabel = (value: string) =>
     value === "admin" ? "Administrador" : "Colaborador";
+  const invitationActions = (
+    item: NonNullable<typeof invitations>["invitations"][number],
+  ) => (
+    <div className="row-actions">
+      {["Reenviar", "Cancelar"].map((action) => (
+        <Button
+          key={action}
+          className={action === "Cancelar" ? "destructive" : "secondary"}
+          disabled={busy}
+          onClick={() =>
+            void run(async () => {
+              const current = generation.current;
+              await (action === "Reenviar"
+                ? api.resendInvitation(church.id, item.id)
+                : api.cancelInvitation(church.id, item.id));
+              await validate();
+              if (current !== generation.current) return;
+              setSent(
+                action === "Reenviar"
+                  ? "Novo convite enviado. O link anterior foi invalidado."
+                  : "Convite cancelado.",
+              );
+              await load();
+            })
+          }
+        >
+          {action}
+        </Button>
+      ))}
+    </div>
+  );
+  const accessActions = (
+    item: NonNullable<typeof page>["accesses"][number],
+  ) => (
+    <div className="row-actions">
+      <Button
+        className="secondary"
+        disabled={busy}
+        onClick={() =>
+          void change(item, item.role === "admin" ? "collaborator" : "admin")
+        }
+      >
+        {item.role === "admin"
+          ? "Rebaixar a colaborador"
+          : "Promover a administrador"}
+      </Button>
+      <Button
+        className="destructive"
+        disabled={busy}
+        onClick={() => void change(item, null)}
+      >
+        Revogar acesso
+      </Button>
+    </div>
+  );
   return (
     <section className="church-admin" aria-label="Administração da igreja">
       <SegmentedControl role="navigation" aria-label="Seções da administração">
@@ -279,65 +336,93 @@ export function ChurchManagement({
                 {invitations.invitations.length === 0 && (
                   <p className="empty-message">Nenhum convite cadastrado.</p>
                 )}
-                <ul className="item-list access-list">
-                  {invitations.invitations.map((item) => (
-                    <ListRow key={item.id}>
-                      <div>
-                        <strong>{item.email}</strong>
+                <ResponsiveTable
+                  label="Convites"
+                  headers={["E-mail", "Papel e situação", "Validade", "Ações"]}
+                  rows={invitations.invitations.map((item) => ({
+                    id: item.id,
+                    cells: [
+                      item.email,
+                      <div key="role">
+                        <Pill
+                          tone={item.role === "admin" ? "accent" : "neutral"}
+                        >
+                          {roleLabel(item.role)}
+                        </Pill>
                         <p>
-                          {roleLabel(item.role)} ·{" "}
-                          {item.acceptedAt
-                            ? "Aceito"
-                            : item.cancelledAt
-                              ? "Cancelado ou substituído"
-                              : Date.parse(item.expiresAt) <= Date.now()
-                                ? "Expirado"
-                                : "Pendente"}
+                          <Pill
+                            tone={
+                              item.acceptedAt
+                                ? "success"
+                                : item.cancelledAt
+                                  ? "neutral"
+                                  : Date.parse(item.expiresAt) <= Date.now()
+                                    ? "danger"
+                                    : "warning"
+                            }
+                          >
+                            {item.acceptedAt
+                              ? "Aceito"
+                              : item.cancelledAt
+                                ? "Cancelado ou substituído"
+                                : Date.parse(item.expiresAt) <= Date.now()
+                                  ? "Expirado"
+                                  : "Pendente"}
+                          </Pill>
                         </p>
-                        <p>
-                          Validade:{" "}
-                          {new Intl.DateTimeFormat("pt-BR", {
-                            dateStyle: "medium",
-                            timeStyle: "short",
-                          }).format(new Date(item.expiresAt))}
-                        </p>
-                      </div>
-                      {!item.acceptedAt && !item.cancelledAt && (
-                        <div className="row-actions">
-                          {["Reenviar", "Cancelar"].map((action) => (
-                            <Button
-                              key={action}
-                              className={
-                                action === "Cancelar"
-                                  ? "destructive"
-                                  : "secondary"
-                              }
-                              disabled={busy}
-                              onClick={() =>
-                                void run(async () => {
-                                  const current = generation.current;
-                                  await (action === "Reenviar"
-                                    ? api.resendInvitation(church.id, item.id)
-                                    : api.cancelInvitation(church.id, item.id));
-                                  await validate();
-                                  if (current !== generation.current) return;
-                                  setSent(
-                                    action === "Reenviar"
-                                      ? "Novo convite enviado. O link anterior foi invalidado."
-                                      : "Convite cancelado.",
-                                  );
-                                  await load();
-                                })
+                      </div>,
+                      new Intl.DateTimeFormat("pt-BR", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }).format(new Date(item.expiresAt)),
+                      !item.acceptedAt && !item.cancelledAt
+                        ? invitationActions(item)
+                        : null,
+                    ],
+                  }))}
+                >
+                  <ul className="item-list access-list">
+                    {invitations.invitations.map((item) => (
+                      <ListRow key={item.id}>
+                        <div>
+                          <strong>{item.email}</strong>
+                          <p>
+                            {roleLabel(item.role)} ·{" "}
+                            <Pill
+                              tone={
+                                item.acceptedAt
+                                  ? "success"
+                                  : item.cancelledAt
+                                    ? "neutral"
+                                    : Date.parse(item.expiresAt) <= Date.now()
+                                      ? "danger"
+                                      : "warning"
                               }
                             >
-                              {action}
-                            </Button>
-                          ))}
+                              {item.acceptedAt
+                                ? "Aceito"
+                                : item.cancelledAt
+                                  ? "Cancelado ou substituído"
+                                  : Date.parse(item.expiresAt) <= Date.now()
+                                    ? "Expirado"
+                                    : "Pendente"}
+                            </Pill>
+                          </p>
+                          <p>
+                            Validade:{" "}
+                            {new Intl.DateTimeFormat("pt-BR", {
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            }).format(new Date(item.expiresAt))}
+                          </p>
                         </div>
-                      )}
-                    </ListRow>
-                  ))}
-                </ul>
+                        {!item.acceptedAt &&
+                          !item.cancelledAt &&
+                          invitationActions(item)}
+                      </ListRow>
+                    ))}
+                  </ul>
+                </ResponsiveTable>
                 {invitations.next && (
                   <Button
                     className="secondary"
@@ -378,53 +463,63 @@ export function ChurchManagement({
                     Nenhum acesso disponível nesta consulta.
                   </p>
                 )}
-                <ul className="item-list access-list">
-                  {page.accesses.map((item) => (
-                    <ListRow key={item.id}>
-                      <div>
-                        <strong>
-                          {item.name || item.email}
-                          {item.userId === identity?.userId ? " (Você)" : ""}
-                        </strong>
-                        <p>{item.email}</p>
-                        <p>
-                          <Pill
-                            tone={item.role === "admin" ? "accent" : "neutral"}
-                          >
-                            {roleLabel(item.role)}
-                          </Pill>{" "}
-                          · Desde{" "}
-                          {new Intl.DateTimeFormat("pt-BR", {
-                            dateStyle: "medium",
-                          }).format(new Date(item.createdAt))}
-                        </p>
-                      </div>
-                      <div className="row-actions">
-                        <Button
-                          className="secondary"
-                          disabled={busy}
-                          onClick={() =>
-                            void change(
-                              item,
-                              item.role === "admin" ? "collaborator" : "admin",
-                            )
-                          }
-                        >
-                          {item.role === "admin"
-                            ? "Rebaixar a colaborador"
-                            : "Promover a administrador"}
-                        </Button>
-                        <Button
-                          className="destructive"
-                          disabled={busy}
-                          onClick={() => void change(item, null)}
-                        >
-                          Revogar acesso
-                        </Button>
-                      </div>
-                    </ListRow>
-                  ))}
-                </ul>
+                <ResponsiveTable
+                  label="Acessos atuais"
+                  headers={["Pessoa", "Papel", "Desde", "Ações"]}
+                  rows={page.accesses.map((item) => ({
+                    id: item.id,
+                    cells: [
+                      <div className="table-person" key="person">
+                        <Avatar name={item.name || item.email} size={34} />
+                        <div>
+                          <strong>
+                            {item.name || item.email}
+                            {item.userId === identity?.userId ? " (Você)" : ""}
+                          </strong>
+                          <p>{item.email}</p>
+                        </div>
+                      </div>,
+                      <Pill
+                        key="role"
+                        tone={item.role === "admin" ? "accent" : "neutral"}
+                      >
+                        {roleLabel(item.role)}
+                      </Pill>,
+                      new Intl.DateTimeFormat("pt-BR", {
+                        dateStyle: "medium",
+                      }).format(new Date(item.createdAt)),
+                      accessActions(item),
+                    ],
+                  }))}
+                >
+                  <ul className="item-list access-list">
+                    {page.accesses.map((item) => (
+                      <ListRow key={item.id}>
+                        <div>
+                          <strong>
+                            {item.name || item.email}
+                            {item.userId === identity?.userId ? " (Você)" : ""}
+                          </strong>
+                          <p>{item.email}</p>
+                          <p>
+                            <Pill
+                              tone={
+                                item.role === "admin" ? "accent" : "neutral"
+                              }
+                            >
+                              {roleLabel(item.role)}
+                            </Pill>{" "}
+                            · Desde{" "}
+                            {new Intl.DateTimeFormat("pt-BR", {
+                              dateStyle: "medium",
+                            }).format(new Date(item.createdAt))}
+                          </p>
+                        </div>
+                        {accessActions(item)}
+                      </ListRow>
+                    ))}
+                  </ul>
+                </ResponsiveTable>
                 {page.next && (
                   <Button
                     className="secondary"

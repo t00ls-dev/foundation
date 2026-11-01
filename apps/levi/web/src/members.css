@@ -8,7 +8,9 @@ section[aria-label="Gestão de membros"] > .page-intro p {
 .fab {
   position: fixed;
   right: var(--levi-gutter);
-  bottom: calc(var(--bottom-nav-space) + 12px);
+  bottom: calc(
+    calc(var(--levi-h-tabbar-item) + 16px + env(safe-area-inset-bottom)) + 12px
+  );
   z-index: 4;
   padding: 0 20px 0 16px;
   min-height: var(--levi-h-button);

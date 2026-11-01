@@ -373,7 +373,10 @@ test("membros: resposta de tenant divergente e perda de sessão não mantêm dad
     .click();
   await page.getByRole("link", { name: "Membros", exact: true }).click();
   await expect(
-    page.getByText("Pessoa protegida sintética", { exact: true }),
+    page.getByRole("link", {
+      name: "Consultar ficha de Pessoa protegida sintética",
+      exact: true,
+    }),
   ).toBeVisible();
   await page.context().clearCookies();
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
@@ -1160,6 +1163,7 @@ test("igreja: edição por versão, último administrador e acesso direto de col
     .click();
   const backup = page
     .getByRole("listitem")
+    .or(page.getByRole("row"))
     .filter({ hasText: `${who.churchId}@example.test` });
   await backup
     .getByRole("button", { name: "Promover a administrador", exact: true })
@@ -1189,6 +1193,7 @@ test("igreja: edição por versão, último administrador e acesso direto de col
     .click();
   await page
     .getByRole("listitem")
+    .or(page.getByRole("row"))
     .filter({ hasText: who.email })
     .getByRole("button", { name: "Rebaixar a colaborador", exact: true })
     .click();

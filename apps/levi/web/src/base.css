@@ -331,11 +331,20 @@ input[type="search"]::-webkit-search-decoration {
   font-size: var(--levi-text-small);
 }
 @media (hover: hover) {
-  button:hover:not(:disabled),
-  .button-link:hover:not([aria-disabled="true"]) {
-    filter: brightness(0.98);
+  .primary:not(.compact):hover:not(:disabled):not([aria-disabled="true"]) {
+    background: var(--levi-accent-ink);
+  }
+  .secondary:hover:not(:disabled):not([aria-disabled="true"]) {
+    background: var(--levi-bg);
+  }
+  .text-button:hover:not(:disabled):not([aria-disabled="true"]) {
+    background: var(--levi-accent-soft);
+  }
+  .destructive:hover:not(:disabled) {
+    background: var(--levi-danger-bg);
   }
 }
+
 .notice {
   padding: var(--levi-card-padding);
   margin: 16px 0;
