@@ -17,13 +17,7 @@ body {
   margin: 0;
   background: var(--canvas);
   color: var(--ink);
-  font-family:
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font-family: var(--levi-font-ui);
   font-size: var(--text-body);
   line-height: 1.6;
 }

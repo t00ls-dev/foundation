@@ -9,6 +9,7 @@ import "./access.css";
 import "./churches.css";
 import "./members.css";
 import "./admin-global.css";
+import "./design-system.css";
 
 const invitation = takeInvitation();
 const link = takeLinkReturn(window.location, window.history);
