@@ -29,7 +29,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@cloudflare/workers-types": "^5.20261028.1",
+    "@cloudflare/workers-types": "^5.20261030.1",
     "@types/pg": "^8.23.1",
     "pg": "^8.23.1"
   },
