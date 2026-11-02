@@ -129,7 +129,7 @@ function validateCiStructure(ci, setup) {
       { uses: "pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413" },
       {
         uses: "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
-        with: { "node-version": "22.23.3", "cache": "pnpm" },
+        with: { "node-version-file": ".node-version", "cache": "pnpm" },
       },
       { run: "pnpm install --frozen-lockfile", shell: "bash" },
     ],
