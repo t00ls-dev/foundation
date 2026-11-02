@@ -75,7 +75,7 @@ function validateCiStructure(ci, setup) {
       "steps": [
         {
           uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-          with: { "fetch-depth": 0 },
+          with: { "persist-credentials": false },
         },
         { uses: "./.github/actions/setup" },
         ...commands.map((run) => ({ run })),
@@ -84,6 +84,7 @@ function validateCiStructure(ci, setup) {
     if (name === "static" || name === "tests")
       expected["timeout-minutes"] = { static: 10, tests: 15 }[name];
     if (name === "tests") {
+      expected.steps[0].with["fetch-depth"] = 0;
       expected.steps[2].env = { GITHUB_TEST_SUITE: "Unitários" };
       expected.steps[3].env = { GITHUB_TEST_SUITE: "Integração" };
     }
