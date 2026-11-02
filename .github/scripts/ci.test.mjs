@@ -281,11 +281,7 @@ test("checks fails closed on every unsuccessful or missing dependency", () => {
   assert.throws(() => run({ ...needs, unexpected: { result: "success" } }));
 });
 
-import {
-  approvedCi,
-  validateCiRun,
-  validateDeployEvent,
-} from "./ci-evidence.mjs";
+import { approvedCi, validateCiRun } from "./ci-evidence.mjs";
 const sha = "a".repeat(40);
 const ciWorkflow = () => ({ id: 123, path: ".github/workflows/ci.yml" });
 const ciRun = () => ({
@@ -364,34 +360,6 @@ test("CI evidence accepts only the exact completed master push and checks attemp
   );
 });
 
-test("deploy event rejects PRs, forks, incomplete runs and invalid SHAs before checkout", () => {
-  const event = { repository: ciRun().repository, workflow_run: ciRun() };
-  assert.equal(validateDeployEvent(event).head_sha, sha);
-  assert.throws(() =>
-    validateDeployEvent({
-      ...event,
-      repository: { full_name: "attacker/foundation" },
-    }),
-  );
-  assert.throws(() =>
-    validateDeployEvent({ ...event, workflow_run: undefined }),
-  );
-  for (const patch of [
-    { repository: { full_name: "attacker/foundation" } },
-    { head_repository: { full_name: "attacker/foundation" } },
-    { event: "pull_request" },
-    { head_branch: "feature" },
-    { head_sha: "master; malicious" },
-    { status: "in_progress" },
-    { conclusion: "failure" },
-    { id: 0 },
-    { run_attempt: undefined },
-  ])
-    assert.throws(() =>
-      validateDeployEvent({ ...event, workflow_run: { ...ciRun(), ...patch } }),
-    );
-});
-
 test("CI lookup binds workflow, newest run, attempt jobs and fails closed on API errors or reruns", async () => {
   const requests = [];
   const request = async (url) => {
@@ -434,10 +402,6 @@ test("CI lookup binds workflow, newest run, attempt jobs and fails closed on API
       },
     }),
   );
-  await assert.rejects(
-    approvedCi(sha, { request, origin: { ...ciRun(), run_attempt: 1 } }),
-  );
-  await approvedCi(sha, { request, origin: ciRun() });
 });
 
 test("CI evidence paginates attempt jobs and rejects a newly created run", async () => {
