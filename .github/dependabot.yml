@@ -42,6 +42,23 @@ updates:
           - "@testcontainers/*"
           - "@types/node"
         update-types: ["minor", "patch"]
+      cloudflare:
+        applies-to: version-updates
+        patterns:
+          - "wrangler"
+          - "miniflare"
+          - "@cloudflare/*"
+        update-types: ["minor", "patch"]
+      backend:
+        applies-to: version-updates
+        patterns:
+          - "hono"
+          - "@hono/*"
+          - "drizzle-orm"
+          - "drizzle-kit"
+          - "better-auth"
+          - "@better-auth/*"
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: github-actions
     directory: /

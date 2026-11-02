@@ -73,7 +73,10 @@ function validateCiStructure(ci, setup) {
       }[name],
       "runs-on": "ubuntu-24.04",
       "steps": [
-        { uses: "actions/checkout@v7", with: { "fetch-depth": 0 } },
+        {
+          uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          with: { "fetch-depth": 0 },
+        },
         { uses: "./.github/actions/setup" },
         ...commands.map((run) => ({ run })),
       ],
@@ -83,6 +86,9 @@ function validateCiStructure(ci, setup) {
       expected.steps[3].env = { GITHUB_TEST_SUITE: "Integração" };
     }
 
+    if (name === "static") {
+      expected.steps[0].with["persist-credentials"] = false;
+    }
     if (name === "levi-tests" || name === "levi-e2e") {
       expected["timeout-minutes"] = name === "levi-tests" ? 20 : 15;
       expected.env = {
@@ -104,7 +110,10 @@ function validateCiStructure(ci, setup) {
     "needs": Object.keys(validationCommands),
     "runs-on": "ubuntu-24.04",
     "steps": [
-      { uses: "actions/checkout@v7" },
+      {
+        uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+        with: { "persist-credentials": false },
+      },
       {
         run: "node .github/scripts/ci-checks.mjs",
         env: { CI_NEEDS: "${{ toJSON(needs) }}" },
@@ -116,7 +125,7 @@ function validateCiStructure(ci, setup) {
     steps: [
       { uses: "pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413" },
       {
-        uses: "actions/setup-node@v7",
+        uses: "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
         with: { "node-version": "22.23.3", "cache": "pnpm" },
       },
       { run: "pnpm install --frozen-lockfile", shell: "bash" },
