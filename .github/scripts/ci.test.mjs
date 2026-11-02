@@ -42,7 +42,7 @@ function validateCiStructure(ci, setup) {
   assert.equal(ci.defaults, undefined);
   assert.deepEqual(ci.concurrency, {
     "group": "ci-${{ github.ref }}",
-    "cancel-in-progress": true,
+    "cancel-in-progress": "${{ github.event_name == 'pull_request' }}",
   });
   const jobs = structuredClone(ci.jobs);
   for (const job of Object.values(jobs))
@@ -81,6 +81,8 @@ function validateCiStructure(ci, setup) {
         ...commands.map((run) => ({ run })),
       ],
     };
+    if (name === "static" || name === "tests")
+      expected["timeout-minutes"] = { static: 10, tests: 15 }[name];
     if (name === "tests") {
       expected.steps[2].env = { GITHUB_TEST_SUITE: "Unitários" };
       expected.steps[3].env = { GITHUB_TEST_SUITE: "Integração" };
@@ -108,6 +110,7 @@ function validateCiStructure(ci, setup) {
   assert.deepEqual(jobs.checks, {
     "if": "always()",
     "needs": Object.keys(validationCommands),
+    "timeout-minutes": 5,
     "runs-on": "ubuntu-24.04",
     "steps": [
       {
