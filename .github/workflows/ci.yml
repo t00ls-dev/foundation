@@ -11,17 +11,17 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   static:
     name: "Foundation: verificações estáticas"
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Obter código do repositório
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
           persist-credentials: false
 
       - name: Preparar Node e dependências
@@ -36,11 +36,13 @@ jobs:
   tests:
     name: "Foundation: testes dos pacotes"
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - name: Obter código do repositório
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Preparar Node e dependências
         uses: ./.github/actions/setup
       - name: Unitários
@@ -74,7 +76,6 @@ jobs:
       - name: Obter código do repositório
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
           persist-credentials: false
       - name: Preparar Node e dependências
         uses: ./.github/actions/setup
@@ -108,7 +109,6 @@ jobs:
       - name: Obter código do repositório
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
           persist-credentials: false
       - name: Preparar Node e dependências
         uses: ./.github/actions/setup
@@ -125,6 +125,7 @@ jobs:
     if: always()
     needs: [static, tests, levi-tests, levi-e2e]
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - name: Obter código do repositório
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

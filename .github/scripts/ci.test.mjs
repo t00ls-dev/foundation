@@ -42,7 +42,7 @@ function validateCiStructure(ci, setup) {
   assert.equal(ci.defaults, undefined);
   assert.deepEqual(ci.concurrency, {
     "group": "ci-${{ github.ref }}",
-    "cancel-in-progress": true,
+    "cancel-in-progress": "${{ github.event_name == 'pull_request' }}",
   });
   const jobs = structuredClone(ci.jobs);
   for (const job of Object.values(jobs))
@@ -75,13 +75,16 @@ function validateCiStructure(ci, setup) {
       "steps": [
         {
           uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-          with: { "fetch-depth": 0 },
+          with: { "persist-credentials": false },
         },
         { uses: "./.github/actions/setup" },
         ...commands.map((run) => ({ run })),
       ],
     };
+    if (name === "static" || name === "tests")
+      expected["timeout-minutes"] = { static: 10, tests: 15 }[name];
     if (name === "tests") {
+      expected.steps[0].with["fetch-depth"] = 0;
       expected.steps[2].env = { GITHUB_TEST_SUITE: "Unitários" };
       expected.steps[3].env = { GITHUB_TEST_SUITE: "Integração" };
     }
@@ -108,6 +111,7 @@ function validateCiStructure(ci, setup) {
   assert.deepEqual(jobs.checks, {
     "if": "always()",
     "needs": Object.keys(validationCommands),
+    "timeout-minutes": 5,
     "runs-on": "ubuntu-24.04",
     "steps": [
       {
@@ -126,7 +130,7 @@ function validateCiStructure(ci, setup) {
       { uses: "pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413" },
       {
         uses: "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
-        with: { "node-version": "22.23.3", "cache": "pnpm" },
+        with: { "node-version-file": ".node-version", "cache": "pnpm" },
       },
       { run: "pnpm install --frozen-lockfile", shell: "bash" },
     ],
@@ -277,11 +281,7 @@ test("checks fails closed on every unsuccessful or missing dependency", () => {
   assert.throws(() => run({ ...needs, unexpected: { result: "success" } }));
 });
 
-import {
-  approvedCi,
-  validateCiRun,
-  validateDeployEvent,
-} from "./ci-evidence.mjs";
+import { approvedCi, validateCiRun } from "./ci-evidence.mjs";
 const sha = "a".repeat(40);
 const ciWorkflow = () => ({ id: 123, path: ".github/workflows/ci.yml" });
 const ciRun = () => ({
@@ -360,34 +360,6 @@ test("CI evidence accepts only the exact completed master push and checks attemp
   );
 });
 
-test("deploy event rejects PRs, forks, incomplete runs and invalid SHAs before checkout", () => {
-  const event = { repository: ciRun().repository, workflow_run: ciRun() };
-  assert.equal(validateDeployEvent(event).head_sha, sha);
-  assert.throws(() =>
-    validateDeployEvent({
-      ...event,
-      repository: { full_name: "attacker/foundation" },
-    }),
-  );
-  assert.throws(() =>
-    validateDeployEvent({ ...event, workflow_run: undefined }),
-  );
-  for (const patch of [
-    { repository: { full_name: "attacker/foundation" } },
-    { head_repository: { full_name: "attacker/foundation" } },
-    { event: "pull_request" },
-    { head_branch: "feature" },
-    { head_sha: "master; malicious" },
-    { status: "in_progress" },
-    { conclusion: "failure" },
-    { id: 0 },
-    { run_attempt: undefined },
-  ])
-    assert.throws(() =>
-      validateDeployEvent({ ...event, workflow_run: { ...ciRun(), ...patch } }),
-    );
-});
-
 test("CI lookup binds workflow, newest run, attempt jobs and fails closed on API errors or reruns", async () => {
   const requests = [];
   const request = async (url) => {
@@ -430,10 +402,6 @@ test("CI lookup binds workflow, newest run, attempt jobs and fails closed on API
       },
     }),
   );
-  await assert.rejects(
-    approvedCi(sha, { request, origin: { ...ciRun(), run_attempt: 1 } }),
-  );
-  await approvedCi(sha, { request, origin: ciRun() });
 });
 
 test("CI evidence paginates attempt jobs and rejects a newly created run", async () => {

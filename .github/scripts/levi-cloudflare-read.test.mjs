@@ -391,7 +391,7 @@ test("workflow manual só usa código integrado da master e secrets do Environme
   assert.equal(job.steps[0].with["persist-credentials"], false);
   assert.deepEqual(job.steps[1], {
     uses: "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
-    with: { "node-version": "22.23.3" },
+    with: { "node-version-file": ".node-version" },
   });
   const diagnostic = job.steps[2];
   for (const [internal, canonical] of Object.entries({
