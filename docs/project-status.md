@@ -1,7 +1,7 @@
 # Estado do projeto
 
-Referência documental em 31/10/2026: manifest do Levi com oito dependências
-Foundation e Better Auth 1.7.14. Registros abaixo de cadastros, gates, deploy,
+Referência documental em 11/11/2026: manifest do Levi com oito dependências
+Foundation e Better Auth 1.7.18. Registros abaixo de cadastros, gates, deploy,
 recursos externos e ECONNRESET são observações das respectivas entregas, sem
 consulta remota nesta revisão. Nenhuma pendência operacional é considerada
 resolvida por inferência do código.
@@ -69,9 +69,9 @@ da primeira entrega.
 - Formatação com Prettier.
 - Builds ordenados pelos limites de dependência do workspace.
 - Todos os consumidores Foundation usam `workspace:*`; os pacotes são privados.
-- O lockfile resolve Zod `4.6.7` nas cadeias Better Auth e Core `1.7.14` sem
+- O lockfile resolve Zod `4.6.7` nas cadeias Better Auth e Core `1.7.18` sem
   overrides de Zod; os seletores obsoletos de `1.7.10` foram removidos. Levi e
-  Wrangler `4.156.0` compartilham Miniflare `5.20261023.3-beta`. O override de
+  Wrangler `4.158.0` compartilham Miniflare `5.20261104.0-beta`. O override de
   Undici mantém `7.30.1` na cadeia Miniflare; `testcontainers` resolve
   separadamente Undici `8.12.2`. Overrides de raiz não corrigem lockfiles de
   consumidores externos; a cópia Levi incorporada usa o lockfile da raiz,
@@ -84,7 +84,8 @@ da primeira entrega.
 
 - Dependabot semanal, segunda-feira às 03:00 UTC, com limite de 15 PRs de versão
   para npm e dez para GitHub Actions. Atualizações minor/patch agrupadas por
-  frontend, tooling/testes e GitHub Actions; majors permanecem individuais.
+  frontend, tooling/testes (incluindo Playwright, Vitest e Testcontainers),
+  Cloudflare, backend e GitHub Actions; majors permanecem individuais.
 - Dependabot alerts e atualizações automáticas de segurança habilitados no
   GitHub (verificado em 13/10/2026). Os grupos se aplicam somente a atualizações
   de versão, cujo limite não restringe PRs de segurança.
