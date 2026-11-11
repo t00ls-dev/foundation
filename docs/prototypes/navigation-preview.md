@@ -1,17 +1,17 @@
 # Protótipo: navegação lateral do Levi
 
-Documento de referência de um protótipo mantido **apenas localmente**, em
-`tools/navigation-preview/`. Registro em 11 de novembro de 2026.
+Documento de referência do protótipo versionado em `tools/navigation-preview/`.
+Registro em 11 de novembro de 2026.
 
 ## Status
 
-O diretório não é versionado e permanece intencionalmente fora do Git, do
-workspace pnpm e do CI. Não há build, teste automatizado, `package.json` nem
-dependência instalada para ele. A documentação existe para registrar o que foi
-explorado, sem transformar o protótipo em entrega do Foundation.
+O diretório é versionado apenas como referência de interação e apresentação. Ele
+permanece fora do workspace pnpm: não tem `package.json`, não participa de
+`build`, `lint`, `typecheck`, testes ou deploy. O CI não executa a demonstração;
+apenas a verificação de formatação (`prettier --check .`) alcança seus arquivos.
 
 O código atual do Levi continua sendo a referência de comportamento; nada neste
-protótipo foi integrado ao shell React.
+protótipo foi integrado ao shell React. Alterações aqui não alteram o app.
 
 ## Objetivo
 

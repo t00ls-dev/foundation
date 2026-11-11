@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <title>Levi · Preview de navegação</title>
+    <meta name="theme-color" content="#5936a2" />
+    <meta name="color-scheme" content="light" />
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
+    <link rel="manifest" href="/assets/manifest.webmanifest" />
+    <link rel="stylesheet" href="levi-tokens.css" />
+    <link rel="stylesheet" href="style.css?v=9" />
+    <script src="preview.js?v=9" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Pular para o conteúdo</a>
+    <aside id="desktop" class="desktop"></aside>
+    <dialog id="drawer" aria-label="Navegação da igreja">
+      <div class="drawer-header">
+        <button id="close" aria-label="Fechar menu">
+          <svg
+            class="icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m6 6 12 12M18 6 6 18" />
+          </svg>
+        </button>
+      </div>
+      <div id="mobile"></div>
+    </dialog>
+    <div class="workspace">
+      <header class="topbar">
+        <button
+          id="open"
+          aria-label="Abrir menu"
+          aria-haspopup="dialog"
+          aria-controls="drawer"
+        >
+          <svg
+            class="icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </svg></button
+        ><button
+          class="avatar user-trigger"
+          popovertarget="user-menu"
+          aria-label="AL — Abrir opções da minha conta"
+        >
+          <span>AL</span>
+        </button>
+        <div id="user-menu" popover>
+          <div class="user-heading">
+            <strong>Ana Lima</strong><small>Conta de demonstração</small>
+          </div>
+          <nav aria-label="Opções da minha conta">
+            <a href="#conta" data-page="conta"
+              ><svg
+                class="icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path
+                  d="M20 21v-2a6 6 0 0 0-6-6h-4a6 6 0 0 0-6 6v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"
+                /></svg
+              >Minha conta</a
+            >
+            <a href="#senha" data-page="senha"
+              ><svg
+                class="icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4" /></svg
+              >Trocar senha</a
+            >
+            <a href="#sair" data-page="sair" class="logout-link"
+              ><svg
+                class="icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path
+                  d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4m7 14 5-5-5-5m5 5H9"
+                /></svg
+              >Sair da conta</a
+            >
+          </nav>
+        </div>
+      </header>
+      <main id="main" tabindex="-1">
+        <div class="eyebrow">PAINEL DE GESTÃO</div>
+        <h1 id="title" tabindex="-1">Visão geral</h1>
+        <p id="subtitle">
+          Acompanhe membros, igrejas e atividades da sua organização.
+        </p>
+        <div id="content"></div>
+      </main>
+      <footer>
+        <span class="powered-by"
+          ><img src="/assets/icon.svg" width="14" height="14" alt="" />
+          Tecnologia Levi</span
+        ><span>Preview · Dados fictícios</span>
+      </footer>
+    </div>
+    <template id="nav-template"
+      ><div class="church-brand">
+        <span class="church-emblem" data-church-initials>CE</span
+        ><strong data-church-name>Comunidade Esperança</strong>
+      </div>
+      <nav aria-label="Navegação principal">
+        <p class="caption">GESTÃO</p>
+        <a href="#inicio" data-page="inicio"
+          ><svg
+            class="icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path
+              d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"
+            /></svg
+          >Visão geral</a
+        ><a href="#membros" data-page="membros"
+          ><svg
+            class="icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path
+              d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"
+            /></svg
+          >Membros <small>128</small></a
+        ><a href="#igrejas" data-page="igrejas"
+          ><svg
+            class="icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path
+              d="M4 21V7l8-4 8 4v14M2 21h20M9 21v-5h6v5M8 8h1m6 0h1m-8 4h1m6 0h1"
+            /></svg
+          >Igrejas</a
+        >
+        <details>
+          <summary>
+            <svg
+              class="icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path
+                d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"
+              /></svg
+            >Organização<svg
+              class="icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m8 10 4 4 4-4" />
+            </svg>
+          </summary>
+          <a href="#equipe" data-page="equipe"
+            ><svg
+              class="icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path
+                d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"
+              /></svg
+            >Equipe</a
+          ><a href="#atividades" data-page="atividades"
+            ><svg
+              class="icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M4 5h16v16H4zM8 3v4M16 3v4M4 10h16" /></svg
+            >Atividades</a
+          >
+        </details>
+        <p class="caption">PREFERÊNCIAS</p>
+        <a href="#configuracoes" data-page="configuracoes"
+          ><svg
+            class="icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M4 7h16M4 17h16M8 4v6M16 14v6" /></svg
+          >Configurações da igreja</a
+        ><a href="#ajuda" data-page="ajuda"
+          ><svg
+            class="icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path
+              d="M12 16v.1M9 9a3 3 0 1 1 5 2c-1 .7-2 1-2 3M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z"
+            /></svg
+          >Ajuda</a
+        >
+      </nav>
+      <details class="switch-church">
+        <summary>
+          <svg
+            class="icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m16 3 4 4-4 4m4-4H4m4 14-4-4 4-4m-4 4h16" /></svg
+          ><span>Trocar igreja</span
+          ><svg
+            class="icon switch-chevron"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m8 14 4-4 4 4" />
+          </svg>
+        </summary>
+        <div class="church-options">
+          <p>Suas igrejas</p>
+          <button data-switch-church="esperanca">
+            <span class="church-option-initials" aria-hidden="true">CE</span
+            ><span data-switch-name>Comunidade Esperança</span
+            ><small data-current-church>Atual</small>
+          </button>
+          <button data-switch-church="jardim">
+            <span class="church-option-initials" aria-hidden="true">CJ</span
+            ><span data-switch-name>Comunidade Jardim</span
+            ><small data-current-church hidden>Atual</small>
+          </button>
+          <button data-switch-church="central">
+            <span class="church-option-initials" aria-hidden="true">CC</span
+            ><span data-switch-name>Comunidade Central</span
+            ><small data-current-church hidden>Atual</small>
+          </button>
+        </div>
+      </details></template
+    >
+  </body>
+</html>

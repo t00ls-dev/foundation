@@ -1,0 +1,699 @@
+:root {
+  font-family: var(--levi-font-ui);
+  color: var(--levi-ink);
+  background: var(--levi-bg);
+  font-size: 16px;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+a,
+summary,
+input {
+  font: inherit;
+}
+button,
+a,
+summary {
+  -webkit-tap-highlight-color: transparent;
+}
+button,
+summary {
+  cursor: pointer;
+}
+button {
+  min-height: 44px;
+  min-width: 44px;
+  border: 1px solid var(--levi-border-input);
+  background: white;
+  border-radius: 10px;
+  color: inherit;
+  padding: 10px 16px;
+}
+button:hover,
+a:hover,
+summary:hover {
+  background: var(--levi-accent-soft);
+}
+a {
+  color: inherit;
+}
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--levi-accent);
+  outline-offset: 3px;
+}
+.skip {
+  position: fixed;
+  top: -100px;
+  z-index: 10;
+  background: white;
+  padding: 16px;
+}
+.skip:focus {
+  top: 12px;
+}
+.desktop {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 280px;
+  background: #fff;
+  border-right: 1px solid var(--levi-line);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 30px 20px;
+}
+.brand {
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+.brand small {
+  font-size: 9px;
+  letter-spacing: 2px;
+  font-weight: 500;
+  margin-left: 44px;
+  margin-top: -8px;
+  width: 100%;
+}
+.mark {
+  background: var(--levi-accent);
+  color: white;
+  border-radius: 10px;
+  width: 35px;
+  height: 35px;
+  text-align: center;
+}
+.organization {
+  display: flex;
+  gap: 10px;
+  margin: 38px 0 20px;
+  padding: 14px 4px;
+  border-block: 1px solid var(--levi-line);
+}
+.organization strong {
+  font-size: 13px;
+}
+.organization small {
+  display: block;
+  font-size: 11px;
+  color: var(--levi-muted);
+  margin-top: 5px;
+}
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  background: var(--levi-accent-soft);
+  color: var(--levi-accent-ink);
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+}
+.caption {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: var(--levi-muted);
+  margin: 24px 12px 12px;
+}
+nav a,
+summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 14px;
+  margin: 4px 0;
+}
+nav a span {
+  width: 22px;
+  font-size: 20px;
+  text-align: center;
+}
+nav a small {
+  margin-left: auto;
+  background: var(--levi-neutral-bg);
+  padding: 3px 7px;
+  border-radius: 5px;
+}
+nav a[aria-current] {
+  background: var(--levi-accent-soft);
+  color: var(--levi-accent);
+  font-weight: 650;
+}
+summary {
+  list-style: none;
+}
+
+details a {
+  padding-left: 46px;
+}
+.workspace {
+  margin-left: 280px;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 22px 40px;
+  border-bottom: 1px solid var(--levi-line);
+  background: #fff;
+}
+#open {
+  display: none;
+}
+main {
+  max-width: 1160px;
+  margin: auto;
+  padding: 48px 40px;
+  min-height: 78vh;
+}
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--levi-muted);
+}
+h1 {
+  font-family: var(--levi-font-display);
+  font-size: 38px;
+  font-weight: 600;
+  letter-spacing: var(--levi-tracking-display);
+  margin: 12px 0;
+}
+#subtitle {
+  color: var(--levi-muted);
+  font-size: 14px;
+  line-height: 1.7;
+  margin-bottom: 32px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.card {
+  background: #fff;
+  padding: 24px;
+  border: 1px solid var(--levi-line);
+  border-radius: 14px;
+}
+.card p {
+  color: var(--levi-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.metric {
+  font-size: 34px;
+  font-family: var(--levi-font-display);
+  display: block;
+  margin: 14px 0;
+}
+.feature {
+  background: var(--levi-accent-soft);
+  margin-top: 24px;
+  padding: 32px;
+  border-radius: 16px;
+}
+.feature h2 {
+  font-family: var(--levi-font-display);
+  font-size: 28px;
+  font-weight: 500;
+  margin-top: 0;
+}
+.feature p {
+  max-width: 500px;
+  line-height: 1.7;
+  color: var(--levi-accent-ink);
+}
+.row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--levi-line-soft);
+}
+.row:last-child {
+  border: 0;
+}
+.row div {
+  flex: 1;
+}
+.row small {
+  color: var(--levi-muted);
+}
+input {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--levi-border-input);
+  border-radius: 8px;
+  margin: 10px 0 20px;
+}
+label {
+  display: block;
+  margin-top: 20px;
+}
+form {
+  max-width: 550px;
+}
+.primary {
+  background: var(--levi-accent);
+  color: white;
+  border-color: var(--levi-accent);
+}
+.primary:hover {
+  background: var(--levi-accent-ink);
+}
+.status {
+  min-height: 24px;
+  color: var(--levi-success-fg);
+  margin-top: 16px;
+}
+footer {
+  padding: 24px 40px;
+  font-size: 11px;
+  color: var(--levi-muted);
+}
+dialog {
+  margin: 0;
+  height: 100dvh;
+  max-height: 100dvh;
+  width: min(340px, calc(100vw - 32px));
+  max-width: none;
+  border: 0;
+  border-right: 1px solid var(--levi-line);
+  padding: 20px;
+  padding-top: max(20px, env(safe-area-inset-top));
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+  color: inherit;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+dialog::backdrop {
+  background: rgb(18 21 28 / 60%);
+}
+dialog .drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+body:has(dialog[open]) {
+  overflow: hidden;
+}
+#mobile .brand {
+  margin-top: 15px;
+}
+#mobile .organization {
+  margin-top: 24px;
+}
+@media (max-width: 900px) {
+  .desktop {
+    display: none;
+  }
+  .workspace {
+    margin: 0;
+  }
+  .topbar {
+    padding: 16px 20px;
+  }
+  #open {
+    display: block;
+  }
+  main {
+    padding: 32px 20px;
+  }
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  h1 {
+    font-size: 34px;
+  }
+  .feature {
+    padding: 24px;
+  }
+  footer {
+    padding: 24px 20px;
+  }
+  nav a,
+  summary {
+    min-height: 48px;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  dialog[open] {
+    animation: enter 0.18s ease-out;
+  }
+  @keyframes enter {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+}
+
+.icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  vertical-align: middle;
+}
+#open,
+#close {
+  width: 44px;
+  height: 44px;
+  padding: 10px;
+  place-items: center;
+}
+summary > .icon:last-child {
+  margin-left: auto;
+  width: 16px;
+  height: 16px;
+}
+details[open] summary > .icon:last-child {
+  transform: rotate(180deg);
+}
+details a {
+  padding-left: 24px;
+}
+@media (max-width: 900px) {
+  #open {
+    display: grid;
+  }
+}
+
+.church-brand {
+  padding: 4px 12px 26px;
+  border-bottom: 1px solid var(--levi-line);
+  margin-bottom: 8px;
+}
+.church-emblem {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 18px;
+  background: var(--levi-accent-soft);
+  color: var(--levi-accent);
+  border: 1px solid var(--levi-line);
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.church-brand strong {
+  display: block;
+  font-family: var(--levi-font-display);
+  font-size: 23px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
+}
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.powered-by {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+#subtitle {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 900px) {
+  .church-brand {
+    padding-top: 8px;
+  }
+  .church-brand strong {
+    font-size: 25px;
+  }
+  .church-emblem {
+    margin-bottom: 14px;
+  }
+  .topbar {
+    gap: 14px;
+  }
+}
+
+.topbar > .avatar {
+  margin-left: auto;
+}
+
+.church-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 8px 24px;
+}
+.church-emblem {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  margin: 0;
+  border-radius: 12px;
+  font-size: 14px;
+}
+.church-brand strong {
+  font-size: 20px;
+  min-width: 0;
+}
+dialog .drawer-header {
+  position: absolute;
+  right: 12px;
+  top: max(12px, env(safe-area-inset-top));
+  margin: 0;
+}
+#mobile .church-brand {
+  padding: 8px 40px 24px 0;
+  min-height: 70px;
+}
+#mobile .church-brand strong {
+  font-size: 20px;
+}
+#mobile .church-emblem {
+  margin: 0;
+}
+.topbar > .user-trigger {
+  margin-left: auto;
+  border: 1px solid var(--levi-line);
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+}
+#user-menu {
+  position: fixed;
+  inset: 72px 20px auto auto;
+  margin: 0;
+  width: min(280px, calc(100vw - 40px));
+  padding: 8px;
+  color: var(--levi-ink);
+  background: var(--levi-surface);
+  border: 1px solid var(--levi-line);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgb(33 27 46 / 12%);
+}
+.user-heading {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--levi-line);
+  margin-bottom: 6px;
+}
+.user-heading strong,
+.user-heading small {
+  display: block;
+}
+.user-heading strong {
+  font-size: 14px;
+}
+.user-heading small {
+  font-size: 12px;
+  color: var(--levi-muted);
+  margin-top: 6px;
+}
+#user-menu .logout-link {
+  color: var(--levi-danger-fg);
+}
+.account-card {
+  max-width: 680px;
+}
+.account-data {
+  margin: 24px 0;
+}
+.account-data dt {
+  font-size: 12px;
+  color: var(--levi-muted);
+  margin-top: 20px;
+}
+.account-data dd {
+  margin: 6px 0 0;
+}
+body:has(#user-menu:popover-open) .user-trigger {
+  outline: 2px solid var(--levi-accent);
+  outline-offset: 2px;
+}
+
+#mobile #mobile .church-brand {
+  padding: 6px 40px 6px 0;
+  min-height: 64px;
+}
+#mobile .church-brand strong {
+  font-size: 19px;
+}
+.church-options {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% - 10px);
+  left: 0;
+  right: 0;
+  border: 1px solid var(--levi-line);
+  border-radius: 12px;
+  background: var(--levi-surface);
+  padding: 8px;
+  box-shadow: 0 12px 28px rgb(33 27 46 / 12%);
+}
+.church-options > p {
+  margin: 6px 8px 10px;
+  font-size: 11px;
+  color: var(--levi-muted);
+}
+.church-options button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 52px;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 8px;
+  background: transparent;
+  color: var(--levi-ink);
+  text-align: left;
+  font-size: 12px;
+}
+.church-options button:hover {
+  background: var(--levi-bg);
+}
+.church-options button[aria-pressed="true"] {
+  background: var(--levi-accent-soft);
+  color: var(--levi-accent-ink);
+}
+.church-option-initials {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--levi-line);
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+}
+[data-switch-name] {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+[data-current-church] {
+  font-size: 10px;
+}
+.topbar > .user-trigger {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  line-height: 1;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-align: center;
+  appearance: none;
+}
+.user-trigger > span {
+  display: block;
+  line-height: 1;
+}
+
+#mobile .church-brand {
+  margin-right: 44px;
+  padding-right: 0;
+}
+dialog .drawer-header {
+  z-index: 3;
+}
+
+.switch-church {
+  position: relative;
+  margin-top: auto;
+  padding-top: 18px;
+  border-top: 1px solid var(--levi-line);
+}
+.switch-church summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--levi-muted);
+  font-size: 13px;
+  border-radius: 8px;
+}
+.switch-church summary .icon {
+  width: 18px;
+  height: 18px;
+}
+.switch-church summary .switch-chevron {
+  width: 14px;
+  height: 14px;
+  margin-left: auto;
+}
+.switch-church summary:hover,
+.switch-church[open] summary {
+  background: var(--levi-bg);
+  color: var(--levi-ink);
+}
+.church-options {
+  top: auto;
+  bottom: calc(100% + 8px);
+  max-height: min(320px, 55dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+#mobile {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(
+    100dvh - 40px - env(safe-area-inset-top) - env(safe-area-inset-bottom)
+  );
+}
+#mobile > nav {
+  margin-bottom: 24px;
+}
+.desktop > nav {
+  margin-bottom: 24px;
+}
+#mobile .church-brand {
+  padding: 8px 0 24px;
+  margin-right: 44px;
+}
