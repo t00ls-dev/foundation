@@ -38,6 +38,8 @@ updates:
           - "vitest"
           - "@vitest/*"
           - "@playwright/test"
+          - "playwright"
+          - "playwright-core"
           - "testcontainers"
           - "@testcontainers/*"
           - "@types/node"
