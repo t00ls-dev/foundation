@@ -32,7 +32,7 @@
     "db:cutover:resume": "tsx tools/etapa7-cutover-dev.ts --resume"
   },
   "dependencies": {
-    "@hono/node-server": "2.1.5",
+    "@hono/node-server": "2.1.6",
     "@t00ls-dev/access": "workspace:*",
     "@t00ls-dev/audit": "workspace:*",
     "@t00ls-dev/auth": "workspace:*",
@@ -41,9 +41,9 @@
     "@t00ls-dev/security": "workspace:*",
     "@t00ls-dev/tenant": "workspace:*",
     "@t00ls-dev/ui": "workspace:*",
-    "better-auth": "1.7.14",
+    "better-auth": "1.7.18",
     "drizzle-orm": "0.45.4",
-    "hono": "4.13.14",
+    "hono": "4.13.17",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },
