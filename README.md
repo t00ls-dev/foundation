@@ -148,6 +148,8 @@ as suítes e os checks focados.
 - **Proteção de dados:** [segurança](docs/runbooks/security.md),
   [bypass de cache obrigatório](docs/runbooks/cache.md) e
   [LGPD](docs/runbooks/lgpd.md).
+- **Protótipos:**
+  [navegação lateral do Levi](docs/prototypes/navigation-preview.md).
 
 ## Acessibilidade
 
