@@ -55,7 +55,7 @@
     "@types/pg": "8.23.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "@vitejs/plugin-react": "6.2.1",
+    "@vitejs/plugin-react": "6.3.0",
     "drizzle-kit": "0.31.11",
     "miniflare": "5.20261104.0-beta",
     "playwright-core": "1.65.0",
