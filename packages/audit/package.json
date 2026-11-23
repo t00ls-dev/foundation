@@ -34,7 +34,7 @@
     "pg": "^8.23.1"
   },
   "devDependencies": {
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.1"
   },
   "private": true
 }
